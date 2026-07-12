@@ -17,6 +17,13 @@
       ]
     },
     {
+      "name": "ClipSignal",
+      "type": "Next.js + FastAPI + Celery",
+      "components": [
+        { "name": "stack", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\clipsignal", "command": "docker compose -p clipsignal up --build", "port": 3100, "track": "process", "match": "-p clipsignal up" }
+      ]
+    },
+    {
       "name": "restaurant-margin-board",
       "type": "Next.js",
       "components": [
