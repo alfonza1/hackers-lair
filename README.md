@@ -33,6 +33,7 @@ window controls, and scrollbar. The control service listens only on
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
 | **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |
 | **Signal Tape** | Keeps an operator-readable event feed for starts, stops, refreshes, and failures. |
+| **Cinematic shell** | Runs a short secure-boot handoff, ambient signal rain, scan passes, and subtle operator-mark activity without covering the controls. |
 
 Managed project UIs are opened explicitly in **Firefox**, independent of the
 Windows default browser. Set `FIREFOX_PATH` only when Firefox is installed
@@ -173,6 +174,8 @@ Descriptions are optional and keyed by filename:
   link to the full log.
 - Closing the Electron window leaves the local service running so the next
   launch is immediate.
+- Cinematic effects pause when the app is hidden and are disabled when Windows
+  reduced-motion preferences are enabled.
 
 > [!IMPORTANT]
 > Process stop actions are real Windows process operations. Keep each `match`
