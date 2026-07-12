@@ -85,7 +85,8 @@
       "name": "crypto-bot",
       "type": "Python trading workstation",
       "components": [
-        { "name": "dashboard", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot", "command": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot\\.venv\\Scripts\\python.exe -m tradebot dashboard", "port": 8000, "match": "-m tradebot dashboard" }
+        { "name": "dashboard", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot", "command": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot\\.venv\\Scripts\\python.exe -m tradebot dashboard", "port": 8000, "match": "-m tradebot dashboard" },
+        { "name": "resale-finder", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot", "command": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot\\.venv\\Scripts\\python.exe -m resale dashboard", "port": 8010, "match": "-m resale dashboard" }
       ]
     },
     {
