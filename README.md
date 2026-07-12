@@ -1,92 +1,179 @@
-# Hacker's Lair
+<p align="center">
+  <img src="docs/hacker-mark.svg" width="112" alt="Hacker's Lair hooded operator mark">
+</p>
 
-A frameless Windows desktop console for managing your coding projects. Its local
-Node service stays hidden in the background, while Electron provides a custom
-in-app titlebar, window controls, and scrolling—there is no external browser or
-Windows title strip around the console. Three views:
+<h1 align="center">Hacker's Lair</h1>
 
-- **Projects** — every project in your `/Code` folder, showing whether it's
-  running, with **one Start/Stop button per project** that brings up (or takes
-  down) *all* of its components — frontend *and* backend — at once. If a
-  component crashes on startup, its row turns red with **errored** and the actual
-  error message, plus a "full log" link — so you can see exactly which side
-  (front or back) failed and why. Each start is logged to `logs/<project>--<component>.log`.
-- **Port Signals** — everything listening on a localhost port, with friendly labels
-  for dev servers, one-click Stop, and a Start button to relaunch things you
-  stopped.
-- **Scripts** — starts and stops the AutoIt macros configured in `scripts.json`.
+<p align="center">
+  <strong>A frameless Windows command room for projects, localhost ports, and automation scripts.</strong>
+</p>
 
-Windows 11 only. The local service uses `netstat`, `tasklist`, and `taskkill`;
-the desktop host uses Electron; managed project UIs open in Firefox.
+<p align="center">
+  <img alt="Windows 11" src="https://img.shields.io/badge/Windows-11-66ffb5?style=flat-square&labelColor=07110e">
+  <img alt="Node 18 or newer" src="https://img.shields.io/badge/Node-%3E%3D18-66ffb5?style=flat-square&labelColor=07110e">
+  <img alt="Electron 43" src="https://img.shields.io/badge/Electron-43-5ed0ff?style=flat-square&labelColor=07110e">
+  <img alt="Local only" src="https://img.shields.io/badge/network-localhost_only-ffc95c?style=flat-square&labelColor=07110e">
+</p>
 
-All clickable localhost ports are opened explicitly in **Firefox**, regardless
-of the Hacker's Lair desktop host or the Windows default-browser setting. Set
-`FIREFOX_PATH` only if Firefox is installed
-outside its standard Windows location.
+Hacker's Lair turns a Windows development machine into one focused process
+console. Start an entire project, inspect the ports currently listening, launch
+local scripts, and open managed web UIs in Firefox without bouncing between
+terminal windows, Task Manager, and browser bookmarks.
 
-## Install (recommended)
+The interface runs inside a custom Electron shell with its own titlebar,
+window controls, and scrollbar. The control service listens only on
+`127.0.0.1`.
 
-Run once to register it with Windows:
+## Control surfaces
 
+| Surface | What it controls |
+|---|---|
+| **Targets** | Starts or stops every configured component of a project as one unit, while retaining component-level status and logs. |
+| **Port Signals** | Shows listening localhost ports, labels known development servers, stops processes, and relaunches processes previously stopped by the console. |
+| **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
+| **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |
+| **Signal Tape** | Keeps an operator-readable event feed for starts, stops, refreshes, and failures. |
+
+Managed project UIs are opened explicitly in **Firefox**, independent of the
+Windows default browser. Set `FIREFOX_PATH` only when Firefox is installed
+outside a standard Windows location.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    UI["Frameless Electron shell"] --> API["Local Node control service<br/>127.0.0.1:4949"]
+    API --> PROJECTS["projects.json<br/>targets + components"]
+    API --> WINDOWS["Windows process + port tools"]
+    API --> SCRIPTS["scripts.json<br/>AutoIt discovery"]
+    API --> FIREFOX["Firefox<br/>managed project UIs"]
 ```
-powershell -ExecutionPolicy Bypass -File install.ps1
+
+The Node service uses built-in modules and Windows tools such as `netstat`,
+`tasklist`, and `taskkill`. Electron is the only npm dependency.
+
+## Quick start
+
+### Requirements
+
+- Windows 11
+- Node.js 18 or newer
+- Firefox
+- AutoIt 3 only if you want to use the Scripts surface
+
+### Install the desktop app
+
+```powershell
+git clone https://github.com/alfonza1/hackers-lair.git
+Set-Location hackers-lair
+npm install
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-Then press the **Windows key**, type **Hacker's Lair**, and hit Enter — or use
-the Desktop icon. It starts the server silently (no console window) and opens a
-maximized frameless app window. It also **auto-starts the service in the
-background when you log in**, so later launches appear immediately. Closing the
-app window does not stop the service.
+The installer creates Start menu and Desktop shortcuts named **Hacker's Lair**
+and registers a silent login-time launcher for the local service. Press the
+Windows key, type `Hacker's Lair`, and launch it like any other desktop app.
 
-Remove the shortcuts with `uninstall.ps1`. Re-run `install.ps1` if you move this folder.
+Re-run `install.ps1` after moving the repository. Use `uninstall.ps1` to remove
+the shortcuts and login launcher.
 
-## Run manually (alternative)
+### Run without installing shortcuts
 
-```
+```powershell
 npm start
 ```
 
-This starts the hidden service if needed and opens the desktop window. For
-server-only debugging, use `npm run server`; the local UI remains available at
-`http://localhost:4949`.
+For debugging, run the service and desktop host separately:
 
-## Projects config
+```powershell
+npm run server
+npm run desktop
+```
 
-`projects.json` defines each project and its components:
+The service-only UI is also available at <http://localhost:4949>.
+
+## Configure projects
+
+`projects.json` defines each target and its frontend, backend, or headless
+components. Paths and commands are intentionally explicit because detection is
+based on the process command line, not only a port number.
 
 ```json
 {
   "name": "incident-sim",
   "type": "Node monorepo",
   "components": [
-    { "name": "backend",  "role": "backend",  "cwd": "...\\incident-sim\\backend",  "command": "npm run dev", "port": 4000, "match": "...\\incident-sim\\backend" },
-    { "name": "frontend", "role": "frontend", "cwd": "...\\incident-sim\\frontend", "command": "npm run dev", "port": 5173, "match": "...\\incident-sim\\frontend" }
+    {
+      "name": "backend",
+      "role": "backend",
+      "cwd": "C:\\Code\\incident-sim\\backend",
+      "command": "npm run dev",
+      "port": 4000,
+      "match": "C:\\Code\\incident-sim\\backend"
+    },
+    {
+      "name": "frontend",
+      "role": "frontend",
+      "cwd": "C:\\Code\\incident-sim\\frontend",
+      "command": "npm run dev",
+      "port": 5173,
+      "match": "C:\\Code\\incident-sim\\frontend"
+    }
   ]
 }
 ```
 
-- `command` is run in `cwd` to start the component (detached, hidden).
-- `match` is a substring searched in running processes' command lines to detect
-  whether the component is up and to stop it — usually the component's folder
-  path, or a distinctive token (e.g. `facefusion.py`) when the path isn't in the
-  command line. Matching on the command line (not the port) means several apps
-  that default to the same port (e.g. many Next.js apps on :3000) are still told
-  apart correctly.
-- The server re-reads this file on every request, so edits apply immediately.
+- `cwd` is the component's working directory.
+- `command` is launched inside `cwd` in a detached, hidden process.
+- `port` is the expected listening port and is used as a display hint.
+- `match` is a distinctive substring in the process command line. An absolute
+  project path is the safest default.
+- `track: "process"` supports headless components that never bind a port.
 
-Agents working in `/Code` are told (via `../AGENTS.md`) to keep this file in sync
-when a project's port or start command changes.
+The service reloads `projects.json` on every request, so configuration edits do
+not require a restart. Replace the checked-in Windows paths with paths for your
+own workspace after cloning.
 
-## Files
+## Configure scripts
 
-| File | Purpose |
+`scripts.json` points to an AutoIt executable and script directory. Every
+`.au3` file in that directory appears automatically, newest modified first.
+Descriptions are optional and keyed by filename:
+
+```json
+{
+  "scriptsDir": "C:\\Scripts\\autoit",
+  "autoItExe": "C:\\Program Files (x86)\\AutoIt3\\AutoIt3.exe",
+  "descriptions": {
+    "watchdog.au3": "Monitors the active session and exits when its stop condition is met."
+  }
+}
+```
+
+## Repository map
+
+| Path | Responsibility |
 |---|---|
-| `server.js` | Local HTTP service + all APIs (no dependencies) |
-| `desktop.js` / `preload.js` | Frameless desktop window + restricted window-control bridge |
-| `public/index.html` | The Lair Console UI (Targets + Port Signals + Scripts) |
-| `projects.json` | Your projects and how to start/detect them |
-| `launcher.vbs` | Silent service launcher + standalone app-window launcher (`boot` = service only) |
-| `install.ps1` / `uninstall.ps1` | Register/remove shortcuts + auto-start |
-| `make-icon.ps1` / `icon.ico` | App icon |
-| `package.json` / `package-lock.json` | Electron desktop dependency and pinned install |
-| `stopped.json` | Remembers processes you stopped so they can be restarted |
+| `public/index.html` | Complete Process Control interface and browser-side behavior |
+| `server.js` | Local HTTP service, process discovery, launch, stop, and log APIs |
+| `desktop.js` | Frameless Electron window lifecycle |
+| `preload.js` | Restricted bridge for in-app window controls |
+| `projects.json` | Project and component launch configuration |
+| `scripts.json` | AutoIt discovery and description configuration |
+| `launcher.vbs` | Silent service bootstrap and desktop launcher |
+| `install.ps1` / `uninstall.ps1` | Windows shortcut and login registration |
+| `make-icon.ps1` / `icon.ico` | Native Hacker's Lair app icon |
+
+## Operational notes
+
+- Runtime logs live under `logs/` and are ignored by Git.
+- `started.json` and `stopped.json` retain local launch state and are ignored by
+  Git.
+- A component startup failure stays visible on its target with the error and a
+  link to the full log.
+- Closing the Electron window leaves the local service running so the next
+  launch is immediate.
+
+> [!IMPORTANT]
+> Process stop actions are real Windows process operations. Keep each `match`
+> value distinctive so a target cannot match an unrelated command line.
