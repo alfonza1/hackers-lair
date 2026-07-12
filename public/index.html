@@ -1355,9 +1355,28 @@
     }
   }
 </style>
-<link rel="stylesheet" href="/operations-console.css">
 </head>
 <body>
+<canvas class="signal-rain" id="signalRain" aria-hidden="true"></canvas>
+<div class="boot-sequence" id="bootSequence" aria-hidden="true">
+  <div class="boot-core">
+    <svg class="hacker-logo" viewBox="0 0 64 64" role="img" aria-hidden="true">
+      <path class="hood" d="M32 6 47 14l9 17-5 22H13L8 31l9-17 15-8Z"/>
+      <path class="hood" d="m17 14 8 9h14l8-9M13 53l9-8h20l9 8"/>
+      <path class="mask" d="M22 24h20l3 8-5 14H24l-5-14 3-8Z"/>
+      <path class="eyes" d="m22 31 8 3-6 4m18-7-8 3 6 4"/>
+      <path class="terminal-line" d="M27 43h10"/>
+    </svg>
+    <div class="boot-label">Hacker's Lair</div>
+    <div class="boot-subtitle">Process Control / Secure Boot</div>
+    <div class="boot-lines">
+      <div class="boot-line"><span>LOCAL NODE HANDSHAKE</span><strong>OK</strong></div>
+      <div class="boot-line"><span>TARGET REGISTRY CHANNEL</span><strong>OPEN</strong></div>
+      <div class="boot-line"><span>OPERATOR CONSOLE</span><strong>READY</strong></div>
+    </div>
+    <div class="boot-progress"><span></span></div>
+  </div>
+</div>
 <div class="desktop-frame">
 <header class="app-titlebar" id="appTitlebar">
   <div class="titlebar-drag">
@@ -1378,70 +1397,91 @@
   </div>
 </header>
 <div class="shell">
-  <header class="command-bar" aria-label="Command center status">
-    <div class="command-identity">
-      <span class="identity-sigil" aria-hidden="true"><i></i><i></i><i></i></span>
-      <div><span class="system-name">HACKER'S LAIR</span><strong id="nodeMode">PROCESS CONTROL</strong></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-label="Hacker's Lair operator mark">
+        <svg class="hacker-logo" viewBox="0 0 64 64" role="img" aria-hidden="true">
+          <path class="hood" d="M32 6 47 14l9 17-5 22H13L8 31l9-17 15-8Z"/>
+          <path class="hood" d="m17 14 8 9h14l8-9M13 53l9-8h20l9 8"/>
+          <path class="mask" d="M22 24h20l3 8-5 14H24l-5-14 3-8Z"/>
+          <path class="eyes" d="m22 31 8 3-6 4m18-7-8 3 6 4"/>
+          <path class="terminal-line" d="M27 43h10"/>
+        </svg>
+      </div>
+      <div>
+        <div class="eyebrow">Hacker's Lair</div>
+        <h1 data-text="PROCESS CONTROL">Process Control<span class="cursor" aria-hidden="true"></span></h1>
+        <p class="top-sub">Low-light command room for local targets and port signals.</p>
+      </div>
     </div>
-    <div class="heartbeat" aria-label="Connection heartbeat"><span></span><svg viewBox="0 0 120 24" aria-hidden="true"><path d="M0 13h20l6-8 8 15 9-12 7 5h20l5-7 7 14 8-7h30"/></svg></div>
-    <div class="command-readouts">
-      <div><span>NODE</span><strong id="nodeName">LOCAL MACHINE</strong></div>
-      <div><span>CPU</span><strong id="headerCpu">N/A</strong></div>
-      <div><span>MEM</span><strong id="headerMemory">N/A</strong></div>
-      <div class="connection-readout"><span>LINK</span><strong id="nodeStatus">CONNECTED</strong></div>
-      <time id="nodeTime">--:--:--</time>
+    <div class="node-strip" aria-label="System state">
+      <div class="node-cell"><span>Node</span><strong id="nodeName">LOCAL MACHINE</strong></div>
+      <div class="node-cell"><span>Status</span><strong class="online" id="nodeStatus">ONLINE</strong></div>
+      <div class="node-cell"><span>Mode</span><strong id="nodeMode">PROCESS CONTROL</strong></div>
+      <div class="node-cell"><span>Time</span><strong id="nodeTime">--:--:--</strong></div>
     </div>
   </header>
 
-  <main class="operations-shell">
-    <nav class="mode-rail" role="tablist" aria-label="Operational modes">
-      <div class="rail-label">OPS / 03</div>
-      <button class="view-tab active" data-view="projects" role="tab" aria-selected="true"><span>01</span><b>Targets</b><small>Runtime control</small></button>
-      <button class="view-tab" data-view="processes" role="tab" aria-selected="false"><span>02</span><b>Port Signals</b><small>Network listening</small></button>
-      <button class="view-tab" data-view="scripts" role="tab" aria-selected="false"><span>03</span><b>Scripts</b><small>Automation modules</small></button>
-      <div class="rail-foot"><i></i>LOCAL CHANNEL</div>
-    </nav>
-
-    <section class="workspace" aria-labelledby="viewTitle">
-      <div class="workspace-scan" aria-hidden="true"></div>
-      <header class="workspace-header">
-        <div><span class="section-kicker" id="viewKicker">OPERATIONAL TARGETS</span><h1 id="viewTitle">Target Matrix</h1><p id="viewDescription">Control registered application stacks and inspect live runtime telemetry.</p></div>
-        <div class="workspace-summary"><span><b id="resultCount">0</b> VISIBLE</span><span><b id="operationCount">0</b> ACTIVE</span><button class="utility" id="refreshBtn" type="button"><span aria-hidden="true">↻</span> RESCAN</button></div>
-      </header>
-
-      <section class="system-core" aria-label="Live system topology">
-        <div class="core-radar" id="coreRadar"><span class="radar-ring r1"></span><span class="radar-ring r2"></span><span class="radar-sweep"></span><span class="core-node"><b id="coreLive">0</b><small>LIVE</small></span></div>
-        <div class="core-copy"><span>LOCAL OPERATIONS CORE</span><strong id="coreState">AWAITING TELEMETRY</strong><small id="coreDetail">Registry synchronization in progress</small></div>
-        <div class="core-links" id="coreLinks" aria-hidden="true"></div>
-      </section>
-
-      <div class="command-filter">
-        <span class="filter-prompt" aria-hidden="true">&gt;</span>
-        <label for="search" id="filterLabel">FILTER TARGETS</label>
-        <input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="name, module, path, PID, or port" aria-describedby="searchHint">
-        <span class="input-cursor" aria-hidden="true"></span>
-        <kbd id="searchHint">CTRL K</kbd>
-        <button id="clearSearch" type="button" aria-label="Clear filter">×</button>
-        <button class="utility" id="systemToggle" type="button" hidden>INCLUDE SYSTEM</button>
+  <main class="console-layout">
+    <section class="panel matrix" aria-labelledby="viewTitle">
+      <div class="panel-head">
+        <div>
+          <div class="section-kicker">Control Deck</div>
+          <h2 id="viewTitle">Targets</h2>
+        </div>
+        <div class="controls">
+          <div class="view-tabs" role="tablist" aria-label="Target view">
+            <button class="view-tab active" data-view="projects" role="tab" aria-selected="true">Targets</button>
+            <button class="view-tab" data-view="processes" role="tab" aria-selected="false">Port Signals</button>
+            <button class="view-tab" data-view="scripts" role="tab" aria-selected="false">Scripts</button>
+          </div>
+          <button class="utility" id="refreshBtn" type="button">Refresh</button>
+        </div>
       </div>
-
-      <div class="target-list" id="targetList" aria-live="polite"></div>
-      <div class="empty" id="emptyState" hidden><span aria-hidden="true">⌁</span><strong>NO SIGNALS MATCHED</strong><p>Adjust the command filter or rescan the selected registry.</p></div>
+      <div class="filter-row">
+        <div class="search-shell">
+          <input id="search" type="text" autocomplete="off" placeholder="filter targets by name, module, path, pid, or port">
+        </div>
+        <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
+      </div>
+      <div class="target-list" id="targetList"></div>
+      <div class="empty" id="emptyState" hidden>No matching targets detected.</div>
     </section>
 
-    <aside class="intel-rack" aria-labelledby="intelTitle">
-      <header><span class="section-kicker">SYSTEM INTELLIGENCE</span><h2 id="intelTitle">Node telemetry</h2><span class="rack-state"><i></i><b id="currentState">STABLE</b></span></header>
-      <div class="health-orbit"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="orbit-track" cx="60" cy="60" r="48"/><circle class="orbit-value" id="healthOrbit" cx="60" cy="60" r="48"/></svg><div><strong id="healthValue">--</strong><span>NODE LOAD</span></div></div>
-      <div class="target-tally"><div><span>LIVE</span><strong id="liveCount">0</strong></div><div><span>DORMANT</span><strong id="dormantCount">0</strong></div></div>
-      <div class="telemetry-block"><div class="telemetry-head"><span>CPU LOAD</span><strong id="cpuUsage">N/A</strong></div><svg class="sparkline" id="cpuSpark" viewBox="0 0 180 42" preserveAspectRatio="none" aria-label="Recent CPU samples"><polyline points="0,40 180,40"/></svg><span class="bar"><span id="cpuBar"></span></span></div>
-      <div class="telemetry-block"><div class="telemetry-head"><span>MEMORY PRESSURE</span><strong id="memoryUsage">N/A</strong></div><svg class="sparkline violet" id="memorySpark" viewBox="0 0 180 42" preserveAspectRatio="none" aria-label="Recent memory samples"><polyline points="0,40 180,40"/></svg><span class="bar violet"><span id="memoryBar"></span></span></div>
-      <div class="last-operation"><span>LAST TRANSMISSION</span><strong id="lastCommand">NONE</strong><p id="lastTarget">No operator command recorded</p></div>
-      <section class="transmission-feed" aria-labelledby="feedTitle"><header><div><span class="section-kicker">COMMAND TRAFFIC</span><h3 id="feedTitle">Transmission log</h3></div><button id="clearFeed" type="button">CLEAR</button></header><div class="feed-lines" id="feed" aria-live="polite" aria-label="System event feed"></div></section>
+    <aside class="panel intel" aria-labelledby="intelTitle">
+      <div class="panel-head">
+        <div>
+          <div class="section-kicker">Intel Rack</div>
+          <h2 id="intelTitle">System</h2>
+        </div>
+      </div>
+      <div class="intel-body">
+        <div class="intel-row"><span class="intel-label">Live Targets</span><strong class="intel-value" id="liveCount">0</strong></div>
+        <div class="intel-row"><span class="intel-label">Dormant Targets</span><strong class="intel-value" id="dormantCount">0</strong></div>
+        <div class="intel-row"><span class="intel-label">CPU Usage</span><strong class="intel-value" id="cpuUsage">N/A</strong><span class="bar"><span id="cpuBar"></span></span></div>
+        <div class="intel-row"><span class="intel-label">Memory Usage</span><strong class="intel-value" id="memoryUsage">N/A</strong><span class="bar"><span id="memoryBar"></span></span></div>
+        <div class="intel-row"><span class="intel-label">Last Command</span><strong class="intel-value" id="lastCommand">NONE</strong></div>
+        <div class="intel-row"><span class="intel-label">Last Target</span><strong class="intel-value" id="lastTarget">NONE</strong></div>
+        <div class="intel-row"><span class="intel-label">Current State</span><strong class="intel-value" id="currentState">STABLE</strong></div>
+      </div>
     </aside>
+
+    <section class="panel feed-panel" aria-labelledby="feedTitle">
+      <div class="panel-head">
+        <div>
+          <div class="section-kicker">Signal Tape</div>
+          <h2 id="feedTitle">Events</h2>
+        </div>
+        <div class="controls">
+          <button class="utility" id="clearFeed" type="button">Clear Feed</button>
+        </div>
+      </div>
+      <div class="feed-lines" id="feed" aria-live="polite" aria-label="System event feed"></div>
+    </section>
   </main>
 </div>
 </div>
-<div id="toast" role="status" aria-live="polite"><button type="button" aria-label="Dismiss notification">×</button></div>
+<div id="toast" role="status"></div>
 
 <script>
   const $ = (id) => document.getElementById(id);
@@ -1450,6 +1490,11 @@
 
   const FEED_KEY = 'operatorConsole.feed';
   const ACTION_KEY = 'operatorConsole.actions';
+  const RAIN_COLUMN_WIDTH = 30;
+  const RAIN_FRAME_INTERVAL = 74;
+  const RAIN_TRAIL_LENGTH = 5;
+  const RAIN_SPEED = .2;
+  const RAIN_GLYPHS = '01<>[]{}#/\\$+-=:;';
 
   const state = {
     view: 'projects',
@@ -1461,13 +1506,106 @@
     query: '',
     busy: new Map(),
     confirming: new Map(),
-    history: { cpu: [], memory: [] },
     feed: loadJson(FEED_KEY, []),
     actions: loadJson(ACTION_KEY, { byTarget: {}, last: null }),
   };
 
+  function installSignalRain() {
+    const canvas = $('signalRain');
+    const context = canvas?.getContext('2d');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (!canvas || !context) return;
+
+    let columns = [];
+    let animationFrame = 0;
+    let lastFrame = 0;
+    let cssWidth = 1;
+    let cssHeight = 1;
+
+    function resizeRain() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cssWidth = Math.max(window.innerWidth, 1);
+      cssHeight = Math.max(window.innerHeight, 1);
+      canvas.width = Math.round(cssWidth * dpr);
+      canvas.height = Math.round(cssHeight * dpr);
+      canvas.style.width = `${cssWidth}px`;
+      canvas.style.height = `${cssHeight}px`;
+      // Draw in CSS pixels; the backing store is scaled up for crisp glyphs on HiDPI.
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const columnCount = Math.ceil(cssWidth / RAIN_COLUMN_WIDTH);
+      const rowCount = Math.ceil(cssHeight / RAIN_COLUMN_WIDTH);
+      columns = Array.from({ length: columnCount }, (_, index) => (
+        columns[index] ?? -Math.floor(Math.random() * rowCount)
+      ));
+      context.font = `600 14px ${getComputedStyle(document.documentElement).getPropertyValue('--mono')}`;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+    }
+
+    function drawRain(timestamp) {
+      animationFrame = requestAnimationFrame(drawRain);
+      if (timestamp - lastFrame < RAIN_FRAME_INTERVAL) return;
+      lastFrame = timestamp;
+      context.clearRect(0, 0, cssWidth, cssHeight);
+
+      const rowCount = Math.ceil(cssHeight / RAIN_COLUMN_WIDTH);
+      const halfColumn = RAIN_COLUMN_WIDTH / 2;
+      columns.forEach((drop, column) => {
+        const x = (column * RAIN_COLUMN_WIDTH) + halfColumn;
+        for (let trail = 0; trail < RAIN_TRAIL_LENGTH; trail += 1) {
+          const row = drop - trail;
+          if (row < 0) continue;
+          const alpha = (RAIN_TRAIL_LENGTH - trail) / RAIN_TRAIL_LENGTH;
+          if (trail === 0) {
+            context.fillStyle = `rgba(148, 224, 255, ${alpha})`;
+            context.shadowColor = 'rgba(94, 208, 255, .85)';
+            context.shadowBlur = 8;
+          } else {
+            context.fillStyle = `rgba(102, 255, 181, ${alpha * .72})`;
+            context.shadowBlur = 0;
+          }
+          const glyph = RAIN_GLYPHS[Math.floor(Math.random() * RAIN_GLYPHS.length)];
+          context.fillText(glyph, x, (row * RAIN_COLUMN_WIDTH) + halfColumn);
+        }
+        context.shadowBlur = 0;
+
+        columns[column] += RAIN_SPEED + ((column % 4) * .02);
+        if (columns[column] - RAIN_TRAIL_LENGTH > rowCount && Math.random() > .86) {
+          columns[column] = -Math.floor(Math.random() * 14);
+        }
+      });
+    }
+
+    function stopRain() {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function syncRain() {
+      const shouldRun = !reducedMotion.matches && !document.hidden;
+      if (shouldRun && !animationFrame) {
+        lastFrame = 0;
+        animationFrame = requestAnimationFrame(drawRain);
+      } else if (!shouldRun && animationFrame) {
+        stopRain();
+      }
+    }
+
+    resizeRain();
+    window.addEventListener('resize', resizeRain);
+    document.addEventListener('visibilitychange', syncRain);
+    reducedMotion.addEventListener('change', syncRain);
+    syncRain();
+  }
+
   function installCinematicMode() {
     document.body.classList.add('cinematic-ready');
+    const bootSequence = $('bootSequence');
+    bootSequence?.addEventListener('animationend', (event) => {
+      if (event.animationName === 'bootCurtain') bootSequence.hidden = true;
+    });
+    installSignalRain();
   }
 
   function installWindowControls() {
@@ -1750,28 +1888,6 @@
     return `<button class="action ${action} ${extraClass}" type="button" data-kind="${esc(kind)}" data-action="${esc(action)}" ${disabled ? 'disabled' : ''}>${esc(label)}</button>`;
   }
 
-  function activitySignal() {
-    return `<div class="activity-line" aria-hidden="true"><svg viewBox="0 0 400 14" preserveAspectRatio="none"><path d="M0 8h35l8-5 9 9 10-7 7 3h49l7-6 10 11 11-7 8 2h52l8-5 8 8 10-6 9 3h49l8-6 12 11 10-8 8 3h55"/></svg></div>`;
-  }
-
-  function telemetryMetric(label, value, title = value) {
-    return `<div class="telemetry-metric"><span>${esc(label)}</span><strong title="${esc(title)}">${esc(value)}</strong></div>`;
-  }
-
-  function cardShell({ kind, identity, title, subtitle, status, telemetry, path, body = '', actions, attributes = '' }) {
-    return `<article class="target-card ${status.key}" data-card-kind="${esc(kind)}" ${attributes}>
-      <div class="identity-rail" aria-hidden="true"><div class="target-glyph"><span>${esc(identity)}</span></div></div>
-      <div class="operation-body">
-        <div class="operation-head"><div><span class="operation-kind">${esc(kind.replace('-', ' ').toUpperCase())}</span><h3>${esc(title)}</h3><p>${esc(subtitle)}</p></div>${statusBadge(status)}</div>
-        ${activitySignal()}
-        ${body}
-        <div class="telemetry-strip">${telemetry}</div>
-        <div class="detail-line"><span>VECTOR</span><code title="${esc(path)}">${esc(path)}</code></div>
-      </div>
-      <div class="action-cluster">${actions}</div>
-    </article>`;
-  }
-
   function projectCard(project) {
     const status = projectStatus(project);
     const key = targetKey('project', project.name);
@@ -1802,12 +1918,41 @@
       `;
     }).join('');
 
-    const telemetry = [
-      telemetryMetric('PID', pids), telemetryMetric('UPTIME', formatDuration(project.uptimeSeconds)),
-      telemetryMetric('CPU', formatCpu(project.cpuPercent)), telemetryMetric('MEMORY', formatMem(project.memKB)),
-      `<div class="telemetry-metric"><span>PORT CHANNELS</span><strong title="${esc(portTitle(ports))}">${portLinks(ports)}</strong></div>`,
-    ].join('');
-    return cardShell({ kind: 'project', identity: 'T', title: project.name, subtitle: `${project.type || 'application stack'} · ${project.components.length} modules · signal ${lastSignal}`, status, telemetry, path, body: `<div class="module-strip">${modules}</div>`, actions: `${actionButton('project', 'initiate', isBusy ? 'INITIALIZING' : 'INITIATE', initiateDisabled)}${actionButton('project', 'terminate', status.key === 'terminating' ? 'TERMINATING' : 'TERMINATE', isBusy)}`, attributes: `data-name="${esc(project.name)}"` });
+    return `
+      <article class="target-card ${status.key}" data-card-kind="project" data-name="${esc(project.name)}">
+        <div class="machine-bar">
+          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="machine-label">mini-rig :: ${esc(project.name)}</span>
+          <span class="machine-node">local node</span>
+        </div>
+        <div class="machine-screen">
+          <div class="target-main">
+            <div class="target-title">
+              <h3><span class="target-prefix">TARGET</span>${esc(project.name)}</h3>
+              <span class="target-type">${esc(project.type || 'module')}</span>
+              ${statusBadge(status)}
+            </div>
+            <div class="target-fields">
+              ${field('PID', pids)}
+              ${field('Uptime', formatDuration(project.uptimeSeconds))}
+              ${field('CPU Usage', formatCpu(project.cpuPercent))}
+              ${field('Memory', formatMem(project.memKB))}
+              ${field('Last Signal', lastSignal)}
+              ${fieldHtml('UI Port', portLinks(uiPorts), portTitle(uiPorts))}
+              ${fieldHtml('Backend Port', portLinks(backendPorts), portTitle(backendPorts))}
+              ${fieldHtml('Ports', portLinks(ports), portTitle(ports))}
+              ${field('Modules', String(project.components.length))}
+              ${field('Path', path, 'path')}
+            </div>
+            <div class="module-strip">${modules}</div>
+          </div>
+          <div class="action-cluster">
+            ${actionButton('project', 'initiate', 'INITIATE', initiateDisabled)}
+            ${actionButton('project', 'terminate', 'TERMINATE', isBusy)}
+          </div>
+        </div>
+      </article>
+    `;
   }
 
   function processCard(process) {
@@ -1825,9 +1970,39 @@
     const terminateDisabled = isBusy;
     const initiateDisabled = isBusy || !stopped || !process.cmd;
 
-    const access = process.self ? 'CONSOLE SELF' : process.protected ? 'PROTECTED' : stopped ? 'ARCHIVED' : 'LOCAL';
-    const telemetry = [telemetryMetric('PID', pids), telemetryMetric('UPTIME', formatDuration(process.uptimeSeconds)), telemetryMetric('CPU', formatCpu(process.cpuPercent)), telemetryMetric('MEMORY', formatMem(process.memKB)), `<div class="telemetry-metric"><span>LISTENING</span><strong title="${esc(portTitle(ports))}">${portLinks(ports)}</strong></div>`].join('');
-    return cardShell({ kind: stopped ? 'stopped-process' : 'process', identity: 'P', title: name, subtitle: `${access} · ${stopped ? 'remembered restart vector' : 'local listening signal'} · ${lastSignal}`, status, telemetry, path, actions: `${actionButton(stopped ? 'stopped-process' : 'process', 'initiate', status.key === 'booting' ? 'INITIALIZING' : 'INITIATE', initiateDisabled)}${actionButton(stopped ? 'stopped-process' : 'process', 'terminate', status.key === 'terminating' ? 'TERMINATING' : confirm ? 'CONFIRM KILL' : 'TERMINATE', terminateDisabled, confirm ? 'confirm' : '')}${stopped ? '<button class="action icon-clear" type="button" data-action="forget" data-kind="stopped-process" title="Clear remembered signal">FORGET</button>' : ''}`, attributes: `data-id="${esc(id)}" data-pid="${esc(process.pid || '')}"` });
+    return `
+      <article class="target-card ${status.key}" data-card-kind="${stopped ? 'stopped-process' : 'process'}" data-id="${esc(id)}" data-pid="${esc(process.pid || '')}">
+        <div class="machine-bar">
+          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="machine-label">mini-rig :: ${esc(name)}</span>
+          <span class="machine-node">${esc(stopped ? 'stored' : 'listening')}</span>
+        </div>
+        <div class="machine-screen">
+          <div class="target-main">
+            <div class="target-title">
+              <h3><span class="target-prefix">TARGET</span>${esc(name)}</h3>
+              <span class="target-type">${esc(stopped ? 'remembered signal' : process.name)}</span>
+              ${statusBadge(status)}
+            </div>
+            <div class="target-fields">
+              ${field('PID', pids)}
+              ${field('Uptime', formatDuration(process.uptimeSeconds))}
+              ${field('CPU Usage', formatCpu(process.cpuPercent))}
+              ${field('Memory', formatMem(process.memKB))}
+              ${field('Last Signal', lastSignal)}
+              ${fieldHtml('Ports', portLinks(ports), ports.length ? ports.map((port) => `:${port}`).join(', ') : 'N/A')}
+              ${field('Access', process.self ? 'CONSOLE SELF' : process.protected ? 'PROTECTED' : 'CLEAR')}
+              ${field('Path', path, 'path')}
+            </div>
+          </div>
+          <div class="action-cluster">
+            ${actionButton(stopped ? 'stopped-process' : 'process', 'initiate', 'INITIATE', initiateDisabled)}
+            ${actionButton(stopped ? 'stopped-process' : 'process', 'terminate', confirm ? 'KILL SIGNAL' : 'TERMINATE', terminateDisabled, confirm ? 'confirm' : '')}
+            ${stopped ? '<button class="action icon-clear" type="button" data-action="forget" data-kind="stopped-process" title="Clear remembered signal">X</button>' : ''}
+          </div>
+        </div>
+      </article>
+    `;
   }
 
   function scriptCard(script) {
@@ -1839,8 +2014,37 @@
     const pids = script.pids?.length ? script.pids.join(', ') : 'N/A';
     const lastSignal = formatDateTime(lastActionFor(key, script.modifiedAt));
 
-    const telemetry = [telemetryMetric('PID', pids), telemetryMetric('UPTIME', formatDuration(script.uptimeSeconds)), telemetryMetric('MEMORY', formatMem(script.memKB)), telemetryMetric('MODIFIED', formatDateTime(script.modifiedAt)), telemetryMetric('FILE TYPE', '.AU3')].join('');
-    return cardShell({ kind: 'script', identity: 'S', title: script.name, subtitle: `AUTOIT EXECUTION MODULE · last signal ${lastSignal}`, status, telemetry, path: script.file, body: `<p class="script-desc">${esc(script.description)}</p>`, actions: `${actionButton('script', 'initiate', status.key === 'booting' ? 'INITIALIZING' : 'INITIATE', initiateDisabled)}${actionButton('script', 'terminate', status.key === 'terminating' ? 'TERMINATING' : 'TERMINATE', terminateDisabled)}`, attributes: `data-file="${esc(script.file)}"` });
+    return `
+      <article class="target-card ${status.key}" data-card-kind="script" data-file="${esc(script.file)}">
+        <div class="machine-bar">
+          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="machine-label">macro-rig :: ${esc(script.name)}</span>
+          <span class="machine-node">autoit</span>
+        </div>
+        <div class="machine-screen">
+          <div class="target-main">
+            <div class="target-title">
+              <h3><span class="target-prefix">SCRIPT</span>${esc(script.name)}</h3>
+              <span class="target-type">.au3</span>
+              ${statusBadge(status)}
+            </div>
+            <p class="script-desc">${esc(script.description)}</p>
+            <div class="target-fields">
+              ${field('PID', pids)}
+              ${field('Uptime', formatDuration(script.uptimeSeconds))}
+              ${field('Memory', formatMem(script.memKB))}
+              ${field('Modified', formatDateTime(script.modifiedAt))}
+              ${field('Last Signal', lastSignal)}
+              ${field('File', script.file)}
+            </div>
+          </div>
+          <div class="action-cluster">
+            ${actionButton('script', 'initiate', 'INITIATE', initiateDisabled)}
+            ${actionButton('script', 'terminate', 'TERMINATE', terminateDisabled)}
+          </div>
+        </div>
+      </article>
+    `;
   }
 
   function visibleProjects() {
@@ -1924,47 +2128,13 @@
       : state.view === 'processes' ? processCard(row)
       : scriptCard(row)
     ).join('');
-    $('resultCount').textContent = String(rows.length);
-    const active = rows.filter((row) => state.view === 'processes' ? !row.stopped : row.running).length;
-    $('operationCount').textContent = String(active);
-    $('coreLive').textContent = String(active);
-    $('coreState').textContent = active ? 'SIGNAL MESH ACTIVE' : 'CHANNELS DORMANT';
-    $('coreDetail').textContent = `${active} of ${rows.length} visible nodes reporting live state`;
-    $('coreLinks').classList.toggle('live', active > 0);
-    highlightMatches();
-  }
-
-  function renderRegistryError(message) {
-    $('targetList').innerHTML = `<div class="registry-error" role="alert"><span>CHANNEL FAULT</span><strong>${esc(message)}</strong><p>The last known state was preserved. Rescan when the local service is available.</p></div>`;
-    $('emptyState').hidden = true;
-  }
-
-  function highlightMatches() {
-    if (!state.query) return;
-    const escaped = state.query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(`(${escaped})`, 'ig');
-    document.querySelectorAll('.operation-head h3, .operation-head p, .detail-line code').forEach((element) => {
-      const text = element.textContent;
-      if (!pattern.test(text)) return;
-      pattern.lastIndex = 0;
-      element.innerHTML = esc(text).replace(pattern, '<mark>$1</mark>');
-    });
   }
 
   function setView(view) {
     state.view = view;
     state.query = '';
     $('search').value = '';
-    const viewCopy = view === 'projects'
-      ? { title: 'Target Matrix', kicker: 'OPERATIONAL TARGETS', description: 'Control registered application stacks and inspect live runtime telemetry.', filter: 'FILTER TARGETS' }
-      : view === 'processes'
-      ? { title: 'Port Signal Array', kicker: 'NETWORK LISTENERS', description: 'Trace local listening processes, access state, and restart vectors.', filter: 'FILTER SIGNALS' }
-      : { title: 'Automation Arsenal', kicker: 'EXECUTABLE ROUTINES', description: 'Deploy and terminate registered AutoIt operation modules.', filter: 'FILTER SCRIPTS' };
-    $('viewTitle').textContent = viewCopy.title;
-    $('viewKicker').textContent = viewCopy.kicker;
-    $('viewDescription').textContent = viewCopy.description;
-    $('filterLabel').textContent = viewCopy.filter;
-    document.querySelector('.workspace').dataset.view = view;
+    $('viewTitle').textContent = view === 'projects' ? 'Targets' : view === 'processes' ? 'Port Signals' : 'Scripts';
     $('search').placeholder = view === 'projects'
       ? 'filter targets by name, module, path, pid, or port'
       : view === 'processes'
@@ -1978,7 +2148,6 @@
     });
     renderTargets();
     updateIntel();
-    updateSystemChrome();
     if (view === 'projects') loadProjects(true);
     else if (view === 'processes') Promise.all([loadProjects(true), loadProcesses(true)]);
     else loadScripts(true);
@@ -1991,19 +2160,8 @@
   function updateSystemChrome() {
     const system = state.system || {};
     $('nodeName').textContent = system.node || 'LOCAL MACHINE';
-    $('nodeStatus').textContent = system.status || 'CONNECTED';
-    $('nodeMode').textContent = state.view === 'projects' ? 'PROCESS CONTROL' : state.view === 'processes' ? 'PORT RECON' : 'SCRIPT CONTROL';
-    $('headerCpu').textContent = formatCpu(system.cpuPercent);
-    $('headerMemory').textContent = formatCpu(system.memory?.usedPercent);
-  }
-
-  function updateSparkline(id, samples) {
-    const polyline = document.querySelector(`#${id} polyline`);
-    if (!polyline || !samples.length) return;
-    const width = 180;
-    const height = 40;
-    const points = samples.map((value, index) => `${samples.length === 1 ? width : (index / (samples.length - 1)) * width},${height - (Math.max(0, Math.min(value, 100)) / 100) * height}`).join(' ');
-    polyline.setAttribute('points', points);
+    $('nodeStatus').textContent = system.status || 'ONLINE';
+    $('nodeMode').textContent = system.mode || 'PROCESS CONTROL';
   }
 
   function updateIntel() {
@@ -2025,20 +2183,12 @@
     const memoryUsed = state.system?.memory?.usedPercent;
     const cpu = state.system?.cpuPercent;
 
-    if (Number.isFinite(Number(cpu))) state.history.cpu = [...state.history.cpu, Number(cpu)].slice(-24);
-    if (Number.isFinite(Number(memoryUsed))) state.history.memory = [...state.history.memory, Number(memoryUsed)].slice(-24);
-
     $('liveCount').textContent = String(live);
     $('dormantCount').textContent = String(dormant);
     $('cpuUsage').textContent = formatCpu(cpu);
     $('cpuBar').style.width = `${Math.max(0, Math.min(Number(cpu) || 0, 100))}%`;
     $('memoryUsage').textContent = formatCpu(memoryUsed);
     $('memoryBar').style.width = `${Math.max(0, Math.min(Number(memoryUsed) || 0, 100))}%`;
-    updateSparkline('cpuSpark', state.history.cpu);
-    updateSparkline('memorySpark', state.history.memory);
-    const nodeLoad = Number.isFinite(Number(cpu)) ? Math.round(Number(cpu)) : null;
-    $('healthValue').textContent = nodeLoad === null ? '--' : `${nodeLoad}%`;
-    $('healthOrbit').style.strokeDashoffset = String(302 - (302 * (nodeLoad || 0) / 100));
     $('lastCommand').textContent = state.actions.last?.command || 'NONE';
     $('lastTarget').textContent = state.actions.last?.target || 'NONE';
     $('currentState').textContent = anyBusy ? 'EXECUTING' : anyError ? 'SIGNAL LOST' : 'STABLE';
@@ -2050,8 +2200,6 @@
       updateSystemChrome();
       updateIntel();
     } catch {
-      $('nodeStatus').textContent = 'DEGRADED';
-      $('nodeStatus').closest('.connection-readout')?.classList.add('degraded');
       pushFeed('SYSTEM_POLL_FAILED', 'reason=system_intel_unavailable', 'warn');
     }
   }
@@ -2064,7 +2212,6 @@
       renderTargets();
       updateIntel();
     } catch (error) {
-      renderRegistryError('Project registry unavailable');
       toast('Signal lost: project registry unavailable', true);
       pushFeed('TARGET_REGISTRY_FAILED', `reason=${error.message}`, 'error');
     }
@@ -2079,7 +2226,6 @@
       renderTargets();
       updateIntel();
     } catch (error) {
-      renderRegistryError('Port signal registry unavailable');
       toast('Signal lost: process registry unavailable', true);
       pushFeed('PORT_SIGNAL_FAILED', `reason=${error.message}`, 'error');
     }
@@ -2093,7 +2239,6 @@
       renderTargets();
       updateIntel();
     } catch (error) {
-      renderRegistryError('Script registry unavailable');
       toast('Signal lost: script registry unavailable', true);
       pushFeed('SCRIPT_REGISTRY_FAILED', `reason=${error.message}`, 'error');
     }
@@ -2439,26 +2584,6 @@
     renderTargets();
   });
 
-  $('clearSearch').addEventListener('click', () => {
-    $('search').value = '';
-    state.query = '';
-    renderTargets();
-    $('search').focus();
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-      event.preventDefault();
-      $('search').focus();
-      $('search').select();
-    }
-  });
-
-  $('toast').querySelector('button').addEventListener('click', () => {
-    clearTimeout(toastTimer);
-    $('toast').className = '';
-  });
-
   $('refreshBtn').addEventListener('click', async () => {
     pushFeed('MANUAL_SCAN', `view=${state.view}`, 'info');
     await Promise.all([
@@ -2492,10 +2617,7 @@
       pushFeed('CONSOLE_BOOT', 'mode=process_control node=local', 'info');
       pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
     }
-    $('targetList').innerHTML = Array.from({ length: 3 }, () => '<div class="loading-skeleton" aria-hidden="true"><i></i><span></span><span></span></div>').join('');
-    const requestedView = new URLSearchParams(location.search).get('view');
-    if (['projects', 'processes', 'scripts'].includes(requestedView) && requestedView !== 'projects') setView(requestedView);
-    await Promise.all([loadSystem(), state.view === 'projects' ? loadProjects() : state.view === 'processes' ? Promise.all([loadProjects(true), loadProcesses()]) : loadScripts()]);
+    await Promise.all([loadSystem(), loadProjects()]);
     setInterval(() => {
       if (document.hidden) return;
       loadSystem();
