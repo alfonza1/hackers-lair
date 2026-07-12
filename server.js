@@ -705,6 +705,11 @@ const server = http.createServer(async (req, res) => {
       res.end(fs.readFileSync(path.join(__dirname, 'public', 'index.html')));
       return;
     }
+    if (req.method === 'GET' && pathname === '/operations-console.css') {
+      res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(fs.readFileSync(path.join(__dirname, 'public', 'operations-console.css')));
+      return;
+    }
 
     if (req.method === 'GET' && req.url === '/api/processes') {
       const processes = await getListeners();

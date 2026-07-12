@@ -6,7 +6,11 @@
   "scripts": {
     "start": "cscript //nologo launcher.vbs",
     "server": "node server.js",
-    "desktop": "electron desktop.js"
+    "desktop": "electron desktop.js",
+    "lint": "node --check server.js && node --check desktop.js && node --check preload.js && node scripts/verify-frontend.js",
+    "typecheck": "node --check server.js && node --check desktop.js && node --check preload.js",
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/verify-frontend.js"
   },
   "devDependencies": {
     "electron": "43.1.0"
