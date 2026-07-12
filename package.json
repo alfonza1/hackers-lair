@@ -1,0 +1,17 @@
+{
+  "name": "hackers-lair",
+  "version": "2.0.0",
+  "description": "Frameless Windows command console for coding projects and localhost processes.",
+  "main": "desktop.js",
+  "scripts": {
+    "start": "cscript //nologo launcher.vbs",
+    "server": "node server.js",
+    "desktop": "electron desktop.js"
+  },
+  "devDependencies": {
+    "electron": "43.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

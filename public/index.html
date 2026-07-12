@@ -1,0 +1,2263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hacker's Lair</title>
+<meta name="application-name" content="Hacker's Lair">
+<link rel="icon" href="/icon.ico?v=command-core-1">
+<script>
+  if (new URLSearchParams(location.search).get('desktop') === '1') {
+    document.documentElement.classList.add('desktop-host');
+  }
+</script>
+<style>
+  :root {
+    --void: #010504;
+    --bg: #050b0a;
+    --panel: rgba(7, 16, 15, .88);
+    --panel-solid: #081310;
+    --panel-2: #0b1b17;
+    --line: rgba(102, 255, 181, .14);
+    --line-strong: rgba(102, 255, 181, .34);
+    --cyan-line: rgba(94, 208, 255, .18);
+    --red-line: rgba(255, 96, 112, .26);
+    --text: #e7fff8;
+    --muted: #8ca49c;
+    --dim: #5b716b;
+    --green: #66ffb5;
+    --cyan: #5ed0ff;
+    --amber: #ffc95c;
+    --red: #ff6070;
+    --shadow: 0 18px 58px rgba(0, 0, 0, .42);
+    --mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { min-height: 100%; background: var(--void); }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font: 14px/1.5 var(--mono);
+    background:
+      linear-gradient(115deg, rgba(94, 208, 255, .045), transparent 28%),
+      linear-gradient(245deg, rgba(102, 255, 181, .045), transparent 32%),
+      linear-gradient(180deg, rgba(9, 18, 16, .97), rgba(1, 5, 4, 1) 48%),
+      var(--void);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background: repeating-linear-gradient(180deg, rgba(255,255,255,.014) 0 1px, transparent 1px 8px);
+    mix-blend-mode: screen;
+    opacity: .16;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    border: 1px solid rgba(117, 255, 199, .07);
+    box-shadow: inset 0 0 90px rgba(0, 0, 0, .66);
+  }
+
+  button, input { font: inherit; }
+
+  button {
+    color: inherit;
+    border: 0;
+    background: none;
+  }
+
+  [hidden] { display: none !important; }
+
+  .shell {
+    position: relative;
+    z-index: 1;
+    width: min(1480px, 100%);
+    margin: 0 auto;
+    padding: 22px;
+  }
+
+  .desktop-frame { min-height: 100vh; }
+
+  .app-titlebar { display: none; }
+
+  .desktop-host,
+  .desktop-host body {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .desktop-host .desktop-frame {
+    display: grid;
+    grid-template-rows: 42px minmax(0, 1fr);
+    height: 100vh;
+    min-height: 0;
+  }
+
+  .desktop-host .app-titlebar {
+    position: relative;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    height: 42px;
+    border-bottom: 1px solid rgba(102, 255, 181, .2);
+    background:
+      linear-gradient(90deg, rgba(8, 24, 19, .98), rgba(3, 10, 8, .99)),
+      #030a08;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, .32);
+    user-select: none;
+  }
+
+  .titlebar-drag {
+    display: flex;
+    flex: 1;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    height: 100%;
+    padding: 0 14px;
+    -webkit-app-region: drag;
+  }
+
+  .titlebar-mark {
+    width: 23px;
+    height: 23px;
+    flex: none;
+  }
+
+  .titlebar-copy {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    min-width: 0;
+  }
+
+  .titlebar-copy strong {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .titlebar-copy span {
+    color: var(--dim);
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  .window-controls {
+    display: flex;
+    flex: none;
+    align-self: stretch;
+    margin-left: auto;
+    -webkit-app-region: no-drag;
+  }
+
+  .window-control {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 42px;
+    border-left: 1px solid rgba(102, 255, 181, .08);
+    color: var(--muted);
+    background: transparent;
+    cursor: pointer;
+    transition: color .14s, background .14s;
+    -webkit-app-region: no-drag;
+  }
+
+  .window-control:hover {
+    color: var(--green);
+    background: rgba(102, 255, 181, .08);
+  }
+
+  .window-control.close:hover {
+    color: #fff;
+    background: #b83242;
+  }
+
+  .window-control svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    shape-rendering: crispEdges;
+  }
+
+  .window-control .restore-glyph { display: none; }
+  .window-control.is-maximized .maximize-glyph { display: none; }
+  .window-control.is-maximized .restore-glyph { display: block; }
+
+  .desktop-host .shell {
+    height: 100%;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-color: rgba(102, 255, 181, .48) #030a08;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+
+  .desktop-host .shell::-webkit-scrollbar { width: 11px; }
+  .desktop-host .shell::-webkit-scrollbar-track {
+    border-left: 1px solid rgba(102, 255, 181, .09);
+    background: #030a08;
+  }
+  .desktop-host .shell::-webkit-scrollbar-thumb {
+    border: 3px solid #030a08;
+    border-radius: 999px;
+    background: rgba(102, 255, 181, .42);
+  }
+  .desktop-host .shell::-webkit-scrollbar-thumb:hover { background: rgba(94, 208, 255, .68); }
+
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto;
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 18px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background:
+      linear-gradient(180deg, rgba(12, 24, 22, .88), rgba(4, 10, 9, .94)),
+      repeating-linear-gradient(135deg, rgba(255,255,255,.025) 0 1px, transparent 1px 14px);
+    box-shadow: var(--shadow);
+    max-width: 100%;
+  }
+
+  .brand {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    min-width: 0;
+    padding: 16px 18px;
+  }
+
+  .brand > div:last-child { min-width: 0; }
+
+  .brand-mark {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    flex: none;
+    border: 1px solid var(--line-strong);
+    color: var(--green);
+    border-radius: 4px;
+    background: #04110d;
+    box-shadow: inset 0 0 14px rgba(102, 255, 181, .08), 0 0 16px rgba(102, 255, 181, .08);
+    font-weight: 900;
+  }
+
+  .hacker-logo {
+    width: 41px;
+    height: 41px;
+    overflow: visible;
+    filter: drop-shadow(0 0 6px rgba(102, 255, 181, .2));
+  }
+
+  .hacker-logo .hood {
+    fill: rgba(5, 25, 19, .96);
+    stroke: var(--green);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .hacker-logo .mask {
+    fill: #010806;
+    stroke: rgba(94, 208, 255, .6);
+    stroke-width: 1.4;
+  }
+
+  .hacker-logo .eyes {
+    fill: none;
+    stroke: var(--cyan);
+    stroke-width: 3;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+  }
+
+  .hacker-logo .terminal-line {
+    fill: none;
+    stroke: var(--green);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+  }
+
+  .eyebrow,
+  .section-kicker,
+  .field-label,
+  .intel-label {
+    color: rgba(91, 220, 255, .84);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  h1, h2, h3, p { margin: 0; }
+
+  h1 {
+    font-size: 24px;
+    line-height: 1.05;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+    text-transform: uppercase;
+    text-shadow: 0 0 14px rgba(117, 255, 199, .12);
+  }
+
+  .top-sub {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1.15em;
+    margin-left: 4px;
+    vertical-align: -2px;
+    background: var(--green);
+    animation: blink 1s steps(2, start) infinite;
+  }
+
+  .node-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(118px, 1fr));
+    border-left: 1px solid var(--line);
+  }
+
+  .node-cell {
+    min-width: 0;
+    padding: 12px 14px;
+    border-left: 1px solid rgba(117, 255, 199, .09);
+  }
+
+  .node-cell:first-child { border-left: 0; }
+
+  .node-cell span {
+    display: block;
+    color: var(--dim);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .node-cell strong {
+    display: block;
+    margin-top: 4px;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .node-cell .online { color: var(--green); }
+
+  .console-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-areas:
+      "matrix intel"
+      "feed feed";
+    gap: 18px;
+  }
+
+  .panel {
+    position: relative;
+    min-width: 0;
+    max-width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+
+  .panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border: 1px solid rgba(91, 220, 255, .05);
+    border-radius: 6px;
+  }
+
+  .matrix { grid-area: matrix; }
+  .intel { grid-area: intel; }
+  .feed-panel { grid-area: feed; }
+
+  .panel-head {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 16px;
+    border-bottom: 1px solid rgba(117, 255, 199, .12);
+  }
+
+  .panel-head > div { min-width: 0; }
+
+  .panel-head h2 {
+    margin-top: 3px;
+    font-size: 17px;
+    text-transform: uppercase;
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .view-tabs {
+    display: inline-flex;
+    max-width: 100%;
+    min-width: 0;
+    border: 1px solid rgba(91, 220, 255, .18);
+    border-radius: 4px;
+    background: rgba(6, 18, 17, .74);
+    overflow: hidden;
+  }
+
+  .view-tab,
+  .utility,
+  .action {
+    position: relative;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    transition: border-color .16s, color .16s, background .16s, transform .08s, box-shadow .16s;
+  }
+
+  .view-tab {
+    flex: 0 1 auto;
+    min-width: 96px;
+    border-right-color: rgba(91, 220, 255, .13);
+  }
+
+  .view-tab:last-child { border-right-color: transparent; }
+
+  .view-tab.active {
+    color: var(--green);
+    background: rgba(117, 255, 199, .075);
+    box-shadow: inset 0 -2px 0 var(--green);
+  }
+
+  .utility {
+    border-color: rgba(91, 220, 255, .18);
+    color: var(--cyan);
+    background: rgba(91, 220, 255, .05);
+  }
+
+  .utility.toggled {
+    border-color: rgba(255, 204, 87, .62);
+    color: var(--amber);
+    background: rgba(255, 204, 87, .08);
+  }
+
+  .view-tab:hover,
+  .utility:hover,
+  .action:hover {
+    color: var(--text);
+    border-color: var(--cyan);
+  }
+
+  .view-tab:active,
+  .utility:active,
+  .action:active { transform: translateY(1px); }
+
+  .filter-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(117, 255, 199, .1);
+  }
+
+  .search-shell {
+    position: relative;
+    min-width: 0;
+  }
+
+  .search-shell::before {
+    content: ">";
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    color: var(--green);
+    transform: translateY(-50%);
+  }
+
+  .search-shell input {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px 0 32px;
+    border: 1px solid rgba(117, 255, 199, .18);
+    border-radius: 4px;
+    outline: none;
+    color: var(--text);
+    background: rgba(0, 0, 0, .28);
+  }
+
+  .search-shell input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 2px rgba(117, 255, 199, .1);
+  }
+
+  .target-list {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .target-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgba(102, 255, 181, .17);
+    border-radius: 8px;
+    background:
+      linear-gradient(180deg, rgba(13, 29, 26, .92), rgba(5, 12, 11, .94)),
+      repeating-linear-gradient(90deg, rgba(102, 255, 181, .035) 0 1px, transparent 1px 18px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 18px 44px rgba(0,0,0,.22);
+  }
+
+  .target-card.live {
+    border-color: rgba(102, 255, 181, .42);
+    box-shadow: inset 0 0 28px rgba(102, 255, 181, .035), 0 0 22px rgba(102, 255, 181, .045);
+    animation: livePulse 4.2s ease-in-out infinite;
+  }
+
+  .target-card.booting {
+    border-color: rgba(255, 204, 87, .58);
+    box-shadow: inset 0 0 24px rgba(255, 204, 87, .05);
+  }
+
+  .target-card.terminating,
+  .target-card.signal-lost {
+    border-color: var(--red-line);
+    box-shadow: inset 0 0 24px rgba(255, 77, 91, .06);
+  }
+
+  .target-card.dormant {
+    opacity: .86;
+    border-style: dashed;
+  }
+
+  .machine-bar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(102, 255, 181, .12);
+    background: linear-gradient(180deg, rgba(9, 23, 21, .96), rgba(4, 10, 9, .98));
+  }
+
+  .machine-lights {
+    display: inline-flex;
+    gap: 6px;
+  }
+
+  .machine-lights span {
+    width: 9px;
+    height: 9px;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 50%;
+    background: var(--dim);
+  }
+
+  .machine-lights span:nth-child(1) { background: var(--red); }
+  .machine-lights span:nth-child(2) { background: var(--amber); }
+  .machine-lights span:nth-child(3) { background: var(--green); box-shadow: 0 0 8px rgba(102, 255, 181, .18); }
+
+  .machine-label {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .machine-node {
+    color: var(--cyan);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .machine-screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: start;
+    padding: 16px;
+    background:
+      linear-gradient(180deg, rgba(2, 10, 8, .7), rgba(1, 5, 4, .52)),
+      radial-gradient(circle at 15% 0%, rgba(102, 255, 181, .045), transparent 40%);
+  }
+
+  .target-main { min-width: 0; }
+
+  .target-title {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .target-title h3 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 16px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .target-prefix {
+    display: inline-block;
+    margin-right: 8px;
+    color: var(--dim);
+    font-size: 11px;
+    letter-spacing: .08em;
+    vertical-align: 1px;
+  }
+
+  .target-type {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgba(91, 220, 255, .2);
+    border-radius: 3px;
+    padding: 2px 7px;
+    color: var(--cyan);
+    font-size: 10px;
+    font-weight: 900;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    min-height: 24px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .status-badge::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+  }
+
+  .status-live { color: var(--green); background: rgba(117, 255, 199, .055); }
+  .status-dormant { color: var(--muted); background: rgba(120, 153, 142, .045); }
+  .status-booting { color: var(--amber); background: rgba(255, 204, 87, .065); }
+  .status-terminating,
+  .status-signal-lost { color: var(--red); background: rgba(255, 77, 91, .07); }
+
+  .status-booting::after,
+  .status-terminating::after {
+    content: "";
+    width: 18px;
+    height: 2px;
+    background: currentColor;
+    animation: sweep 900ms linear infinite;
+  }
+
+  .target-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 12px 16px;
+    margin-top: 14px;
+  }
+
+  .field { min-width: 0; }
+
+  .field-label {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--dim);
+    font-size: 10px;
+  }
+
+  .field-value {
+    display: block;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .field-link,
+  .module-link {
+    color: var(--green);
+    font-weight: 900;
+    text-decoration: none;
+    text-shadow: 0 0 8px rgba(102, 255, 181, .12);
+  }
+
+  .field-link:hover,
+  .module-link:hover {
+    color: var(--cyan);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .port-launch {
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .port-launch:disabled {
+    color: var(--dim);
+    cursor: wait;
+    text-decoration: none;
+  }
+
+  .field-value.path {
+    font-size: 11px;
+    direction: rtl;
+    text-align: left;
+  }
+
+  .script-desc {
+    margin: 11px 0 2px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  .module-strip {
+    display: grid;
+    gap: 0;
+    max-height: 0;
+    margin-top: 0;
+    overflow: hidden;
+    opacity: 0;
+    border-top: 1px solid rgba(117, 255, 199, .09);
+  }
+
+  .target-card.signal-lost .module-strip {
+    max-height: 260px;
+    margin-top: 13px;
+    opacity: 1;
+  }
+
+  .module-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 1.25fr) minmax(80px, .7fr) minmax(90px, .8fr) minmax(90px, .9fr) minmax(0, 1.4fr);
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(117, 255, 199, .08);
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .module-row strong {
+    overflow: hidden;
+    color: var(--text);
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .module-row span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .module-row .mini-status { font-weight: 900; text-transform: uppercase; }
+  .mini-live { color: var(--green); }
+  .mini-dormant { color: var(--muted); }
+  .mini-booting { color: var(--amber); }
+  .mini-terminating,
+  .mini-signal-lost { color: var(--red); }
+
+  .error-line {
+    grid-column: 1 / -1;
+    color: var(--red);
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .action-cluster {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    justify-content: flex-end;
+    min-width: 246px;
+    padding: 8px;
+    border: 1px solid rgba(102, 255, 181, .1);
+    border-radius: 6px;
+    background: rgba(0,0,0,.2);
+  }
+
+  .action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 116px;
+    border-color: rgba(117, 255, 199, .24);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, .24);
+  }
+
+  .action.initiate {
+    color: var(--green);
+    background: rgba(117, 255, 199, .06);
+  }
+
+  .action.terminate {
+    color: var(--red);
+    border-color: rgba(255, 77, 91, .35);
+    background: rgba(255, 77, 91, .06);
+  }
+
+  .action.confirm {
+    color: var(--amber);
+    border-color: rgba(255, 204, 87, .65);
+    background: rgba(255, 204, 87, .08);
+  }
+
+  .action:disabled {
+    color: var(--dim);
+    opacity: .62;
+    cursor: default;
+    border-color: rgba(120, 153, 142, .14);
+    background: rgba(120, 153, 142, .035);
+    transform: none;
+  }
+
+  .icon-clear {
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
+    color: var(--muted);
+    border-color: rgba(120, 153, 142, .2);
+  }
+
+  .icon-clear:hover {
+    color: var(--amber);
+    border-color: rgba(255, 204, 87, .45);
+  }
+
+  .empty {
+    padding: 48px 16px;
+    color: var(--muted);
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .intel {
+    align-self: start;
+    padding-bottom: 8px;
+  }
+
+  .intel-body {
+    padding: 5px 16px 14px;
+  }
+
+  .intel-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(117, 255, 199, .085);
+  }
+
+  .intel-row:last-child { border-bottom: 0; }
+
+  .intel-label {
+    color: var(--dim);
+    font-size: 10px;
+  }
+
+  .intel-value {
+    max-width: 170px;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 900;
+    text-align: right;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .bar {
+    grid-column: 1 / -1;
+    height: 5px;
+    margin-top: 3px;
+    background: rgba(120, 153, 142, .11);
+  }
+
+  .bar > span {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(117, 255, 199, .9), rgba(91, 220, 255, .82));
+    transition: width .2s;
+  }
+
+  .feed-panel .panel-head { padding-bottom: 12px; }
+
+  .feed-lines {
+    height: clamp(230px, 26vh, 360px);
+    overflow: auto;
+    padding: 12px 16px 16px;
+    background: rgba(0, 0, 0, .18);
+    scrollbar-color: var(--green) transparent;
+  }
+
+  .feed-line {
+    display: grid;
+    grid-template-columns: 84px 176px minmax(0, 1fr);
+    gap: 10px;
+    padding: 3px 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .feed-line.new {
+    animation: feedIn 180ms ease-out both;
+  }
+
+  .feed-time { color: var(--dim); }
+  .feed-code { color: var(--green); font-weight: 900; text-transform: uppercase; }
+  .feed-detail { overflow-wrap: anywhere; color: var(--text); }
+  .feed-line.warn .feed-code { color: var(--amber); }
+  .feed-line.error .feed-code { color: var(--red); }
+  .feed-line.info .feed-code { color: var(--cyan); }
+
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 5;
+    max-width: min(620px, calc(100vw - 32px));
+    padding: 11px 14px;
+    border: 1px solid var(--line-strong);
+    color: var(--text);
+    background: #04120f;
+    border-radius: 4px;
+    box-shadow: 0 0 24px rgba(117, 255, 199, .1), var(--shadow);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 8px);
+    transition: opacity .18s, transform .18s, border-color .18s;
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  #toast.err {
+    border-color: rgba(255, 77, 91, .78);
+    color: var(--red);
+  }
+
+  @keyframes blink { 50% { opacity: 0; } }
+  @keyframes sweep { 0% { transform: translateX(-5px); opacity: .2; } 50% { opacity: 1; } 100% { transform: translateX(5px); opacity: .2; } }
+  @keyframes livePulse { 50% { box-shadow: inset 0 0 32px rgba(117, 255, 199, .055), 0 0 24px rgba(117, 255, 199, .075); } }
+  @keyframes feedIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 1120px) {
+    .topbar,
+    .console-layout {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "matrix"
+        "intel"
+        "feed";
+    }
+
+    .node-strip {
+      border-top: 1px solid var(--line);
+      border-left: 0;
+    }
+  }
+
+  @media (max-width: 780px) {
+    .shell { padding: 12px; }
+    .topbar { gap: 0; }
+    .brand { padding: 14px; }
+    .brand-mark { width: 42px; height: 42px; }
+    h1 { font-size: 19px; }
+    .node-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .panel-head { align-items: flex-start; flex-direction: column; }
+    .controls { display: grid; grid-template-columns: 1fr; justify-content: flex-start; width: 100%; }
+    .view-tabs { width: 100%; }
+    .view-tab { flex: 1 1 0; min-width: 0; }
+    .utility { justify-self: start; }
+    .feed-panel .utility { justify-self: end; }
+    .filter-row { grid-template-columns: 1fr; }
+    .target-card { grid-template-columns: 1fr; }
+    .machine-screen { grid-template-columns: 1fr; }
+    .machine-bar { grid-template-columns: auto minmax(0, 1fr); }
+    .machine-node { display: none; }
+    .action-cluster { min-width: 0; justify-content: stretch; }
+    .action { flex: 1; min-width: 0; padding-inline: 8px; }
+    .target-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .module-row { grid-template-columns: minmax(0, 1fr) minmax(80px, auto); }
+    .module-row span:nth-child(n+3):not(.error-line) { display: none; }
+    .feed-line { grid-template-columns: 74px minmax(106px, .8fr) minmax(0, 1fr); font-size: 11px; }
+  }
+
+  @media (max-width: 500px) {
+    .shell { padding: 8px; }
+    .brand { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; align-items: flex-start; }
+    h1 { font-size: 18px; line-height: 1.18; }
+    .top-sub { max-width: 28ch; font-size: 11px; }
+    .view-tabs { display: grid; grid-template-columns: 1fr; }
+    .view-tab { width: 100%; padding-inline: 6px; font-size: 11px; }
+    .target-list { padding: 10px 8px 12px; }
+    .target-card { overflow: hidden; padding: 12px; }
+    .target-card { padding: 0; }
+    .machine-screen { padding: 12px; }
+    .machine-bar { padding: 9px 11px; }
+    .target-title { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .target-type,
+    .status-badge { justify-self: start; }
+    .target-fields { grid-template-columns: 1fr; }
+    .field-value {
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+    .field-value.path { direction: ltr; white-space: normal; }
+    .node-strip { grid-template-columns: 1fr; }
+    .module-row { grid-template-columns: 1fr; gap: 3px; }
+    .module-row span:nth-child(n+3):not(.error-line) { display: none; }
+    .action-cluster { display: grid; grid-template-columns: 1fr; }
+    .action { width: 100%; }
+    .feed-line { grid-template-columns: 1fr; gap: 0; padding: 7px 0; border-bottom: 1px solid rgba(117, 255, 199, .07); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: .001ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="desktop-frame">
+<header class="app-titlebar" id="appTitlebar">
+  <div class="titlebar-drag">
+    <img class="titlebar-mark" src="/icon.ico?v=command-core-1" alt="">
+    <div class="titlebar-copy"><strong>Hacker's Lair</strong></div>
+  </div>
+  <div class="window-controls" aria-label="Window controls">
+    <button class="window-control" type="button" data-window-control="minimize" aria-label="Minimize">
+      <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2 10.5h10"/></svg>
+    </button>
+    <button class="window-control" id="maximizeWindow" type="button" data-window-control="maximize" aria-label="Maximize">
+      <svg class="maximize-glyph" viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="9"/></svg>
+      <svg class="restore-glyph" viewBox="0 0 14 14" aria-hidden="true"><path d="M4.5 4.5V2.5h7v7h-2M2.5 4.5h7v7h-7z"/></svg>
+    </button>
+    <button class="window-control close" type="button" data-window-control="close" aria-label="Close">
+      <svg viewBox="0 0 14 14" aria-hidden="true"><path d="m3 3 8 8M11 3l-8 8"/></svg>
+    </button>
+  </div>
+</header>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-label="Hacker's Lair operator mark">
+        <svg class="hacker-logo" viewBox="0 0 64 64" role="img" aria-hidden="true">
+          <path class="hood" d="M32 6 47 14l9 17-5 22H13L8 31l9-17 15-8Z"/>
+          <path class="hood" d="m17 14 8 9h14l8-9M13 53l9-8h20l9 8"/>
+          <path class="mask" d="M22 24h20l3 8-5 14H24l-5-14 3-8Z"/>
+          <path class="eyes" d="m22 31 8 3-6 4m18-7-8 3 6 4"/>
+          <path class="terminal-line" d="M27 43h10"/>
+        </svg>
+      </div>
+      <div>
+        <div class="eyebrow">Hacker's Lair</div>
+        <h1>Process Control<span class="cursor" aria-hidden="true"></span></h1>
+        <p class="top-sub">Low-light command room for local targets and port signals.</p>
+      </div>
+    </div>
+    <div class="node-strip" aria-label="System state">
+      <div class="node-cell"><span>Node</span><strong id="nodeName">LOCAL MACHINE</strong></div>
+      <div class="node-cell"><span>Status</span><strong class="online" id="nodeStatus">ONLINE</strong></div>
+      <div class="node-cell"><span>Mode</span><strong id="nodeMode">PROCESS CONTROL</strong></div>
+      <div class="node-cell"><span>Time</span><strong id="nodeTime">--:--:--</strong></div>
+    </div>
+  </header>
+
+  <main class="console-layout">
+    <section class="panel matrix" aria-labelledby="viewTitle">
+      <div class="panel-head">
+        <div>
+          <div class="section-kicker">Control Deck</div>
+          <h2 id="viewTitle">Targets</h2>
+        </div>
+        <div class="controls">
+          <div class="view-tabs" role="tablist" aria-label="Target view">
+            <button class="view-tab active" data-view="projects" role="tab" aria-selected="true">Targets</button>
+            <button class="view-tab" data-view="processes" role="tab" aria-selected="false">Port Signals</button>
+            <button class="view-tab" data-view="scripts" role="tab" aria-selected="false">Scripts</button>
+          </div>
+          <button class="utility" id="refreshBtn" type="button">Refresh</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <div class="search-shell">
+          <input id="search" type="text" autocomplete="off" placeholder="filter targets by name, module, path, pid, or port">
+        </div>
+        <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
+      </div>
+      <div class="target-list" id="targetList"></div>
+      <div class="empty" id="emptyState" hidden>No matching targets detected.</div>
+    </section>
+
+    <aside class="panel intel" aria-labelledby="intelTitle">
+      <div class="panel-head">
+        <div>
+          <div class="section-kicker">Intel Rack</div>
+          <h2 id="intelTitle">System</h2>
+        </div>
+      </div>
+      <div class="intel-body">
+        <div class="intel-row"><span class="intel-label">Live Targets</span><strong class="intel-value" id="liveCount">0</strong></div>
+        <div class="intel-row"><span class="intel-label">Dormant Targets</span><strong class="intel-value" id="dormantCount">0</strong></div>
+        <div class="intel-row"><span class="intel-label">CPU Usage</span><strong class="intel-value" id="cpuUsage">N/A</strong><span class="bar"><span id="cpuBar"></span></span></div>
+        <div class="intel-row"><span class="intel-label">Memory Usage</span><strong class="intel-value" id="memoryUsage">N/A</strong><span class="bar"><span id="memoryBar"></span></span></div>
+        <div class="intel-row"><span class="intel-label">Last Command</span><strong class="intel-value" id="lastCommand">NONE</strong></div>
+        <div class="intel-row"><span class="intel-label">Last Target</span><strong class="intel-value" id="lastTarget">NONE</strong></div>
+        <div class="intel-row"><span class="intel-label">Current State</span><strong class="intel-value" id="currentState">STABLE</strong></div>
+      </div>
+    </aside>
+
+    <section class="panel feed-panel" aria-labelledby="feedTitle">
+      <div class="panel-head">
+        <div>
+          <div class="section-kicker">Signal Tape</div>
+          <h2 id="feedTitle">Events</h2>
+        </div>
+        <div class="controls">
+          <button class="utility" id="clearFeed" type="button">Clear Feed</button>
+        </div>
+      </div>
+      <div class="feed-lines" id="feed" aria-live="polite" aria-label="System event feed"></div>
+    </section>
+  </main>
+</div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (value) => String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const FEED_KEY = 'operatorConsole.feed';
+  const ACTION_KEY = 'operatorConsole.actions';
+
+  const state = {
+    view: 'projects',
+    projects: [],
+    processes: [],
+    scripts: [],
+    system: null,
+    showSystem: false,
+    query: '',
+    busy: new Map(),
+    confirming: new Map(),
+    feed: loadJson(FEED_KEY, []),
+    actions: loadJson(ACTION_KEY, { byTarget: {}, last: null }),
+  };
+
+  function installWindowControls() {
+    const desktopWindow = window.hackerLairWindow;
+    if (!desktopWindow) return;
+
+    document.querySelectorAll('[data-window-control]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.windowControl;
+        if (action === 'minimize') desktopWindow.minimize();
+        if (action === 'maximize') desktopWindow.toggleMaximize();
+        if (action === 'close') desktopWindow.close();
+      });
+    });
+
+    $('appTitlebar').addEventListener('dblclick', (event) => {
+      if (!event.target.closest('.window-control')) desktopWindow.toggleMaximize();
+    });
+
+    desktopWindow.onMaximizeChange((isMaximized) => {
+      const button = $('maximizeWindow');
+      button.classList.toggle('is-maximized', isMaximized);
+      button.setAttribute('aria-label', isMaximized ? 'Restore' : 'Maximize');
+    });
+  }
+
+  let toastTimer;
+
+  function loadJson(key, fallback) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || '');
+      return parsed && typeof parsed === 'object' ? parsed : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function saveActions() {
+    localStorage.setItem(ACTION_KEY, JSON.stringify(state.actions));
+  }
+
+  function saveFeed() {
+    localStorage.setItem(FEED_KEY, JSON.stringify(state.feed.slice(-80)));
+  }
+
+  function stamp(date = new Date()) {
+    return date.toLocaleTimeString('en-US', { hour12: false });
+  }
+
+  function formatDateTime(ms) {
+    if (!ms) return 'N/A';
+    return new Date(ms).toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  }
+
+  function formatMem(kb) {
+    if (!Number.isFinite(Number(kb)) || Number(kb) <= 0) return 'N/A';
+    const value = Number(kb);
+    if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} GB`;
+    if (value >= 1024) return `${(value / 1024).toFixed(value >= 10240 ? 0 : 1)} MB`;
+    return `${value} KB`;
+  }
+
+  function formatCpu(value) {
+    return Number.isFinite(Number(value)) ? `${Number(value).toFixed(Number(value) >= 10 ? 0 : 1)}%` : 'N/A';
+  }
+
+  function formatDuration(seconds) {
+    if (!Number.isFinite(Number(seconds)) || Number(seconds) < 0) return 'N/A';
+    const total = Math.floor(Number(seconds));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    if (h) return `${h}h ${m}m`;
+    if (m) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
+  function slug(value) {
+    return String(value || 'target').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'target';
+  }
+
+  function compactPath(value) {
+    return value || 'N/A';
+  }
+
+  function targetKey(kind, id) {
+    return `${kind}:${id}`;
+  }
+
+  function lastActionFor(key, fallback) {
+    return state.actions.byTarget[key]?.at || fallback || 0;
+  }
+
+  function recordAction(kind, id, command, target) {
+    const at = Date.now();
+    const key = targetKey(kind, id);
+    state.actions.byTarget[key] = { command, target, at };
+    state.actions.last = { command, target, at };
+    saveActions();
+    updateIntel();
+  }
+
+  function toast(message, isError = false) {
+    const el = $('toast');
+    el.textContent = message;
+    el.className = `show${isError ? ' err' : ''}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 4200);
+  }
+
+  function pushFeed(code, detail = '', tone = '') {
+    const entry = { id: `${Date.now()}-${Math.random()}`, at: Date.now(), code, detail, tone };
+    state.feed.push(entry);
+    state.feed = state.feed.slice(-120);
+    saveFeed();
+    renderFeed(entry.id);
+  }
+
+  async function sequence(lines, delay = 78) {
+    for (const line of lines) {
+      pushFeed(line.code, line.detail, line.tone || '');
+      await sleep(delay);
+    }
+  }
+
+  function renderFeed(newId = null) {
+    const feed = $('feed');
+    feed.innerHTML = state.feed.map((entry) => `
+      <div class="feed-line ${entry.id === newId ? 'new' : ''} ${esc(entry.tone)}">
+        <span class="feed-time">${stamp(new Date(entry.at))}</span>
+        <span class="feed-code">${esc(entry.code)}</span>
+        <span class="feed-detail">${esc(entry.detail)}</span>
+      </div>
+    `).join('');
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  async function fetchJson(url, options) {
+    const res = await fetch(url, options);
+    const data = await res.json();
+    if (!res.ok) {
+      const error = new Error(data.error || `Request failed: ${res.status}`);
+      error.data = data;
+      error.status = res.status;
+      throw error;
+    }
+    return data;
+  }
+
+  async function postJson(url, body) {
+    return fetchJson(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async function openUiInFirefox(button) {
+    const port = Number(button.dataset.openPort);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return;
+    button.disabled = true;
+    pushFeed('UI_OPEN_REQUEST', `browser=firefox port=${port}`, 'info');
+    try {
+      const result = await postJson('/api/open-ui', { port });
+      pushFeed('UI_OPENED', `browser=${slug(result.browser)} port=${port}`, 'info');
+      toast(`Opening localhost:${port} in Firefox.`);
+    } catch (error) {
+      pushFeed('UI_OPEN_FAILED', `browser=firefox port=${port} reason=${error.message}`, 'error');
+      toast(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function setBusy(key, mode) {
+    state.busy.set(key, { mode, at: Date.now() });
+    renderTargets();
+    updateIntel();
+  }
+
+  function clearBusy(key) {
+    state.busy.delete(key);
+    renderTargets();
+    updateIntel();
+  }
+
+  function projectStatus(project) {
+    const busy = state.busy.get(targetKey('project', project.name));
+    if (busy?.mode === 'booting') return { key: 'booting', label: 'BOOTING' };
+    if (busy?.mode === 'terminating') return { key: 'terminating', label: 'TERMINATING' };
+    if (project.errored) return { key: 'signal-lost', label: 'SIGNAL LOST' };
+    if (project.starting) return { key: 'booting', label: 'BOOTING' };
+    if (project.running) return { key: 'live', label: 'LIVE' };
+    return { key: 'dormant', label: 'DORMANT' };
+  }
+
+  function componentStatus(component) {
+    if (component.status === 'running') return { key: 'live', label: 'LIVE' };
+    if (component.status === 'starting') return { key: 'booting', label: 'BOOTING' };
+    if (component.status === 'errored') return { key: 'signal-lost', label: 'SIGNAL LOST' };
+    return { key: 'dormant', label: 'DORMANT' };
+  }
+
+  function processStatus(process) {
+    const id = process.stopped ? process.id : process.pid;
+    const key = targetKey(process.stopped ? 'stopped-process' : 'process', id);
+    const busy = state.busy.get(key);
+    if (busy?.mode === 'booting') return { key: 'booting', label: 'BOOTING' };
+    if (busy?.mode === 'terminating') return { key: 'terminating', label: 'TERMINATING' };
+    return process.stopped ? { key: 'dormant', label: 'DORMANT' } : { key: 'live', label: 'LIVE' };
+  }
+
+  function scriptStatus(script) {
+    const busy = state.busy.get(targetKey('script', script.file));
+    if (busy?.mode === 'booting') return { key: 'booting', label: 'BOOTING' };
+    if (busy?.mode === 'terminating') return { key: 'terminating', label: 'TERMINATING' };
+    return script.running ? { key: 'live', label: 'LIVE' } : { key: 'dormant', label: 'DORMANT' };
+  }
+
+  function statusBadge(status) {
+    return `<span class="status-badge status-${status.key}">${status.label}</span>`;
+  }
+
+  function field(label, value, className = '') {
+    return `<div class="field"><span class="field-label">${esc(label)}</span><span class="field-value ${className}" title="${esc(value)}">${esc(value)}</span></div>`;
+  }
+
+  function fieldHtml(label, html, title = '') {
+    return `<div class="field"><span class="field-label">${esc(label)}</span><span class="field-value" title="${esc(title)}">${html}</span></div>`;
+  }
+
+  function portLink(port, className = 'field-link') {
+    const safePort = Number(port);
+    if (!Number.isInteger(safePort) || safePort <= 0) return '';
+    return `<button type="button" class="${className} port-launch" data-open-port="${safePort}" title="Open localhost:${safePort} in Firefox">:${safePort}</button>`;
+  }
+
+  function portLinks(ports, className = 'field-link') {
+    const unique = [...new Set((ports || []).map(Number).filter((port) => Number.isInteger(port) && port > 0))];
+    return unique.length ? unique.map((port) => portLink(port, className)).join(', ') : 'N/A';
+  }
+
+  function portTitle(ports) {
+    const unique = [...new Set((ports || []).map(Number).filter((port) => Number.isInteger(port) && port > 0))];
+    return unique.length ? unique.map((port) => `:${port}`).join(', ') : 'N/A';
+  }
+
+  function configuredPorts(component) {
+    const port = Number(component.port);
+    return Number.isInteger(port) && port > 0 ? [port] : [];
+  }
+
+  function displayPorts(component) {
+    return component.livePorts?.length ? component.livePorts : configuredPorts(component);
+  }
+
+  function componentHasPortKind(component, kind) {
+    const text = `${component.role || ''} ${component.name || ''}`.toLowerCase();
+    const pattern = kind === 'ui'
+      ? /\b(frontend|ui|client|web|fullstack)\b/
+      : /\b(backend|server|api|fullstack)\b/;
+    return pattern.test(text);
+  }
+
+  function projectPortsByKind(project, kind) {
+    return [...new Set((project.components || [])
+      .filter((component) => componentHasPortKind(component, kind))
+      .flatMap(displayPorts))]
+      .sort((a, b) => a - b);
+  }
+
+  function actionButton(kind, action, label, disabled = false, extraClass = '') {
+    return `<button class="action ${action} ${extraClass}" type="button" data-kind="${esc(kind)}" data-action="${esc(action)}" ${disabled ? 'disabled' : ''}>${esc(label)}</button>`;
+  }
+
+  function projectCard(project) {
+    const status = projectStatus(project);
+    const key = targetKey('project', project.name);
+    const pids = project.pids?.length ? project.pids.join(', ') : 'N/A';
+    const path = compactPath(project.components.find((component) => component.path)?.path || project.components.find((component) => component.cwd)?.cwd || '');
+    const ports = [...new Set(project.components.flatMap(displayPorts))].sort((a, b) => a - b);
+    const uiPorts = projectPortsByKind(project, 'ui');
+    const backendPorts = projectPortsByKind(project, 'backend');
+    const lastSignal = formatDateTime(lastActionFor(key, project.lastActionAt || project.lastStartedAt));
+    const isBusy = state.busy.has(key);
+    const initiateDisabled = isBusy || status.key === 'live' || status.key === 'booting';
+
+    const modules = project.components.map((component) => {
+      const mini = componentStatus(component);
+      const modulePorts = displayPorts(component);
+      const modulePid = component.pids?.length ? component.pids.join(', ') : 'N/A';
+      const modulePath = component.path || component.cwd || 'N/A';
+      const error = component.error ? `<span class="error-line">REASON: ${esc(component.error)}</span>` : '';
+      return `
+        <div class="module-row">
+          <strong title="${esc(component.name)}">${esc(component.name)}${component.role ? ` / ${esc(component.role)}` : ''}</strong>
+          <span class="mini-status mini-${mini.key}">${mini.label}</span>
+          <span>PID ${esc(modulePid)}</span>
+          <span>${portLinks(modulePorts, 'module-link')}</span>
+          <span title="${esc(modulePath)}">${esc(modulePath)}</span>
+          ${error}
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <article class="target-card ${status.key}" data-card-kind="project" data-name="${esc(project.name)}">
+        <div class="machine-bar">
+          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="machine-label">mini-rig :: ${esc(project.name)}</span>
+          <span class="machine-node">local node</span>
+        </div>
+        <div class="machine-screen">
+          <div class="target-main">
+            <div class="target-title">
+              <h3><span class="target-prefix">TARGET</span>${esc(project.name)}</h3>
+              <span class="target-type">${esc(project.type || 'module')}</span>
+              ${statusBadge(status)}
+            </div>
+            <div class="target-fields">
+              ${field('PID', pids)}
+              ${field('Uptime', formatDuration(project.uptimeSeconds))}
+              ${field('CPU Usage', formatCpu(project.cpuPercent))}
+              ${field('Memory', formatMem(project.memKB))}
+              ${field('Last Signal', lastSignal)}
+              ${fieldHtml('UI Port', portLinks(uiPorts), portTitle(uiPorts))}
+              ${fieldHtml('Backend Port', portLinks(backendPorts), portTitle(backendPorts))}
+              ${fieldHtml('Ports', portLinks(ports), portTitle(ports))}
+              ${field('Modules', String(project.components.length))}
+              ${field('Path', path, 'path')}
+            </div>
+            <div class="module-strip">${modules}</div>
+          </div>
+          <div class="action-cluster">
+            ${actionButton('project', 'initiate', 'INITIATE', initiateDisabled)}
+            ${actionButton('project', 'terminate', 'TERMINATE', isBusy)}
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function processCard(process) {
+    const status = processStatus(process);
+    const stopped = !!process.stopped;
+    const id = stopped ? process.id : process.pid;
+    const key = targetKey(stopped ? 'stopped-process' : 'process', id);
+    const name = process.label || process.name || 'unknown';
+    const pids = stopped ? 'N/A' : String(process.pid);
+    const ports = (process.ports || []).map((entry) => entry.port);
+    const path = compactPath(process.exePath || process.cwd || process.cmd || 'N/A');
+    const lastSignal = formatDateTime(lastActionFor(key, process.stoppedAt || 0));
+    const isBusy = state.busy.has(key);
+    const confirm = !stopped && state.confirming.has(process.pid);
+    const terminateDisabled = isBusy;
+    const initiateDisabled = isBusy || !stopped || !process.cmd;
+
+    return `
+      <article class="target-card ${status.key}" data-card-kind="${stopped ? 'stopped-process' : 'process'}" data-id="${esc(id)}" data-pid="${esc(process.pid || '')}">
+        <div class="machine-bar">
+          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="machine-label">mini-rig :: ${esc(name)}</span>
+          <span class="machine-node">${esc(stopped ? 'stored' : 'listening')}</span>
+        </div>
+        <div class="machine-screen">
+          <div class="target-main">
+            <div class="target-title">
+              <h3><span class="target-prefix">TARGET</span>${esc(name)}</h3>
+              <span class="target-type">${esc(stopped ? 'remembered signal' : process.name)}</span>
+              ${statusBadge(status)}
+            </div>
+            <div class="target-fields">
+              ${field('PID', pids)}
+              ${field('Uptime', formatDuration(process.uptimeSeconds))}
+              ${field('CPU Usage', formatCpu(process.cpuPercent))}
+              ${field('Memory', formatMem(process.memKB))}
+              ${field('Last Signal', lastSignal)}
+              ${fieldHtml('Ports', portLinks(ports), ports.length ? ports.map((port) => `:${port}`).join(', ') : 'N/A')}
+              ${field('Access', process.self ? 'CONSOLE SELF' : process.protected ? 'PROTECTED' : 'CLEAR')}
+              ${field('Path', path, 'path')}
+            </div>
+          </div>
+          <div class="action-cluster">
+            ${actionButton(stopped ? 'stopped-process' : 'process', 'initiate', 'INITIATE', initiateDisabled)}
+            ${actionButton(stopped ? 'stopped-process' : 'process', 'terminate', confirm ? 'KILL SIGNAL' : 'TERMINATE', terminateDisabled, confirm ? 'confirm' : '')}
+            ${stopped ? '<button class="action icon-clear" type="button" data-action="forget" data-kind="stopped-process" title="Clear remembered signal">X</button>' : ''}
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function scriptCard(script) {
+    const status = scriptStatus(script);
+    const key = targetKey('script', script.file);
+    const isBusy = state.busy.has(key);
+    const initiateDisabled = isBusy || status.key === 'live' || status.key === 'booting';
+    const terminateDisabled = isBusy || status.key === 'dormant';
+    const pids = script.pids?.length ? script.pids.join(', ') : 'N/A';
+    const lastSignal = formatDateTime(lastActionFor(key, script.modifiedAt));
+
+    return `
+      <article class="target-card ${status.key}" data-card-kind="script" data-file="${esc(script.file)}">
+        <div class="machine-bar">
+          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="machine-label">macro-rig :: ${esc(script.name)}</span>
+          <span class="machine-node">autoit</span>
+        </div>
+        <div class="machine-screen">
+          <div class="target-main">
+            <div class="target-title">
+              <h3><span class="target-prefix">SCRIPT</span>${esc(script.name)}</h3>
+              <span class="target-type">.au3</span>
+              ${statusBadge(status)}
+            </div>
+            <p class="script-desc">${esc(script.description)}</p>
+            <div class="target-fields">
+              ${field('PID', pids)}
+              ${field('Uptime', formatDuration(script.uptimeSeconds))}
+              ${field('Memory', formatMem(script.memKB))}
+              ${field('Modified', formatDateTime(script.modifiedAt))}
+              ${field('Last Signal', lastSignal)}
+              ${field('File', script.file)}
+            </div>
+          </div>
+          <div class="action-cluster">
+            ${actionButton('script', 'initiate', 'INITIATE', initiateDisabled)}
+            ${actionButton('script', 'terminate', 'TERMINATE', terminateDisabled)}
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function visibleProjects() {
+    const q = state.query;
+    return state.projects.filter((project) => {
+      if (!q) return true;
+      const haystack = [
+        project.name,
+        project.type,
+        project.pids?.join(' '),
+        ...project.components.flatMap((component) => [
+          component.name,
+          component.role,
+          component.cwd,
+          component.path,
+          component.command,
+          component.port,
+          component.pids?.join(' '),
+          component.livePorts?.join(' '),
+        ]),
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+
+  function isConfiguredProjectProcess(process) {
+    const pid = Number(process.pid);
+    const cmd = String(process.cmd || '').toLowerCase();
+    const cwd = String(process.cwd || '').toLowerCase();
+
+    return state.projects.some((project) => {
+      if (Number.isInteger(pid) && (project.pids || []).some((projectPid) => Number(projectPid) === pid)) {
+        return true;
+      }
+
+      return (project.components || []).some((component) => {
+        const match = String(component.match || '').toLowerCase();
+        const componentCwd = String(component.cwd || '').toLowerCase();
+        if (match && cmd.includes(match)) return true;
+        if (!componentCwd) return false;
+        return cmd.includes(componentCwd) || cwd === componentCwd || cwd.startsWith(`${componentCwd}\\`);
+      });
+    });
+  }
+
+  function visibleProcesses() {
+    const q = state.query;
+    return state.processes.filter((process) => {
+      if (isConfiguredProjectProcess(process)) return false;
+      if (!state.showSystem && process.system) return false;
+      if (!q) return true;
+      const haystack = [
+        process.name,
+        process.label,
+        process.pid,
+        process.cmd,
+        process.cwd,
+        process.exePath,
+        ...(process.ports || []).map((port) => port.port),
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+
+  function visibleScripts() {
+    const q = state.query;
+    return state.scripts.filter((script) => {
+      if (!q) return true;
+      const haystack = [script.name, script.file, script.description, script.pids?.join(' ')].join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+
+  function renderTargets() {
+    const rows = state.view === 'projects' ? visibleProjects()
+      : state.view === 'processes' ? visibleProcesses()
+      : visibleScripts();
+    $('emptyState').hidden = rows.length > 0;
+    $('targetList').innerHTML = rows.map((row) =>
+      state.view === 'projects' ? projectCard(row)
+      : state.view === 'processes' ? processCard(row)
+      : scriptCard(row)
+    ).join('');
+  }
+
+  function setView(view) {
+    state.view = view;
+    state.query = '';
+    $('search').value = '';
+    $('viewTitle').textContent = view === 'projects' ? 'Targets' : view === 'processes' ? 'Port Signals' : 'Scripts';
+    $('search').placeholder = view === 'projects'
+      ? 'filter targets by name, module, path, pid, or port'
+      : view === 'processes'
+      ? 'filter signals by name, path, pid, or port'
+      : 'filter scripts by name, file, or description';
+    $('systemToggle').hidden = view !== 'processes';
+    document.querySelectorAll('.view-tab').forEach((tab) => {
+      const active = tab.dataset.view === view;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', String(active));
+    });
+    renderTargets();
+    updateIntel();
+    if (view === 'projects') loadProjects(true);
+    else if (view === 'processes') Promise.all([loadProjects(true), loadProcesses(true)]);
+    else loadScripts(true);
+  }
+
+  function updateClock() {
+    $('nodeTime').textContent = stamp();
+  }
+
+  function updateSystemChrome() {
+    const system = state.system || {};
+    $('nodeName').textContent = system.node || 'LOCAL MACHINE';
+    $('nodeStatus').textContent = system.status || 'ONLINE';
+    $('nodeMode').textContent = system.mode || 'PROCESS CONTROL';
+  }
+
+  function updateIntel() {
+    let rows;
+    let live;
+    if (state.view === 'projects') {
+      rows = state.projects;
+      live = rows.filter((row) => row.running).length;
+    } else if (state.view === 'scripts') {
+      rows = state.scripts;
+      live = rows.filter((row) => row.running).length;
+    } else {
+      rows = state.processes.filter((process) => !isConfiguredProjectProcess(process) && (state.showSystem || !process.system));
+      live = rows.filter((row) => !row.stopped).length;
+    }
+    const dormant = Math.max(rows.length - live, 0);
+    const anyBusy = state.busy.size > 0;
+    const anyError = state.projects.some((project) => project.errored);
+    const memoryUsed = state.system?.memory?.usedPercent;
+    const cpu = state.system?.cpuPercent;
+
+    $('liveCount').textContent = String(live);
+    $('dormantCount').textContent = String(dormant);
+    $('cpuUsage').textContent = formatCpu(cpu);
+    $('cpuBar').style.width = `${Math.max(0, Math.min(Number(cpu) || 0, 100))}%`;
+    $('memoryUsage').textContent = formatCpu(memoryUsed);
+    $('memoryBar').style.width = `${Math.max(0, Math.min(Number(memoryUsed) || 0, 100))}%`;
+    $('lastCommand').textContent = state.actions.last?.command || 'NONE';
+    $('lastTarget').textContent = state.actions.last?.target || 'NONE';
+    $('currentState').textContent = anyBusy ? 'EXECUTING' : anyError ? 'SIGNAL LOST' : 'STABLE';
+  }
+
+  async function loadSystem() {
+    try {
+      state.system = await fetchJson('/api/system');
+      updateSystemChrome();
+      updateIntel();
+    } catch {
+      pushFeed('SYSTEM_POLL_FAILED', 'reason=system_intel_unavailable', 'warn');
+    }
+  }
+
+  async function loadProjects(quiet = false) {
+    try {
+      const data = await fetchJson('/api/projects');
+      state.projects = data.projects || [];
+      if (!quiet) pushFeed('TARGET_REGISTRY_SYNCED', `count=${state.projects.length}`, 'info');
+      renderTargets();
+      updateIntel();
+    } catch (error) {
+      toast('Signal lost: project registry unavailable', true);
+      pushFeed('TARGET_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    }
+  }
+
+  async function loadProcesses(quiet = false) {
+    try {
+      const data = await fetchJson('/api/processes');
+      const stopped = (data.stopped || []).map((entry) => ({ ...entry, stopped: true, ports: entry.ports || [] }));
+      state.processes = (data.processes || []).concat(stopped);
+      if (!quiet) pushFeed('PORT_SIGNAL_SYNCED', `live=${data.processes?.length || 0} dormant=${stopped.length}`, 'info');
+      renderTargets();
+      updateIntel();
+    } catch (error) {
+      toast('Signal lost: process registry unavailable', true);
+      pushFeed('PORT_SIGNAL_FAILED', `reason=${error.message}`, 'error');
+    }
+  }
+
+  async function loadScripts(quiet = false) {
+    try {
+      const data = await fetchJson('/api/scripts');
+      state.scripts = data.scripts || [];
+      if (!quiet) pushFeed('SCRIPT_REGISTRY_SYNCED', `count=${state.scripts.length}`, 'info');
+      renderTargets();
+      updateIntel();
+    } catch (error) {
+      toast('Signal lost: script registry unavailable', true);
+      pushFeed('SCRIPT_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    }
+  }
+
+  async function initiateProject(project) {
+    const status = projectStatus(project);
+    const key = targetKey('project', project.name);
+    if (status.key === 'live' || status.key === 'booting') {
+      pushFeed('INITIATION_BLOCKED', `target=${slug(project.name)} reason=already_${status.key === 'live' ? 'live' : 'booting'}`, 'warn');
+      toast(`${project.name} is already ${status.label.toLowerCase()}.`);
+      return;
+    }
+
+    const path = project.components.find((component) => component.cwd)?.cwd || project.components.find((component) => component.path)?.path || '';
+    setBusy(key, 'booting');
+    await sequence([
+      { code: 'INITIATION_REQUEST', detail: 'received=true' },
+      { code: 'TARGET_SELECTED', detail: `target=${slug(project.name)}` },
+      { code: 'PATH_VERIFYING', detail: path ? `path=${path}` : 'path=not_reported', tone: path ? '' : 'warn' },
+      { code: path ? 'PATH_VERIFIED' : 'PATH_UNKNOWN', detail: path ? 'status=clean' : 'status=manual_review', tone: path ? '' : 'warn' },
+      { code: 'CHANNEL_ALLOCATED', detail: `modules=${project.components.length}` },
+      { code: 'LAUNCH_SIGNAL', detail: 'dispatched=true' },
+    ]);
+
+    try {
+      const out = await postJson('/api/projects/start', { name: project.name });
+      recordAction('project', project.name, 'INITIATE', project.name);
+      if (out.failed?.length) {
+        pushFeed('INITIATION_FAILED', `target=${slug(project.name)} modules=${out.failed.join(',')}`, 'error');
+        pushFeed('REQUIRED_ACTION', 'inspect component path or full log', 'error');
+        toast(`${project.name}: initiation failed for ${out.failed.join(', ')}`, true);
+      } else if (!out.started?.length && out.skipped?.length) {
+        pushFeed('INITIATION_BLOCKED', `target=${slug(project.name)} reason=already_live`, 'warn');
+        toast(`${project.name} is already live.`);
+      } else {
+        pushFeed('AWAITING_PID', `target=${slug(project.name)}`, 'info');
+        await sleep(700);
+        await loadProjects(true);
+        const fresh = state.projects.find((item) => item.name === project.name);
+        const pids = fresh?.pids?.length ? fresh.pids.join(',') : 'pending';
+        pushFeed(pids === 'pending' ? 'PID_RESPONSE_PENDING' : 'PID_ACQUIRED', `target=${slug(project.name)} pid=${pids}`, pids === 'pending' ? 'warn' : '');
+        pushFeed(fresh?.errored ? 'SIGNAL_LOST' : 'MODULE_LIVE', `target=${slug(project.name)}`, fresh?.errored ? 'error' : '');
+        toast(`${project.name} initiation signal dispatched.`);
+      }
+    } catch (error) {
+      pushFeed('INITIATION_FAILED', `target=${slug(project.name)}`, 'error');
+      pushFeed('REASON', error.message, 'error');
+      toast(error.message, true);
+    } finally {
+      clearBusy(key);
+      setTimeout(() => loadProjects(true), 900);
+    }
+  }
+
+  async function terminateProject(project) {
+    const status = projectStatus(project);
+    const key = targetKey('project', project.name);
+    if (status.key === 'dormant') {
+      pushFeed('TERMINATION_BLOCKED', `target=${slug(project.name)} reason=already_dormant`, 'warn');
+      pushFeed('NO_ACTION_REQUIRED', `target=${slug(project.name)}`, 'warn');
+      toast(`${project.name} is already dormant.`);
+      return;
+    }
+
+    const pids = project.pids?.length ? project.pids.join(',') : 'none_reported';
+    setBusy(key, 'terminating');
+    await sequence([
+      { code: 'TERMINATION_REQUEST', detail: 'received=true' },
+      { code: 'TARGET_SELECTED', detail: `target=${slug(project.name)}` },
+      { code: 'PID_SCAN', detail: `pid=${pids}`, tone: pids === 'none_reported' ? 'warn' : '' },
+      { code: 'KILL_CHANNEL_READY', detail: `target=${slug(project.name)}` },
+      { code: 'TERMINATION_SIGNAL', detail: 'dispatched=true' },
+    ]);
+
+    try {
+      const out = await postJson('/api/projects/stop', { name: project.name });
+      recordAction('project', project.name, 'TERMINATE', project.name);
+      if (!out.stopped) {
+        pushFeed('TERMINATION_BLOCKED', `target=${slug(project.name)} reason=already_dormant`, 'warn');
+        toast(`${project.name}: no live PID was found.`);
+      } else {
+        pushFeed('PROCESS_NEUTRALIZED', `target=${slug(project.name)} count=${out.stopped}`);
+        pushFeed('MODULE_DORMANT', `target=${slug(project.name)}`);
+        toast(`${project.name} is dormant.`);
+      }
+      await loadProjects(true);
+    } catch (error) {
+      const accessDenied = error.status === 403 || /denied|permission|access/i.test(error.message);
+      pushFeed(accessDenied ? 'ACCESS_DENIED' : 'TERMINATION_FAILED', `target=${slug(project.name)}`, 'error');
+      pushFeed('REASON', error.message, 'error');
+      if (accessDenied) pushFeed('REQUIRED_ACTION', 'relaunch console as administrator', 'error');
+      toast(error.message, true);
+    } finally {
+      clearBusy(key);
+      setTimeout(() => loadProjects(true), 700);
+    }
+  }
+
+  async function initiateProcess(process) {
+    const stopped = !!process.stopped;
+    const id = stopped ? process.id : process.pid;
+    const key = targetKey(stopped ? 'stopped-process' : 'process', id);
+    const name = process.label || process.name || 'unknown';
+    if (!stopped) {
+      pushFeed('INITIATION_BLOCKED', `target=${slug(name)} reason=already_live`, 'warn');
+      toast(`${name} is already live.`);
+      return;
+    }
+    if (!process.cmd) {
+      pushFeed('INITIATION_FAILED', `target=${slug(name)}`, 'error');
+      pushFeed('REASON', 'restart vector was not recorded', 'error');
+      toast(`${name}: no command was recorded for restart.`, true);
+      return;
+    }
+
+    setBusy(key, 'booting');
+    await sequence([
+      { code: 'INITIATION_REQUEST', detail: 'received=true' },
+      { code: 'TARGET_SELECTED', detail: `target=${slug(name)}` },
+      { code: 'RESTART_VECTOR', detail: 'status=loaded' },
+      { code: 'LAUNCH_SIGNAL', detail: 'dispatched=true' },
+    ]);
+
+    try {
+      const out = await postJson('/api/start', { id: process.id });
+      recordAction('stopped-process', process.id, 'INITIATE', name);
+      pushFeed('PROCESS_SPAWNED', `target=${slug(name)} via=${slug(out.via || 'saved_command')}`, 'info');
+      pushFeed('MODULE_LIVE', `target=${slug(name)}`);
+      toast(`${name} initiation signal dispatched.`);
+      await sleep(800);
+      await loadProcesses(true);
+    } catch (error) {
+      pushFeed('INITIATION_FAILED', `target=${slug(name)}`, 'error');
+      pushFeed('REASON', error.message, 'error');
+      toast(error.message, true);
+    } finally {
+      clearBusy(key);
+      setTimeout(() => loadProcesses(true), 900);
+    }
+  }
+
+  async function terminateProcess(process) {
+    const stopped = !!process.stopped;
+    const id = stopped ? process.id : process.pid;
+    const key = targetKey(stopped ? 'stopped-process' : 'process', id);
+    const name = process.label || process.name || 'unknown';
+    if (stopped) {
+      pushFeed('TERMINATION_BLOCKED', `target=${slug(name)} reason=already_dormant`, 'warn');
+      pushFeed('NO_ACTION_REQUIRED', `target=${slug(name)}`, 'warn');
+      toast(`${name} is already dormant.`);
+      return;
+    }
+    if (process.protected || process.self) {
+      pushFeed('ACCESS_DENIED', `target=${slug(name)} pid=${process.pid}`, 'error');
+      pushFeed('REASON', process.self ? 'console self-protection active' : 'protected system process', 'error');
+      toast(`${name}: termination is protected.`, true);
+      return;
+    }
+    if (!state.confirming.has(process.pid)) {
+      const timer = setTimeout(() => {
+        state.confirming.delete(process.pid);
+        renderTargets();
+      }, 4200);
+      state.confirming.set(process.pid, timer);
+      pushFeed('KILL_SIGNAL_ARMED', `target=${slug(name)} pid=${process.pid} confirm=required`, 'warn');
+      renderTargets();
+      return;
+    }
+
+    clearTimeout(state.confirming.get(process.pid));
+    state.confirming.delete(process.pid);
+    setBusy(key, 'terminating');
+    await sequence([
+      { code: 'TERMINATION_REQUEST', detail: 'received=true' },
+      { code: 'TARGET_SELECTED', detail: `target=${slug(name)}` },
+      { code: 'PID_LOCK_CONFIRMED', detail: `pid=${process.pid}` },
+      { code: 'KILL_SIGNAL', detail: 'dispatched=true', tone: 'warn' },
+      { code: 'AWAITING_EXIT', detail: `pid=${process.pid}`, tone: 'info' },
+    ]);
+
+    try {
+      const out = await postJson('/api/kill', { pid: process.pid });
+      recordAction('process', process.pid, 'TERMINATE', name);
+      pushFeed('PROCESS_NEUTRALIZED', `target=${slug(out.name || name)} pid=${out.pid}`);
+      pushFeed('MODULE_DORMANT', `target=${slug(out.name || name)}`);
+      toast(`${out.name || name} is dormant.`);
+      await loadProcesses(true);
+    } catch (error) {
+      const accessDenied = error.status === 403 || /denied|permission|access/i.test(error.message);
+      pushFeed(accessDenied ? 'ACCESS_DENIED' : 'TERMINATION_FAILED', `target=${slug(name)} pid=${process.pid}`, 'error');
+      pushFeed('REASON', error.message, 'error');
+      if (accessDenied) pushFeed('REQUIRED_ACTION', 'relaunch console as administrator', 'error');
+      toast(error.message, true);
+    } finally {
+      clearBusy(key);
+      setTimeout(() => loadProcesses(true), 700);
+    }
+  }
+
+  async function forgetProcess(process) {
+    try {
+      await postJson('/api/forget', { id: process.id });
+      pushFeed('SIGNAL_ARCHIVE_CLEARED', `target=${slug(process.label || process.name)}`, 'info');
+      await loadProcesses(true);
+    } catch (error) {
+      pushFeed('ARCHIVE_CLEAR_FAILED', `reason=${error.message}`, 'error');
+      toast(error.message, true);
+    }
+  }
+
+  async function initiateScript(script) {
+    const key = targetKey('script', script.file);
+    if (script.running) {
+      pushFeed('INITIATION_BLOCKED', `target=${slug(script.name)} reason=already_live`, 'warn');
+      toast(`${script.name} is already running.`);
+      return;
+    }
+
+    setBusy(key, 'booting');
+    await sequence([
+      { code: 'INITIATION_REQUEST', detail: 'received=true' },
+      { code: 'TARGET_SELECTED', detail: `target=${slug(script.name)}` },
+      { code: 'MACRO_LOADED', detail: `file=${slug(script.file)}` },
+      { code: 'LAUNCH_SIGNAL', detail: 'dispatched=true' },
+    ]);
+
+    try {
+      const out = await postJson('/api/scripts/start', { file: script.file });
+      recordAction('script', script.file, 'ON', script.name);
+      if (out.alreadyRunning) {
+        pushFeed('INITIATION_BLOCKED', `target=${slug(script.name)} reason=already_live`, 'warn');
+        toast(`${script.name} is already running.`);
+      } else {
+        pushFeed('MACRO_LIVE', `target=${slug(script.name)}`);
+        toast(`${script.name} is ON.`);
+      }
+      await sleep(500);
+      await loadScripts(true);
+    } catch (error) {
+      pushFeed('INITIATION_FAILED', `target=${slug(script.name)}`, 'error');
+      pushFeed('REASON', error.message, 'error');
+      toast(error.message, true);
+    } finally {
+      clearBusy(key);
+      setTimeout(() => loadScripts(true), 700);
+    }
+  }
+
+  async function terminateScript(script) {
+    const key = targetKey('script', script.file);
+    if (!script.running) {
+      pushFeed('TERMINATION_BLOCKED', `target=${slug(script.name)} reason=already_dormant`, 'warn');
+      toast(`${script.name} is already off.`);
+      return;
+    }
+
+    const pids = script.pids?.length ? script.pids.join(',') : 'none_reported';
+    setBusy(key, 'terminating');
+    await sequence([
+      { code: 'TERMINATION_REQUEST', detail: 'received=true' },
+      { code: 'TARGET_SELECTED', detail: `target=${slug(script.name)}` },
+      { code: 'PID_SCAN', detail: `pid=${pids}`, tone: pids === 'none_reported' ? 'warn' : '' },
+      { code: 'KILL_SIGNAL', detail: 'dispatched=true', tone: 'warn' },
+    ]);
+
+    try {
+      const out = await postJson('/api/scripts/stop', { file: script.file });
+      recordAction('script', script.file, 'OFF', script.name);
+      if (!out.stopped) {
+        pushFeed('TERMINATION_BLOCKED', `target=${slug(script.name)} reason=already_dormant`, 'warn');
+        toast(`${script.name}: no running process was found.`);
+      } else {
+        pushFeed('MACRO_DORMANT', `target=${slug(script.name)} count=${out.stopped}`);
+        toast(`${script.name} is OFF.`);
+      }
+      await loadScripts(true);
+    } catch (error) {
+      pushFeed('TERMINATION_FAILED', `target=${slug(script.name)}`, 'error');
+      pushFeed('REASON', error.message, 'error');
+      toast(error.message, true);
+    } finally {
+      clearBusy(key);
+      setTimeout(() => loadScripts(true), 700);
+    }
+  }
+
+  function findCardTarget(button) {
+    const card = button.closest('.target-card');
+    if (!card) return null;
+    if (card.dataset.cardKind === 'project') {
+      return state.projects.find((project) => project.name === card.dataset.name);
+    }
+    if (card.dataset.cardKind === 'process') {
+      return state.processes.find((process) => !process.stopped && String(process.pid) === String(card.dataset.pid));
+    }
+    if (card.dataset.cardKind === 'stopped-process') {
+      return state.processes.find((process) => process.stopped && String(process.id) === String(card.dataset.id));
+    }
+    if (card.dataset.cardKind === 'script') {
+      return state.scripts.find((script) => script.file === card.dataset.file);
+    }
+    return null;
+  }
+
+  $('targetList').addEventListener('click', async (event) => {
+    const portButton = event.target.closest('[data-open-port]');
+    if (portButton) {
+      await openUiInFirefox(portButton);
+      return;
+    }
+    const button = event.target.closest('button[data-action]');
+    if (!button || button.disabled) return;
+    const target = findCardTarget(button);
+    if (!target) return;
+    const kind = button.dataset.kind;
+    const action = button.dataset.action;
+
+    if (action === 'forget') {
+      await forgetProcess(target);
+      return;
+    }
+    if (kind === 'project') {
+      if (action === 'initiate') await initiateProject(target);
+      if (action === 'terminate') await terminateProject(target);
+      return;
+    }
+    if (kind === 'script') {
+      if (action === 'initiate') await initiateScript(target);
+      if (action === 'terminate') await terminateScript(target);
+      return;
+    }
+    if (action === 'initiate') await initiateProcess(target);
+    if (action === 'terminate') await terminateProcess(target);
+  });
+
+  document.querySelectorAll('.view-tab').forEach((button) => {
+    button.addEventListener('click', () => setView(button.dataset.view));
+  });
+
+  $('search').addEventListener('input', (event) => {
+    state.query = event.target.value.trim().toLowerCase();
+    renderTargets();
+  });
+
+  $('refreshBtn').addEventListener('click', async () => {
+    pushFeed('MANUAL_SCAN', `view=${state.view}`, 'info');
+    await Promise.all([
+      loadSystem(),
+      state.view === 'projects' ? loadProjects(true)
+        : state.view === 'processes' ? Promise.all([loadProjects(true), loadProcesses(true)])
+        : loadScripts(true),
+    ]);
+  });
+
+  $('systemToggle').addEventListener('click', () => {
+    state.showSystem = !state.showSystem;
+    $('systemToggle').classList.toggle('toggled', state.showSystem);
+    $('systemToggle').textContent = state.showSystem ? 'Hide System' : 'System Signals';
+    renderTargets();
+    updateIntel();
+  });
+
+  $('clearFeed').addEventListener('click', () => {
+    state.feed = [];
+    saveFeed();
+    renderFeed();
+    pushFeed('FEED_RESET', 'operator=local', 'info');
+  });
+
+  async function boot() {
+    updateClock();
+    setInterval(updateClock, 1000);
+    renderFeed();
+    if (!state.feed.length) {
+      pushFeed('CONSOLE_BOOT', 'mode=process_control node=local', 'info');
+      pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
+    }
+    await Promise.all([loadSystem(), loadProjects()]);
+    setInterval(() => {
+      if (document.hidden) return;
+      loadSystem();
+      if (state.view === 'projects') loadProjects(true);
+      else if (state.view === 'scripts') loadScripts(true);
+      else {
+        loadProjects(true);
+        loadProcesses(true);
+      }
+    }, 3500);
+  }
+
+  installWindowControls();
+  boot();
+</script>
+</body>
+</html>
