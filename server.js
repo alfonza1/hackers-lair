@@ -7,6 +7,7 @@ const path = require('path');
 const os = require('os');
 const { exec, execFile, spawn } = require('child_process');
 const { gitBranchesForProject } = require('./lib/git-branches');
+const { listSkills } = require('./lib/skill-registry');
 
 const PORT = Number(process.env.PORT) || 4949;
 const MAX_PORT_TRIES = 10;
@@ -933,6 +934,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && req.url === '/api/scripts') {
       json(res, 200, { scripts: await getScripts() });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/skills') {
+      json(res, 200, { skills: listSkills() });
       return;
     }
 
