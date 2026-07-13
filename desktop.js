@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { APP_NAME, APP_USER_MODEL_ID } = require('./app-config');
 
 const APP_URL = 'http://127.0.0.1:4949/?desktop=1';
 const APP_ORIGIN = 'http://127.0.0.1:4949';
@@ -8,8 +9,8 @@ const APP_ORIGIN = 'http://127.0.0.1:4949';
 const DEFAULT_BOUNDS = { width: 1480, height: 940 };
 const MIN_SIZE = { width: 900, height: 620 };
 
-app.setName("Hacker's Lair");
-app.setAppUserModelId('com.alfonza.hackers-lair');
+app.setName(APP_NAME);
+app.setAppUserModelId(APP_USER_MODEL_ID);
 
 const hasLock = app.requestSingleInstanceLock();
 if (!hasLock) app.quit();
