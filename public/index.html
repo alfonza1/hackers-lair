@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hacker's Lair</title>
 <meta name="application-name" content="Hacker's Lair">
-<link rel="icon" href="/icon.ico?v=command-core-1">
+<link rel="icon" href="/icon.ico?v=command-line-v1">
 <script>
   if (new URLSearchParams(location.search).get('desktop') === '1') {
     document.documentElement.classList.add('desktop-host');
@@ -141,13 +141,6 @@
     box-shadow: inset 0 0 54px rgba(102, 255, 181, .035), 0 0 72px rgba(0, 0, 0, .72);
     clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
     animation: bootCoreIn 520ms cubic-bezier(.18, .84, .22, 1) both;
-  }
-
-  .boot-core .hacker-logo {
-    width: 82px;
-    height: 82px;
-    margin-bottom: 15px;
-    filter: drop-shadow(0 0 16px rgba(102, 255, 181, .3));
   }
 
   .boot-label {
@@ -394,50 +387,6 @@
   }
 
   .brand > div:last-child { min-width: 0; }
-
-  .hacker-logo {
-    width: 41px;
-    height: 41px;
-    overflow: visible;
-    filter: drop-shadow(0 0 6px rgba(102, 255, 181, .2));
-  }
-
-  .hacker-logo .hood {
-    fill: rgba(5, 25, 19, .96);
-    stroke: var(--green);
-    stroke-width: 2.2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .hacker-logo .mask {
-    fill: #010806;
-    stroke: rgba(94, 208, 255, .6);
-    stroke-width: 1.4;
-  }
-
-  .hacker-logo .eyes {
-    fill: none;
-    stroke: var(--cyan);
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .hacker-logo .facial-line {
-    fill: none;
-    stroke: rgba(102, 255, 181, .88);
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .hacker-logo .terminal-line {
-    fill: none;
-    stroke: var(--green);
-    stroke-width: 1.6;
-    stroke-linecap: round;
-  }
 
   .eyebrow,
   .section-kicker,
@@ -1311,14 +1260,6 @@
 <canvas class="signal-rain" id="signalRain" aria-hidden="true"></canvas>
 <div class="boot-sequence" id="bootSequence" aria-hidden="true">
   <div class="boot-core">
-    <svg class="hacker-logo" viewBox="0 0 64 64" role="img" aria-hidden="true">
-      <path class="hood" d="M32 5C20 6 11 15 9 30l4 25h38l4-25C53 15 44 6 32 5Z"/>
-      <path class="hood" d="M17 17c4 2 7 2 10 0m20 0c-4 2-7 2-10 0M13 55l10-8h18l10 8"/>
-      <path class="mask" d="M32 11c-10 0-16 7-16 17 0 13 7 23 16 27 9-4 16-14 16-27 0-10-6-17-16-17Z"/>
-      <path class="eyes" d="M20 25c4-3 7-3 11-1m13 1c-4-3-7-3-11-1M21 29c3 2 6 2 9 0m13 0c-3 2-6 2-9 0"/>
-      <path class="facial-line" d="m32 28-2 8 2 2 2-2M24 38c3-1 5 0 8 3 3-3 5-4 8-3-2 4-5 5-8 3-3 2-6 1-8-3Z"/>
-      <path class="terminal-line" d="M25 47c4 3 10 3 14 0"/>
-    </svg>
     <div class="boot-label">Hacker's Lair</div>
     <div class="boot-subtitle">Process Control / Secure Boot</div>
     <div class="boot-lines">
@@ -1332,7 +1273,7 @@
 <div class="desktop-frame">
 <header class="app-titlebar" id="appTitlebar">
   <div class="titlebar-drag">
-    <img class="titlebar-mark" src="/icon.ico?v=terminal-core-3" alt="">
+    <img class="titlebar-mark" src="/icon.ico?v=command-line-v1" alt="">
     <div class="titlebar-copy"><strong>Hacker's Lair</strong></div>
   </div>
   <div class="window-controls" aria-label="Window controls">
