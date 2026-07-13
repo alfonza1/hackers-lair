@@ -86,7 +86,7 @@
       "type": "Python trading workstation",
       "components": [
         { "name": "dashboard", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot", "command": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot\\.venv\\Scripts\\python.exe -m tradebot dashboard", "port": 8000, "match": "-m tradebot dashboard" },
-        { "name": "freqtrade", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot\\freqtrade", "command": "docker compose -p crypto-bot-freqtrade up", "port": 8080, "track": "process", "match": "-p crypto-bot-freqtrade up" }
+        { "name": "freqtrade", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot\\freqtrade", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File Start-Freqtrade.ps1 -Foreground", "port": 8080, "track": "process", "match": "Start-Freqtrade.ps1 -Foreground" }
       ]
     },
     {
