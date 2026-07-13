@@ -894,6 +894,24 @@
     overflow-wrap: anywhere;
   }
 
+  .skill-card.personal { border-color: rgba(91, 220, 255, .36); }
+
+  .skill-card.default {
+    opacity: .84;
+    border-style: dashed;
+  }
+
+  .skill-card .machine-screen { grid-template-columns: minmax(0, 1fr); }
+
+  .skill-desc {
+    max-width: 920px;
+    margin: 11px 0 2px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+
   .module-strip {
     display: grid;
     gap: 0;
@@ -1295,7 +1313,7 @@
       <div>
         <div class="eyebrow">Hacker's Lair</div>
         <h1 data-text="PROCESS CONTROL">Process Control<span class="cursor" aria-hidden="true"></span></h1>
-        <p class="top-sub">Low-light command room for local targets and port signals.</p>
+        <p class="top-sub">Low-light command room for local targets, port signals, scripts, and AI skills.</p>
       </div>
     </div>
     <div class="node-strip" aria-label="System state">
@@ -1314,10 +1332,11 @@
           <h2 id="viewTitle">Targets</h2>
         </div>
         <div class="controls">
-          <div class="view-tabs" role="tablist" aria-label="Target view">
+          <div class="view-tabs" role="tablist" aria-label="Console view">
             <button class="view-tab active" data-view="projects" role="tab" aria-selected="true">Targets</button>
             <button class="view-tab" data-view="processes" role="tab" aria-selected="false">Port Signals</button>
             <button class="view-tab" data-view="scripts" role="tab" aria-selected="false">Scripts</button>
+            <button class="view-tab" data-view="skills" role="tab" aria-selected="false">Skills</button>
           </div>
           <button class="utility" id="refreshBtn" type="button">Refresh</button>
         </div>
@@ -1327,6 +1346,7 @@
           <input id="search" type="text" autocomplete="off" placeholder="filter targets by name, branch, module, path, pid, or port">
         </div>
         <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
+        <button class="utility" id="defaultSkillsToggle" type="button" hidden>Default Skills</button>
       </div>
       <div class="target-list" id="targetList"></div>
       <div class="empty" id="emptyState" hidden>No matching targets detected.</div>
@@ -1340,8 +1360,8 @@
         </div>
       </div>
       <div class="intel-body">
-        <div class="intel-row"><span class="intel-label">Live Targets</span><strong class="intel-value" id="liveCount">0</strong></div>
-        <div class="intel-row"><span class="intel-label">Dormant Targets</span><strong class="intel-value" id="dormantCount">0</strong></div>
+        <div class="intel-row"><span class="intel-label" id="liveLabel">Live Targets</span><strong class="intel-value" id="liveCount">0</strong></div>
+        <div class="intel-row"><span class="intel-label" id="dormantLabel">Dormant Targets</span><strong class="intel-value" id="dormantCount">0</strong></div>
         <div class="intel-row"><span class="intel-label">CPU Usage</span><strong class="intel-value" id="cpuUsage">N/A</strong><span class="bar"><span id="cpuBar"></span></span></div>
         <div class="intel-row"><span class="intel-label">Memory Usage</span><strong class="intel-value" id="memoryUsage">N/A</strong><span class="bar"><span id="memoryBar"></span></span></div>
         <div class="intel-row"><span class="intel-label">Last Command</span><strong class="intel-value" id="lastCommand">NONE</strong></div>
@@ -1379,14 +1399,23 @@
   const RAIN_TRAIL_LENGTH = 5;
   const RAIN_SPEED = .2;
   const RAIN_GLYPHS = '01<>[]{}#/\\$+-=:;';
+  const VIEW_CONFIG = {
+    projects: { title: 'Targets', placeholder: 'filter targets by name, branch, module, path, pid, or port', empty: 'No matching targets detected.' },
+    processes: { title: 'Port Signals', placeholder: 'filter signals by name, path, pid, or port', empty: 'No matching port signals detected.' },
+    scripts: { title: 'Scripts', placeholder: 'filter scripts by name, file, or description', empty: 'No matching scripts detected.' },
+    skills: { title: 'Skills', placeholder: 'filter skills by name, LLM, source, or description', empty: 'No matching skills detected.' },
+  };
 
   const state = {
     view: 'projects',
     projects: [],
     processes: [],
     scripts: [],
+    skills: [],
+    skillsLoaded: false,
     system: null,
     showSystem: false,
+    showDefaultSkills: false,
     query: '',
     busy: new Map(),
     confirming: new Map(),
@@ -1931,6 +1960,36 @@
     `;
   }
 
+  function skillCard(skill) {
+    const personal = skill.kind === 'personal';
+    const status = { key: personal ? 'live' : 'dormant', label: personal ? 'PERSONAL' : 'DEFAULT' };
+    return `
+      <article class="target-card skill-card ${esc(skill.kind)}" data-card-kind="skill" data-skill-id="${esc(skill.id)}">
+        <div class="machine-bar">
+          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="machine-label">skill-rig :: ${esc(skill.name)}</span>
+          <span class="machine-node">${esc(skill.llm)}</span>
+        </div>
+        <div class="machine-screen">
+          <div class="target-main">
+            <div class="target-title">
+              <h3><span class="target-prefix">SKILL</span>${esc(skill.name)}</h3>
+              <span class="target-type">${esc(skill.origin)}</span>
+              ${statusBadge(status)}
+            </div>
+            <p class="skill-desc">${esc(skill.description)}</p>
+            <div class="target-fields">
+              ${field('LLM', skill.llm)}
+              ${field('Scope', personal ? 'Personal folder' : 'Default catalog')}
+              ${field('Invoke', skill.invocation)}
+              ${field('Visibility', personal ? 'Shown by default' : 'Filtered by default')}
+            </div>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
   function visibleProjects() {
     const q = state.query;
     return state.projects.filter((project) => {
@@ -2003,29 +2062,49 @@
     });
   }
 
+  function visibleSkills() {
+    const q = state.query;
+    return state.skills.filter((skill) => {
+      if (skill.kind === 'default' && !state.showDefaultSkills) return false;
+      if (!q) return true;
+      const haystack = [
+        skill.name,
+        skill.description,
+        skill.llm,
+        skill.kind,
+        skill.origin,
+        skill.invocation,
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+
   function renderTargets() {
     const rows = state.view === 'projects' ? visibleProjects()
       : state.view === 'processes' ? visibleProcesses()
-      : visibleScripts();
+      : state.view === 'scripts' ? visibleScripts()
+      : visibleSkills();
+    const scanningSkills = state.view === 'skills' && !state.skillsLoaded;
     $('emptyState').hidden = rows.length > 0;
+    $('emptyState').textContent = scanningSkills ? 'Scanning Claude and Codex skill folders...' : VIEW_CONFIG[state.view].empty;
     $('targetList').innerHTML = rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
       : state.view === 'processes' ? processCard(row)
-      : scriptCard(row)
+      : state.view === 'scripts' ? scriptCard(row)
+      : skillCard(row)
     ).join('');
   }
 
   function setView(view) {
+    const config = VIEW_CONFIG[view];
+    if (!config) return;
     state.view = view;
     state.query = '';
     $('search').value = '';
-    $('viewTitle').textContent = view === 'projects' ? 'Targets' : view === 'processes' ? 'Port Signals' : 'Scripts';
-    $('search').placeholder = view === 'projects'
-      ? 'filter targets by name, branch, module, path, pid, or port'
-      : view === 'processes'
-      ? 'filter signals by name, path, pid, or port'
-      : 'filter scripts by name, file, or description';
+    $('viewTitle').textContent = config.title;
+    $('search').placeholder = config.placeholder;
     $('systemToggle').hidden = view !== 'processes';
+    $('defaultSkillsToggle').hidden = view !== 'skills';
     document.querySelectorAll('.view-tab').forEach((tab) => {
       const active = tab.dataset.view === view;
       tab.classList.toggle('active', active);
@@ -2035,7 +2114,8 @@
     updateIntel();
     if (view === 'projects') loadProjects(true);
     else if (view === 'processes') Promise.all([loadProjects(true), loadProcesses(true)]);
-    else loadScripts(true);
+    else if (view === 'scripts') loadScripts(true);
+    else loadSkills(true);
   }
 
   function updateClock() {
@@ -2058,6 +2138,9 @@
     } else if (state.view === 'scripts') {
       rows = state.scripts;
       live = rows.filter((row) => row.running).length;
+    } else if (state.view === 'skills') {
+      rows = state.skills;
+      live = rows.filter((row) => row.kind === 'personal').length;
     } else {
       rows = state.processes.filter((process) => !isConfiguredProjectProcess(process) && (state.showSystem || !process.system));
       live = rows.filter((row) => !row.stopped).length;
@@ -2068,6 +2151,8 @@
     const memoryUsed = state.system?.memory?.usedPercent;
     const cpu = state.system?.cpuPercent;
 
+    $('liveLabel').textContent = state.view === 'skills' ? 'Personal Skills' : 'Live Targets';
+    $('dormantLabel').textContent = state.view === 'skills' ? 'Default Skills' : 'Dormant Targets';
     $('liveCount').textContent = String(live);
     $('dormantCount').textContent = String(dormant);
     $('cpuUsage').textContent = formatCpu(cpu);
@@ -2126,6 +2211,25 @@
     } catch (error) {
       toast('Signal lost: script registry unavailable', true);
       pushFeed('SCRIPT_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    }
+  }
+
+  async function loadSkills(quiet = false) {
+    try {
+      const data = await fetchJson('/api/skills');
+      state.skills = data.skills || [];
+      state.skillsLoaded = true;
+      if (!quiet) {
+        const personal = state.skills.filter((skill) => skill.kind === 'personal').length;
+        pushFeed('SKILL_REGISTRY_SYNCED', `personal=${personal} total=${state.skills.length}`, 'info');
+      }
+      renderTargets();
+      updateIntel();
+    } catch (error) {
+      state.skillsLoaded = true;
+      renderTargets();
+      toast('Signal lost: skill registry unavailable', true);
+      pushFeed('SKILL_REGISTRY_FAILED', `reason=${error.message}`, 'error');
     }
   }
 
@@ -2475,7 +2579,8 @@
       loadSystem(),
       state.view === 'projects' ? loadProjects(true)
         : state.view === 'processes' ? Promise.all([loadProjects(true), loadProcesses(true)])
-        : loadScripts(true),
+        : state.view === 'scripts' ? loadScripts(true)
+        : loadSkills(true),
     ]);
   });
 
@@ -2485,6 +2590,13 @@
     $('systemToggle').textContent = state.showSystem ? 'Hide System' : 'System Signals';
     renderTargets();
     updateIntel();
+  });
+
+  $('defaultSkillsToggle').addEventListener('click', () => {
+    state.showDefaultSkills = !state.showDefaultSkills;
+    $('defaultSkillsToggle').classList.toggle('toggled', state.showDefaultSkills);
+    $('defaultSkillsToggle').textContent = state.showDefaultSkills ? 'Hide Defaults' : 'Default Skills';
+    renderTargets();
   });
 
   $('clearFeed').addEventListener('click', () => {
@@ -2508,6 +2620,7 @@
       loadSystem();
       if (state.view === 'projects') loadProjects(true);
       else if (state.view === 'scripts') loadScripts(true);
+      else if (state.view === 'skills') loadSkills(true);
       else {
         loadProjects(true);
         loadProcesses(true);

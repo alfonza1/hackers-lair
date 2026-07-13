@@ -45,6 +45,7 @@ window controls, and scrollbar. The control service listens only on
 | **Targets** | Starts or stops every configured component of a project as one unit, while showing component status, the checked-out Git branch, and logs. |
 | **Port Signals** | Shows listening localhost ports, labels known development servers, stops processes, and relaunches processes previously stopped by the console. |
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
+| **Skills** | Live-scans personal Claude and Codex skills, identifies which LLM uses each one, and keeps bundled defaults behind an optional filter. |
 | **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |
 | **Signal Tape** | Keeps an operator-readable event feed for starts, stops, refreshes, and failures. |
 | **Cinematic shell** | Runs a short secure-boot handoff, ambient signal rain, scan passes, and subtle operator-mark activity without covering the controls. |
@@ -61,6 +62,7 @@ flowchart LR
     API --> PROJECTS["projects.json<br/>targets + components"]
     API --> WINDOWS["Windows process + port tools"]
     API --> SCRIPTS["scripts.json<br/>AutoIt discovery"]
+    API --> SKILLS["Claude + Codex homes<br/>live skill discovery"]
     API --> FIREFOX["Firefox<br/>managed project UIs"]
 ```
 
@@ -221,12 +223,26 @@ configured executable and folder. Start and stop detection matches the script's
 absolute path in the AutoIt process command line, so keep script filenames
 distinct within the configured folder.
 
+### Skill discovery
+
+The **Skills** surface reads personal skill metadata directly from
+`~/.claude/skills/*/SKILL.md` and `~/.codex/skills/*/SKILL.md`. It re-scans
+while the surface is open, so adding, editing, or removing a personal skill
+does not require a Hacker's Lair restart.
+
+Personal skills are shown first and identify their Claude or Codex invocation.
+The **Default Skills** filter is off initially; enabling it adds Claude's
+bundled skill catalog plus Codex system and installed-plugin skills. Only the
+skill name, description, LLM, scope, and invocation are sent to the local UI —
+home-directory paths are not exposed.
+
 ## Repository map
 
 | Path | Responsibility |
 |---|---|
 | `public/index.html` | Complete Process Control interface and browser-side behavior |
 | `server.js` | Local HTTP service, process discovery, launch, stop, and log APIs |
+| `lib/skill-registry.js` | Live Claude and Codex skill metadata discovery |
 | `desktop.js` | Frameless Electron window lifecycle |
 | `preload.js` | Restricted bridge for in-app window controls |
 | `projects.json` | Project and component launch configuration |
