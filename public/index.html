@@ -482,7 +482,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) 340px;
     grid-template-areas:
-      "matrix intel"
+      "matrix side"
       "feed feed";
     gap: 18px;
   }
@@ -517,7 +517,13 @@
   .cinematic-ready .feed-panel { animation-delay: 1.76s; }
 
   .matrix { grid-area: matrix; }
-  .intel { grid-area: intel; }
+  .side-rack {
+    grid-area: side;
+    display: grid;
+    gap: 18px;
+    align-self: start;
+    min-width: 0;
+  }
   .feed-panel { grid-area: feed; }
 
   .panel-head {
@@ -1088,39 +1094,36 @@
     transition: width .2s;
   }
 
-  .power-deck {
+  .power-panel {
+    align-self: start;
+    overflow: hidden;
+  }
+
+  .power-panel .panel-head {
+    border-bottom-color: rgba(255, 201, 92, .18);
+  }
+
+  .power-panel .section-kicker { color: var(--amber); }
+
+  .power-scope {
+    color: var(--dim);
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  .power-body {
     min-width: 0;
     max-width: 100%;
-    margin-top: 16px;
-    padding: 12px;
+    padding: 14px 16px 16px;
     overflow: hidden;
-    border: 1px solid rgba(255, 201, 92, .22);
-    border-radius: 5px;
     background:
       repeating-linear-gradient(135deg, rgba(255, 201, 92, .025) 0 1px, transparent 1px 9px),
       rgba(2, 8, 7, .66);
   }
 
-  .power-deck-head {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    justify-content: space-between;
-    color: var(--amber);
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-  }
-
-  .power-deck-head small {
-    color: var(--dim);
-    font-size: 8px;
-    letter-spacing: .12em;
-  }
-
   .power-copy {
-    margin-top: 7px;
     color: var(--muted);
     font-size: 10px;
     line-height: 1.5;
@@ -1416,7 +1419,7 @@
       grid-template-columns: 1fr;
       grid-template-areas:
         "matrix"
-        "intel"
+        "side"
         "feed";
     }
 
@@ -1579,23 +1582,34 @@
       <div class="empty" id="emptyState" hidden>No matching targets detected.</div>
     </section>
 
-    <aside class="panel intel" aria-labelledby="intelTitle">
-      <div class="panel-head">
-        <div>
-          <div class="section-kicker">Intel Rack</div>
-          <h2 id="intelTitle">System</h2>
+    <div class="side-rack">
+      <aside class="panel intel" aria-labelledby="intelTitle">
+        <div class="panel-head">
+          <div>
+            <div class="section-kicker">Intel Rack</div>
+            <h2 id="intelTitle">System</h2>
+          </div>
         </div>
-      </div>
-      <div class="intel-body">
-        <div class="intel-row"><span class="intel-label" id="liveLabel">Live Targets</span><strong class="intel-value" id="liveCount">0</strong></div>
-        <div class="intel-row"><span class="intel-label" id="dormantLabel">Dormant Targets</span><strong class="intel-value" id="dormantCount">0</strong></div>
-        <div class="intel-row"><span class="intel-label">CPU Usage</span><strong class="intel-value" id="cpuUsage">N/A</strong><span class="bar"><span id="cpuBar"></span></span></div>
-        <div class="intel-row"><span class="intel-label">Memory Usage</span><strong class="intel-value" id="memoryUsage">N/A</strong><span class="bar"><span id="memoryBar"></span></span></div>
-        <div class="intel-row"><span class="intel-label">Last Command</span><strong class="intel-value" id="lastCommand">NONE</strong></div>
-        <div class="intel-row"><span class="intel-label">Last Target</span><strong class="intel-value" id="lastTarget">NONE</strong></div>
-        <div class="intel-row"><span class="intel-label">Current State</span><strong class="intel-value" id="currentState">STABLE</strong></div>
-        <div class="power-deck" id="powerDeck">
-          <div class="power-deck-head"><span>Desktop Core</span><small>Host only</small></div>
+        <div class="intel-body">
+          <div class="intel-row"><span class="intel-label" id="liveLabel">Live Targets</span><strong class="intel-value" id="liveCount">0</strong></div>
+          <div class="intel-row"><span class="intel-label" id="dormantLabel">Dormant Targets</span><strong class="intel-value" id="dormantCount">0</strong></div>
+          <div class="intel-row"><span class="intel-label">CPU Usage</span><strong class="intel-value" id="cpuUsage">N/A</strong><span class="bar"><span id="cpuBar"></span></span></div>
+          <div class="intel-row"><span class="intel-label">Memory Usage</span><strong class="intel-value" id="memoryUsage">N/A</strong><span class="bar"><span id="memoryBar"></span></span></div>
+          <div class="intel-row"><span class="intel-label">Last Command</span><strong class="intel-value" id="lastCommand">NONE</strong></div>
+          <div class="intel-row"><span class="intel-label">Last Target</span><strong class="intel-value" id="lastTarget">NONE</strong></div>
+          <div class="intel-row"><span class="intel-label">Current State</span><strong class="intel-value" id="currentState">STABLE</strong></div>
+        </div>
+      </aside>
+
+      <aside class="panel power-panel" aria-labelledby="powerTitle">
+        <div class="panel-head">
+          <div>
+            <div class="section-kicker">Lair Application</div>
+            <h2 id="powerTitle">Desktop Core</h2>
+          </div>
+          <span class="power-scope">Host only</span>
+        </div>
+        <div class="power-body" id="powerDeck">
           <p class="power-copy">Restart or shut down the Lair desktop application. Managed targets keep running.</p>
           <div class="power-controls">
             <button class="power-command restart" type="button" data-power-action="restart">
@@ -1607,8 +1621,8 @@
           </div>
           <p class="power-note" id="powerNote">Two-step confirmation required.</p>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </div>
 
     <section class="panel feed-panel" aria-labelledby="feedTitle">
       <div class="panel-head">
