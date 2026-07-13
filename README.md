@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/hacker-mark.svg" width="112" alt="Hacker's Lair hooded operator mark">
+  <img src="docs/command-line-mark.png" width="112" alt="Hacker's Lair command-line mark">
 </p>
 
 <h1 align="center">Hacker's Lair</h1>
