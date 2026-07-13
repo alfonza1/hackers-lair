@@ -1088,6 +1088,226 @@
     transition: width .2s;
   }
 
+  .power-deck {
+    min-width: 0;
+    max-width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 201, 92, .22);
+    border-radius: 5px;
+    background:
+      repeating-linear-gradient(135deg, rgba(255, 201, 92, .025) 0 1px, transparent 1px 9px),
+      rgba(2, 8, 7, .66);
+  }
+
+  .power-deck-head {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--amber);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  .power-deck-head small {
+    color: var(--dim);
+    font-size: 8px;
+    letter-spacing: .12em;
+  }
+
+  .power-copy {
+    margin-top: 7px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .power-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 11px;
+  }
+
+  .power-command {
+    min-width: 0;
+    min-height: 58px;
+    padding: 8px;
+    border: 1px solid rgba(94, 208, 255, .28);
+    border-radius: 4px;
+    color: var(--cyan);
+    background: rgba(94, 208, 255, .045);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color .16s, color .16s, background .16s, box-shadow .16s, transform .08s;
+  }
+
+  .power-command.shutdown {
+    border-color: rgba(255, 96, 112, .3);
+    color: var(--red);
+    background: rgba(255, 96, 112, .045);
+  }
+
+  .power-command:hover:not(:disabled) {
+    border-color: currentColor;
+    color: var(--text);
+    box-shadow: inset 0 0 18px rgba(94, 208, 255, .06);
+  }
+
+  .power-command:active:not(:disabled) { transform: translateY(1px); }
+
+  .power-command.armed {
+    border-color: var(--amber);
+    color: var(--amber);
+    background: rgba(255, 201, 92, .1);
+    box-shadow: 0 0 18px rgba(255, 201, 92, .08), inset 0 0 18px rgba(255, 201, 92, .04);
+    animation: armedPulse .7s steps(2, end) infinite;
+  }
+
+  .power-command:disabled {
+    opacity: .38;
+    cursor: not-allowed;
+  }
+
+  .power-command strong,
+  .power-command span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .power-command strong {
+    font-size: 11px;
+    letter-spacing: .07em;
+  }
+
+  .power-command span {
+    margin-top: 4px;
+    color: var(--dim);
+    font-size: 8px;
+    letter-spacing: .06em;
+  }
+
+  .power-note {
+    min-height: 30px;
+    margin-top: 8px;
+    color: var(--dim);
+    font-size: 9px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .power-note.armed { color: var(--amber); }
+
+  .power-sequence {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    overflow: hidden;
+    background:
+      linear-gradient(180deg, rgba(1, 8, 6, .97), rgba(1, 4, 4, .99)),
+      #010504;
+  }
+
+  .desktop-host .power-sequence { top: 42px; }
+
+  .power-sequence::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(180deg, rgba(255,255,255,.025) 0 1px, transparent 1px 7px),
+      repeating-linear-gradient(90deg, rgba(94, 208, 255, .018) 0 1px, transparent 1px 64px);
+    opacity: .4;
+    pointer-events: none;
+  }
+
+  .power-sequence-core {
+    position: relative;
+    width: min(560px, 100%);
+    padding: 28px;
+    border: 1px solid rgba(94, 208, 255, .35);
+    background: rgba(1, 10, 8, .94);
+    box-shadow: 0 0 80px rgba(94, 208, 255, .08), inset 0 0 46px rgba(94, 208, 255, .035);
+    clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+    animation: powerCoreIn 260ms steps(5, end) both;
+  }
+
+  .power-sequence[data-action="shutdown"] .power-sequence-core {
+    border-color: rgba(255, 96, 112, .48);
+    box-shadow: 0 0 80px rgba(255, 96, 112, .1), inset 0 0 46px rgba(255, 96, 112, .035);
+  }
+
+  .power-sequence h2 {
+    margin-top: 5px;
+    color: var(--text);
+    font-size: clamp(22px, 5vw, 34px);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .power-sequence-subtitle {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .power-sequence-lines {
+    display: grid;
+    gap: 8px;
+    margin-top: 24px;
+  }
+
+  .power-sequence-line {
+    display: flex;
+    gap: 18px;
+    justify-content: space-between;
+    padding-bottom: 7px;
+    border-bottom: 1px solid rgba(102, 255, 181, .08);
+    color: var(--dim);
+    font-size: 10px;
+    letter-spacing: .06em;
+  }
+
+  .power-sequence-line strong { color: var(--dim); }
+  .power-sequence-line.complete { color: var(--text); }
+  .power-sequence-line.complete strong { color: var(--green); }
+  .power-sequence[data-action="shutdown"] .power-sequence-line.complete strong { color: var(--red); }
+
+  .power-sequence-progress {
+    height: 4px;
+    margin-top: 20px;
+    overflow: hidden;
+    background: rgba(94, 208, 255, .08);
+  }
+
+  .power-sequence-progress span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan), var(--green));
+    box-shadow: 0 0 18px rgba(94, 208, 255, .5);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1.8s linear;
+  }
+
+  .power-sequence[data-action="shutdown"] .power-sequence-progress span {
+    background: linear-gradient(90deg, var(--amber), var(--red));
+  }
+
+  .power-sequence.active .power-sequence-progress span { transform: scaleX(1); }
+
   .feed-panel .panel-head { padding-bottom: 12px; }
 
   .feed-lines {
@@ -1150,6 +1370,11 @@
   @keyframes sweep { 0% { transform: translateX(-5px); opacity: .2; } 50% { opacity: 1; } 100% { transform: translateX(5px); opacity: .2; } }
   @keyframes livePulse { 50% { box-shadow: inset 0 0 32px rgba(117, 255, 199, .055), 0 0 24px rgba(117, 255, 199, .075); } }
   @keyframes feedIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes armedPulse { 50% { filter: brightness(1.3); } }
+  @keyframes powerCoreIn {
+    from { opacity: 0; transform: scale(.97); filter: blur(3px); }
+    to { opacity: 1; transform: scale(1); filter: blur(0); }
+  }
   @keyframes bootCurtain {
     0%, 60% { opacity: 1; visibility: visible; }
     82% { opacity: .72; }
@@ -1253,6 +1478,8 @@
     .action-cluster { display: grid; grid-template-columns: 1fr; }
     .action { width: 100%; }
     .feed-line { grid-template-columns: 1fr; gap: 0; padding: 7px 0; border-bottom: 1px solid rgba(117, 255, 199, .07); }
+    .power-controls { grid-template-columns: 1fr; }
+    .power-sequence-core { padding: 22px 18px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1367,6 +1594,19 @@
         <div class="intel-row"><span class="intel-label">Last Command</span><strong class="intel-value" id="lastCommand">NONE</strong></div>
         <div class="intel-row"><span class="intel-label">Last Target</span><strong class="intel-value" id="lastTarget">NONE</strong></div>
         <div class="intel-row"><span class="intel-label">Current State</span><strong class="intel-value" id="currentState">STABLE</strong></div>
+        <div class="power-deck" id="powerDeck">
+          <div class="power-deck-head"><span>Desktop Core</span><small>Host only</small></div>
+          <p class="power-copy">Restart or shut down the Hacker's Lair desktop shell. Managed targets keep running.</p>
+          <div class="power-controls">
+            <button class="power-command restart" type="button" data-power-action="restart">
+              <strong>Restart</strong><span>Reload host</span>
+            </button>
+            <button class="power-command shutdown" type="button" data-power-action="shutdown">
+              <strong>Shutdown</strong><span>Exit console</span>
+            </button>
+          </div>
+          <p class="power-note" id="powerNote">Two-step confirmation required.</p>
+        </div>
       </div>
     </aside>
 
@@ -1386,6 +1626,20 @@
 </div>
 </div>
 <div id="toast" role="status"></div>
+<div class="power-sequence" id="powerSequence" role="alert" aria-live="assertive" hidden>
+  <div class="power-sequence-core">
+    <div class="section-kicker" id="powerSequenceKicker">Desktop Core</div>
+    <h2 id="powerSequenceTitle">Restart Sequence</h2>
+    <p class="power-sequence-subtitle" id="powerSequenceSubtitle">Preparing a clean host handoff.</p>
+    <div class="power-sequence-lines">
+      <div class="power-sequence-line" data-power-step="0"><span>OPERATOR INPUT</span><strong>LOCKING</strong></div>
+      <div class="power-sequence-line" data-power-step="1"><span>CONSOLE STATE</span><strong>FLUSHING</strong></div>
+      <div class="power-sequence-line" data-power-step="2"><span>DESKTOP HOST</span><strong>HANDOFF</strong></div>
+      <div class="power-sequence-line" data-power-step="3"><span>POWER SIGNAL</span><strong>QUEUED</strong></div>
+    </div>
+    <div class="power-sequence-progress" aria-hidden="true"><span></span></div>
+  </div>
+</div>
 
 <script>
   const $ = (id) => document.getElementById(id);
@@ -1399,6 +1653,7 @@
   const RAIN_TRAIL_LENGTH = 5;
   const RAIN_SPEED = .2;
   const RAIN_GLYPHS = '01<>[]{}#/\\$+-=:;';
+  const POWER_CONFIRM_WINDOW_MS = 5000;
   const VIEW_CONFIG = {
     projects: { title: 'Targets', placeholder: 'filter targets by name, branch, module, path, pid, or port', empty: 'No matching targets detected.' },
     processes: { title: 'Port Signals', placeholder: 'filter signals by name, path, pid, or port', empty: 'No matching port signals detected.' },
@@ -1542,6 +1797,89 @@
       const button = $('maximizeWindow');
       button.classList.toggle('is-maximized', isMaximized);
       button.setAttribute('aria-label', isMaximized ? 'Restore' : 'Maximize');
+    });
+  }
+
+  let armedPowerAction = null;
+  let powerArmTimer = null;
+
+  function resetPowerControls(message = 'Two-step confirmation required.') {
+    clearTimeout(powerArmTimer);
+    powerArmTimer = null;
+    armedPowerAction = null;
+    document.querySelectorAll('[data-power-action]').forEach((button) => {
+      button.classList.remove('armed');
+      button.querySelector('strong').textContent = button.dataset.powerAction === 'restart' ? 'Restart' : 'Shutdown';
+    });
+    const note = $('powerNote');
+    note.classList.remove('armed');
+    note.textContent = message;
+  }
+
+  async function runPowerSequence(action, desktopWindow) {
+    const restarting = action === 'restart';
+    const overlay = $('powerSequence');
+    const stepDelay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 90 : 430;
+    const finalStatuses = restarting
+      ? ['LOCKED', 'SAVED', 'READY', 'RELAUNCH']
+      : ['LOCKED', 'SAVED', 'READY', 'EXIT'];
+
+    clearTimeout(powerArmTimer);
+    document.querySelectorAll('[data-power-action]').forEach((button) => { button.disabled = true; });
+    $('powerSequenceKicker').textContent = restarting ? 'Desktop Core / Warm Cycle' : 'Desktop Core / Final Signal';
+    $('powerSequenceTitle').textContent = restarting ? 'Restart Sequence' : 'Shutdown Sequence';
+    $('powerSequenceSubtitle').textContent = restarting
+      ? 'Preparing a clean desktop host handoff.'
+      : 'Closing the console. Managed targets will remain online.';
+    overlay.dataset.action = action;
+    overlay.querySelectorAll('[data-power-step]').forEach((line) => line.classList.remove('complete'));
+    overlay.hidden = false;
+    requestAnimationFrame(() => overlay.classList.add('active'));
+
+    recordAction('console', 'desktop-host', action.toUpperCase(), "Hacker's Lair");
+    pushFeed(restarting ? 'CORE_RESTART_CONFIRMED' : 'CORE_SHUTDOWN_CONFIRMED', 'scope=desktop_host managed_targets=unchanged', 'warn');
+
+    const lines = [...overlay.querySelectorAll('[data-power-step]')];
+    for (let index = 0; index < lines.length; index += 1) {
+      await sleep(stepDelay);
+      lines[index].classList.add('complete');
+      lines[index].querySelector('strong').textContent = finalStatuses[index];
+    }
+
+    await sleep(stepDelay);
+    desktopWindow[action]();
+  }
+
+  function installPowerControls() {
+    const desktopWindow = window.hackerLairWindow;
+    const buttons = [...document.querySelectorAll('[data-power-action]')];
+    if (!desktopWindow?.restart || !desktopWindow?.shutdown) {
+      buttons.forEach((button) => { button.disabled = true; });
+      $('powerNote').textContent = 'Available in the installed desktop host.';
+      return;
+    }
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.powerAction;
+        if (armedPowerAction === action) {
+          runPowerSequence(action, desktopWindow);
+          return;
+        }
+
+        resetPowerControls();
+        armedPowerAction = action;
+        button.classList.add('armed');
+        button.querySelector('strong').textContent = `Confirm ${action}`;
+        $('powerNote').classList.add('armed');
+        $('powerNote').textContent = `${action.toUpperCase()} armed for 5 seconds. Click again to execute.`;
+        pushFeed('CORE_POWER_ARMED', `action=${action} confirm=required`, 'warn');
+        powerArmTimer = setTimeout(() => resetPowerControls('Power command expired. Two-step confirmation required.'), POWER_CONFIRM_WINDOW_MS);
+      });
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && armedPowerAction) resetPowerControls('Power command cancelled.');
     });
   }
 
@@ -2629,6 +2967,7 @@
   }
 
   installWindowControls();
+  installPowerControls();
   installCinematicMode();
   boot();
 </script>

@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { APP_NAME, APP_USER_MODEL_ID } = require('./app-config');
+const { performPowerAction } = require('./lib/app-power');
 
 const APP_URL = 'http://127.0.0.1:4949/?desktop=1';
 const APP_ORIGIN = 'http://127.0.0.1:4949';
@@ -137,6 +138,14 @@ ipcMain.on('window:control', (event, action) => {
     sendMaximizeState(window);
   }
   if (action === 'close') window.close();
+});
+
+ipcMain.on('app:power', (event, action) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window !== mainWindow) return;
+
+  if (['restart', 'shutdown'].includes(action)) saveWindowState(window);
+  performPowerAction(action, app);
 });
 
 app.on('second-instance', () => {

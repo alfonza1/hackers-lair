@@ -47,6 +47,7 @@ window controls, and scrollbar. The control service listens only on
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
 | **Skills** | Live-scans personal Claude and Codex skills, identifies which LLM uses each one, and keeps bundled defaults behind an optional filter. |
 | **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |
+| **Desktop Core** | Runs guarded restart and shutdown sequences for the Electron host without stopping managed projects or the local control service. |
 | **Signal Tape** | Keeps an operator-readable event feed for starts, stops, refreshes, and failures. |
 | **Cinematic shell** | Runs a short secure-boot handoff, ambient signal rain, scan passes, and subtle operator-mark activity without covering the controls. |
 
@@ -68,6 +69,10 @@ flowchart LR
 
 The Node service uses built-in modules and Windows tools such as `netstat`,
 `tasklist`, and `taskkill`. Electron is the only npm dependency.
+
+The Intel Rack's **Desktop Core** controls require two clicks within five
+seconds. **Restart** relaunches the Electron host; **Shutdown** exits it. Both
+leave managed targets and the background localhost control service running.
 
 ## Quick start
 
