@@ -49,7 +49,13 @@ test('project stop runs its graceful stop command before process cleanup', async
   const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'project-manager-stop-'));
   const configPath = path.join(tempDirectory, 'projects.json');
   const stopMarker = path.join(tempDirectory, 'graceful-stop.txt');
+  const workerPath = path.join(tempDirectory, 'worker.js');
+  const workerPort = await freePort();
   const match = `pm-stop-command-test-${process.pid}`;
+  fs.writeFileSync(
+    workerPath,
+    "require('node:http').createServer((_request, response) => response.end('ok')).listen(Number(process.argv[2]), '127.0.0.1');",
+  );
   const projects = {
     projects: [{
       name: 'Stop command fixture',
@@ -58,9 +64,9 @@ test('project stop runs its graceful stop command before process cleanup', async
         name: 'worker',
         role: 'backend',
         cwd: tempDirectory,
-        command: `powershell -NoProfile -NonInteractive -Command "$null = '${match}'; Start-Sleep -Seconds 120"`,
+        command: `"${process.execPath}" "${workerPath}" ${workerPort} ${match}`,
         stopCommand: `powershell -NoProfile -NonInteractive -Command "Set-Content -LiteralPath '${stopMarker.replaceAll("'", "''")}' -Value stopped"`,
-        port: null,
+        port: workerPort,
         track: 'process',
         match,
       }],

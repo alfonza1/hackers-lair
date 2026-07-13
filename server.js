@@ -627,7 +627,12 @@ function annotateProjects(projects, listeners, tracked = []) {
   return projects.map((proj) => {
     const components = (proj.components || []).map((c) => {
       const hits = listenersFor(c, c.track === 'process' ? tracked : listeners);
-      const running = hits.length > 0;
+      const expectedPort = Number(c.port);
+      const requiresReadyPort = c.track === 'process' && Number.isInteger(expectedPort);
+      const readinessListeners = requiresReadyPort
+        ? listeners.filter((listener) => listener.ports.some((port) => port.port === expectedPort))
+        : [];
+      const running = hits.length > 0 && (!requiresReadyPort || readinessListeners.length > 0);
       const rec = launches.get(launchKey(proj.name, c.name));
       if (running && rec) { rec.status = 'running'; rec.reason = ''; } // it made it up
 
@@ -635,7 +640,7 @@ function annotateProjects(projects, listeners, tracked = []) {
       let error = '';
       if (running) status = 'running';
       else if (rec && rec.status === 'errored') { status = 'errored'; error = rec.reason || 'Failed to start.'; }
-      else if (rec && rec.status === 'starting') status = 'starting';
+      else if ((rec && rec.status === 'starting') || hits.length) status = 'starting';
 
       const pids = [...new Set([
         ...hits.map((l) => l.pid),
@@ -665,7 +670,9 @@ function annotateProjects(projects, listeners, tracked = []) {
         startedAt,
         uptimeSeconds: uptimeValues.length ? Math.max(...uptimeValues) : null,
         lastActionAt: (rec && rec.startedAt) || startedTimes[proj.name] || 0,
-        livePorts: [...new Set(hits.flatMap((l) => l.ports.map((p) => p.port)))].sort((a, b) => a - b),
+        livePorts: [...new Set(
+          [...hits, ...readinessListeners].flatMap((l) => l.ports.map((p) => p.port)),
+        )].sort((a, b) => a - b),
       };
     });
     const runningCount = components.filter((c) => c.running).length;
