@@ -1576,7 +1576,7 @@
           <input id="search" type="text" autocomplete="off" placeholder="filter targets by name, branch, module, path, pid, or port">
         </div>
         <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
-        <button class="utility" id="defaultSkillsToggle" type="button" hidden>Default Skills</button>
+        <button class="utility" id="defaultSkillsToggle" type="button" aria-pressed="false" hidden>Default Skills</button>
       </div>
       <div class="target-list" id="targetList"></div>
       <div class="empty" id="emptyState" hidden>No matching targets detected.</div>
@@ -2416,7 +2416,8 @@
   function visibleSkills() {
     const q = state.query;
     return state.skills.filter((skill) => {
-      if (skill.kind === 'default' && !state.showDefaultSkills) return false;
+      const selectedKind = state.showDefaultSkills ? 'default' : 'personal';
+      if (skill.kind !== selectedKind) return false;
       if (!q) return true;
       const haystack = [
         skill.name,
@@ -2944,7 +2945,8 @@
   $('defaultSkillsToggle').addEventListener('click', () => {
     state.showDefaultSkills = !state.showDefaultSkills;
     $('defaultSkillsToggle').classList.toggle('toggled', state.showDefaultSkills);
-    $('defaultSkillsToggle').textContent = state.showDefaultSkills ? 'Hide Defaults' : 'Default Skills';
+    $('defaultSkillsToggle').setAttribute('aria-pressed', String(state.showDefaultSkills));
+    $('defaultSkillsToggle').textContent = state.showDefaultSkills ? 'Personal Skills' : 'Default Skills';
     renderTargets();
   });
 

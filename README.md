@@ -235,10 +235,10 @@ workspace `.agents/skills/*/SKILL.md` folder. It re-scans while the surface is
 open, so adding, editing, or removing a personal skill does not require a
 Hacker's Lair restart.
 
-Personal skills are shown first as shared workspace capabilities. The
-**Default Skills** filter is off initially; enabling it adds bundled, system,
-and installed-plugin skills available to the local agent tools. Only skill
-metadata is sent to the local UI; filesystem paths are not exposed.
+Personal skills are shown first as shared workspace capabilities. Selecting
+**Default Skills** switches to an exclusive view of bundled, system, and
+installed-plugin skills; selecting **Personal Skills** switches back. Only
+skill metadata is sent to the local UI; filesystem paths are not exposed.
 
 ## Repository map
 
