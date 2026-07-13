@@ -9,11 +9,7 @@ $name = "Hacker's Lair"
 $icon = Join-Path $dir 'icon.ico'
 if (-not (Test-Path $icon)) { & (Join-Path $dir 'make-icon.ps1') | Out-Null }
 
-$vbs = Join-Path $dir 'launcher.vbs'
-$wscript = Join-Path $env:SystemRoot 'System32\wscript.exe'
 $startup = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'
-
-$shell = New-Object -ComObject WScript.Shell
 
 # Remove shortcuts from the previous visible names.
 foreach ($old in @(
@@ -25,24 +21,18 @@ foreach ($old in @(
     (Join-Path $startup 'Localhost Manager.lnk')
 )) { if (Test-Path $old) { Remove-Item $old -Force } }
 
-# name -> extra launcher arguments ('' = desktop app, 'boot' = background service only)
-$shortcuts = @{
-    (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\$name.lnk")   = ''
-    (Join-Path ([Environment]::GetFolderPath('Desktop')) "$name.lnk")            = ''
-    (Join-Path $startup "$name.lnk")                                             = 'boot'
+$electron = Join-Path $dir 'node_modules\electron\dist\electron.exe'
+if (-not (Test-Path $electron)) {
+    throw 'Electron is not installed. Run npm install before install.ps1.'
 }
 
-foreach ($lnk in $shortcuts.Keys) {
-    $extra = $shortcuts[$lnk]
-    $sc = $shell.CreateShortcut($lnk)
-    $sc.TargetPath = $wscript
-    $sc.Arguments = '"' + $vbs + '"' + $(if ($extra) { " $extra" } else { '' })
-    $sc.WorkingDirectory = $dir
-    $sc.IconLocation = $icon
-    $sc.Description = "Open Hacker's Lair for projects, ports, and local scripts"
-    $sc.WindowStyle = 1
-    $sc.Save()
-    Write-Output "Created: $lnk"
+# Electron writes the same AppUserModelID to each shortcut that the running
+# desktop process uses. Windows needs that shared identity to associate a pin
+# with the correct window and native icon.
+$shortcutInstaller = Join-Path $dir 'scripts\install-shortcuts.js'
+$installerProcess = Start-Process -FilePath $electron -ArgumentList $shortcutInstaller -WindowStyle Hidden -Wait -PassThru
+if ($installerProcess.ExitCode -ne 0) {
+    throw "Shortcut installation failed with exit code $($installerProcess.ExitCode)."
 }
 
 Write-Output ''

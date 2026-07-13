@@ -1,22 +1,6 @@
 {
-  "_comment": "FiveM AutoIt macros shown in the Scripts tab. The server lists every .au3 file in scriptsDir live (newest-modified first) and detects whether each is running by matching AutoIt process command lines. 'descriptions' maps a filename to the blurb shown on its card; files with no entry get a generic fallback. AGENTS: update descriptions here (not server.js) when a script's behavior changes; update scriptsDir/autoItExe only if the folder or AutoIt install moves.",
-  "scriptsDir": "C:\\Users\\Fonza\\Desktop\\Scripts\\scripts",
-  "autoItExe": "C:\\Program Files (x86)\\AutoIt3\\AutoIt3.exe",
-  "descriptions": {
-    "nLoop.au3": "Taps the N key every 5 seconds. Starts 3s after launch. In-game keys: - pause, = resume, ] stop.",
-    "eLoop.au3": "Taps the E key (interact) every 5 seconds. Starts 3s after launch. In-game keys: - pause, = resume, ] stop.",
-    "newTrapLoop.au3": "Presses M every 4 seconds, with a 4/5 key sequence every 30 minutes. Press ] to stop.",
-    "mLoop.au3": "Presses M every 4 seconds and runs a periodic 4/5 + M restock sequence on the half hour. Press ] to stop.",
-    "harvestDrugs.au3": "Drug-harvest loop: taps E in a timed pattern (E, wait ~15s, E). Toggle on/off in-game with the / key.",
-    "sellCloneCards.au3": "Sells clone cards: holds E, clicks, nudges the mouse and clicks again on a ~11s cycle. Toggle with \\, ESC to exit.",
-    "pressKeynew.au3": "Heartbeat key every 4s; every 5 min checks the death pixel and auto-leaves (F8 - quit - Enter) if you've died.",
-    "pressKey.au3": "Presses a key every 4s with a 5-minute death-pixel check that quits the session if you're dead.",
-    "leaveWhenDead.au3": "Watchdog: if the death pixel (887,930 = #333333) holds for 10s, sends F8 - 'quit' - Enter to leave. Press ] to stop.",
-    "selling.au3": "Selling loop: waits for the confirm color, then presses Tab - Enter to sell. Press ] to stop.",
-    "sellBOTH.au3": "Launcher that starts selling, mLoop and leaveWhenDead together. In-game: 9 start, - pause/resume, 0 stop.",
-    "cookingorig.au3": "Cooking loop: hold E, click, move + click, Tab x3, Enter, then wait for the ready pixel. Keys: - start, = exit, [ pause.",
-    "cooking.au3": "Cooking loop with a restock step (types amounts, clicks menus) after each cook. Keys: - start, = exit, [ pause.",
-    "m.au3": "Simple loop: presses M every 3 seconds. Press [ to stop.",
-    "pixelchecker.au3": "Utility: shows the mouse position and the pixel color under the cursor. ESC or = to exit. Use it to find coords/colors for other scripts."
-  }
+  "_comment": "Optional AutoIt script configuration. Set scriptsDir and autoItExe to absolute Windows paths. Descriptions are keyed by .au3 filename; unlisted scripts receive a generic description.",
+  "scriptsDir": "",
+  "autoItExe": "",
+  "descriptions": {}
 }
