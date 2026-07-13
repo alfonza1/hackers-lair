@@ -436,6 +436,16 @@ function listenersFor(component, listeners) {
   return listeners.filter((l) => (l.cmd || '').toLowerCase().includes(needle));
 }
 
+function configuredPortListeners(component, listeners) {
+  const expectedPort = Number(component.port);
+  if (!Number.isInteger(expectedPort)) return [];
+  return listeners.filter((listener) => listener.ports.some((port) => port.port === expectedPort));
+}
+
+function detectedByConfiguredPort(component, listeners) {
+  return component.detectByPort === true && configuredPortListeners(component, listeners).length > 0;
+}
+
 // Components flagged `"track": "process"` don't bind a port — a background
 // script, a bot, a worker. getListeners() can't see them (it only inspects
 // LISTENING sockets), so scan every process's command line instead and return
@@ -632,9 +642,10 @@ function annotateProjects(projects, listeners, tracked = []) {
       const expectedPort = Number(c.port);
       const requiresReadyPort = c.track === 'process' && Number.isInteger(expectedPort);
       const readinessListeners = requiresReadyPort
-        ? listeners.filter((listener) => listener.ports.some((port) => port.port === expectedPort))
+        ? configuredPortListeners(c, listeners)
         : [];
-      const running = hits.length > 0 && (!requiresReadyPort || readinessListeners.length > 0);
+      const detectedByPort = c.detectByPort === true && readinessListeners.length > 0;
+      const running = detectedByPort || (hits.length > 0 && (!requiresReadyPort || readinessListeners.length > 0));
       const rec = launches.get(launchKey(proj.name, c.name));
       if (running && rec) { rec.status = 'running'; rec.reason = ''; } // it made it up
 
@@ -812,7 +823,8 @@ const server = http.createServer(async (req, res) => {
       const started = [], skipped = [], failed = [];
       for (const c of proj.components || []) {
         const pool = c.track === 'process' ? tracked : listeners;
-        if (listenersFor(c, pool).length) { skipped.push(c.name); continue; } // already running
+        const detectedByPort = detectedByConfiguredPort(c, listeners);
+        if (listenersFor(c, pool).length || detectedByPort) { skipped.push(c.name); continue; } // already running
         if (!c.command || !c.cwd || !fs.existsSync(c.cwd)) {
           launches.set(launchKey(name, c.name), { status: 'errored', reason: `Missing command or folder: ${c.cwd || '(no cwd)'}`, logFile: '', startedAt: Date.now() });
           failed.push(c.name);
@@ -884,7 +896,8 @@ const server = http.createServer(async (req, res) => {
       for (const c of proj.components || []) {
         if (!c.stopCommand) continue;
         const pool = c.track === 'process' ? trackedBeforeStop : listenersBeforeStop;
-        if (!listenersFor(c, pool).length) continue;
+        const detectedByPort = detectedByConfiguredPort(c, listenersBeforeStop);
+        if (!listenersFor(c, pool).length && !detectedByPort) continue;
         if (!c.cwd || !fs.existsSync(c.cwd)) {
           stopFailures.push(`${c.name}: missing folder ${c.cwd || '(no cwd)'}`);
           continue;
