@@ -26,9 +26,6 @@ window controls, and scrollbar. The control service listens only on
 
 ## Screenshots
 
-The screenshots use fictional project names, paths, ports, and process IDs so
-the repository does not expose details from a real workstation.
-
 ### Project targets
 
 ![Hacker's Lair Targets view showing fictional live and dormant projects](docs/screenshots/targets.png)
@@ -36,6 +33,10 @@ the repository does not expose details from a real workstation.
 ### Port signals
 
 ![Hacker's Lair Port Signals view showing fictional listening and remembered processes](docs/screenshots/port-signals.png)
+
+### Automation scripts
+
+![Hacker's Lair Scripts view showing active and dormant automation modules](docs/screenshots/scripts.png)
 
 ## Control surfaces
 
@@ -231,7 +232,7 @@ distinct within the configured folder.
 | `make-icon.ps1` / `icon.ico` | Native Hacker's Lair app icon |
 | `scripts/capture-readme-screenshots.js` | Regenerates privacy-safe README screenshots with fictional local data |
 
-Run `npm run docs:screenshots` to refresh both README images. The capture uses
+Run `npm run docs:screenshots` to refresh the README images. The capture uses
 Microsoft Edge by default; set `EDGE_PATH` to another Chromium executable when
 Edge is installed somewhere else.
 
