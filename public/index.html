@@ -2170,6 +2170,7 @@
     const lastSignal = formatDateTime(lastActionFor(key, project.lastActionAt || project.lastStartedAt));
     const isBusy = state.busy.has(key);
     const initiateDisabled = isBusy || status.key === 'live' || status.key === 'booting';
+    const terminateDisabled = isBusy || status.key === 'dormant';
 
     const modules = project.components.map((component) => {
       const mini = componentStatus(component);
@@ -2219,7 +2220,7 @@
           </div>
           <div class="action-cluster">
             ${actionButton('project', 'initiate', 'INITIATE', initiateDisabled)}
-            ${actionButton('project', 'terminate', 'TERMINATE', isBusy)}
+            ${actionButton('project', 'terminate', 'TERMINATE', terminateDisabled)}
           </div>
         </div>
       </article>
