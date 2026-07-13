@@ -1324,7 +1324,7 @@
       </div>
       <div class="filter-row">
         <div class="search-shell">
-          <input id="search" type="text" autocomplete="off" placeholder="filter targets by name, module, path, pid, or port">
+          <input id="search" type="text" autocomplete="off" placeholder="filter targets by name, branch, module, path, pid, or port">
         </div>
         <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
       </div>
@@ -1777,9 +1777,9 @@
     const key = targetKey('project', project.name);
     const pids = project.pids?.length ? project.pids.join(', ') : 'N/A';
     const path = compactPath(project.components.find((component) => component.path)?.path || project.components.find((component) => component.cwd)?.cwd || '');
-    const ports = [...new Set(project.components.flatMap(displayPorts))].sort((a, b) => a - b);
     const uiPorts = projectPortsByKind(project, 'ui');
     const backendPorts = projectPortsByKind(project, 'backend');
+    const gitBranches = project.gitBranches?.length ? project.gitBranches.join(', ') : 'N/A';
     const lastSignal = formatDateTime(lastActionFor(key, project.lastActionAt || project.lastStartedAt));
     const isBusy = state.busy.has(key);
     const initiateDisabled = isBusy || status.key === 'live' || status.key === 'booting';
@@ -1824,7 +1824,7 @@
               ${field('Last Signal', lastSignal)}
               ${fieldHtml('UI Port', portLinks(uiPorts), portTitle(uiPorts))}
               ${fieldHtml('Backend Port', portLinks(backendPorts), portTitle(backendPorts))}
-              ${fieldHtml('Ports', portLinks(ports), portTitle(ports))}
+              ${field('Git Branch', gitBranches)}
               ${field('Modules', String(project.components.length))}
               ${field('Path', path, 'path')}
             </div>
@@ -1938,6 +1938,7 @@
       const haystack = [
         project.name,
         project.type,
+        project.gitBranches?.join(' '),
         project.pids?.join(' '),
         ...project.components.flatMap((component) => [
           component.name,
@@ -2020,7 +2021,7 @@
     $('search').value = '';
     $('viewTitle').textContent = view === 'projects' ? 'Targets' : view === 'processes' ? 'Port Signals' : 'Scripts';
     $('search').placeholder = view === 'projects'
-      ? 'filter targets by name, module, path, pid, or port'
+      ? 'filter targets by name, branch, module, path, pid, or port'
       : view === 'processes'
       ? 'filter signals by name, path, pid, or port'
       : 'filter scripts by name, file, or description';

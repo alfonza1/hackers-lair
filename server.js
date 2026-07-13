@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { exec, execFile, spawn } = require('child_process');
+const { gitBranchesForProject } = require('./lib/git-branches');
 
 const PORT = Number(process.env.PORT) || 4949;
 const MAX_PORT_TRIES = 10;
@@ -682,6 +683,7 @@ function annotateProjects(projects, listeners, tracked = []) {
     return {
       name: proj.name,
       type: proj.type || '',
+      gitBranches: gitBranchesForProject(proj),
       components,
       running: runningCount > 0,
       partial: runningCount > 0 && runningCount < components.length,
