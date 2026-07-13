@@ -42,7 +42,7 @@ window controls, and scrollbar. The control service listens only on
 
 | Surface | What it controls |
 |---|---|
-| **Targets** | Starts or stops every configured component of a project as one unit, while retaining component-level status and logs. |
+| **Targets** | Starts or stops every configured component of a project as one unit, while showing component status, the checked-out Git branch, and logs. |
 | **Port Signals** | Shows listening localhost ports, labels known development servers, stops processes, and relaunches processes previously stopped by the console. |
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
 | **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |

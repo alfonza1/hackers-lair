@@ -14,9 +14,9 @@ const component = (name, role, port, running, pid) => ({
   uptimeSeconds: running ? 8421 : null, lastActionAt: now - 420000, livePorts: running ? [port] : [],
 });
 const projects = [
-  { name: 'nightwatch-relay', type: 'Vite + Node API', components: [component('relay-ui', 'frontend', 5173, true, 18420), component('relay-api', 'backend', 4100, true, 22108)], running: true, partial: false, errored: false, starting: false, pids: [18420, 22108], memKB: 372480, cpuPercent: 4.8, uptimeSeconds: 8421, lastActionAt: now - 420000 },
-  { name: 'atlas-worker', type: 'Python task runner', components: [component('atlas-worker', 'headless', null, true, 27144)], running: true, partial: false, errored: false, starting: false, pids: [27144], memKB: 92160, cpuPercent: 1.1, uptimeSeconds: 3644, lastActionAt: now - 910000 },
-  { name: 'static-forge', type: 'Next.js workspace', components: [component('static-forge', 'fullstack', 3000, false)], running: false, partial: false, errored: false, starting: false, pids: [], memKB: 0, cpuPercent: null, uptimeSeconds: null, lastActionAt: now - 7200000 },
+  { name: 'nightwatch-relay', type: 'Vite + Node API', gitBranches: ['feature/relay-observability'], components: [component('relay-ui', 'frontend', 5173, true, 18420), component('relay-api', 'backend', 4100, true, 22108)], running: true, partial: false, errored: false, starting: false, pids: [18420, 22108], memKB: 372480, cpuPercent: 4.8, uptimeSeconds: 8421, lastActionAt: now - 420000 },
+  { name: 'atlas-worker', type: 'Python task runner', gitBranches: ['main'], components: [component('atlas-worker', 'headless', null, true, 27144)], running: true, partial: false, errored: false, starting: false, pids: [27144], memKB: 92160, cpuPercent: 1.1, uptimeSeconds: 3644, lastActionAt: now - 910000 },
+  { name: 'static-forge', type: 'Next.js workspace', gitBranches: ['release/next'], components: [component('static-forge', 'fullstack', 3000, false)], running: false, partial: false, errored: false, starting: false, pids: [], memKB: 0, cpuPercent: null, uptimeSeconds: null, lastActionAt: now - 7200000 },
 ];
 const processes = [
   { pid: 18420, name: 'node.exe', label: 'Nightwatch UI', cmd: 'node vite.js', exePath: 'C:\\Program Files\\nodejs\\node.exe', cwd: 'C:\\Workspaces\\nightwatch-relay', memKB: 186240, uptimeSeconds: 8421, cpuPercent: 2.4, self: false, protected: false, system: false, ports: [{ port: 5173, addresses: ['127.0.0.1'] }] },
