@@ -89,7 +89,7 @@
       ]
     },
     {
-      "name": "Freqtrade Trade Lab",
+      "name": "Freqtrade Workstation",
       "type": "Docker + Freqtrade",
       "components": [
         { "name": "stack", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\crypto-bot\\freqtrade", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File Start-Freqtrade.ps1 -Foreground", "stopCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File Stop-Freqtrade.ps1", "port": 8080, "track": "process", "match": "Start-Freqtrade.ps1 -Foreground" }
