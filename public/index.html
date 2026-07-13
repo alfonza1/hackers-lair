@@ -42,6 +42,9 @@
     min-height: 100vh;
     color: var(--text);
     font: 14px/1.5 var(--mono);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     background:
       linear-gradient(115deg, rgba(94, 208, 255, .045), transparent 28%),
       linear-gradient(245deg, rgba(102, 255, 181, .045), transparent 32%),
@@ -69,6 +72,144 @@
     pointer-events: none;
     border: 1px solid rgba(117, 255, 199, .07);
     box-shadow: inset 0 0 90px rgba(0, 0, 0, .66);
+  }
+
+  .signal-rain {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    opacity: .16;
+    pointer-events: none;
+  }
+
+  .boot-sequence {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    color: var(--green);
+    background:
+      radial-gradient(circle at 50% 46%, rgba(17, 70, 52, .3), transparent 34%),
+      repeating-linear-gradient(90deg, rgba(102, 255, 181, .025) 0 1px, transparent 1px 52px),
+      repeating-linear-gradient(180deg, rgba(94, 208, 255, .018) 0 1px, transparent 1px 52px),
+      #010504;
+    pointer-events: none;
+  }
+
+  .desktop-host .boot-sequence { top: 42px; }
+
+  .cinematic-ready .boot-sequence {
+    animation: bootCurtain 2.45s cubic-bezier(.72, 0, .22, 1) forwards;
+  }
+
+  .boot-sequence::before,
+  .boot-sequence::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .boot-sequence::before {
+    inset: 0;
+    background: repeating-linear-gradient(180deg, rgba(255,255,255,.024) 0 1px, transparent 1px 7px);
+    opacity: .34;
+  }
+
+  .boot-sequence::after {
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--green), var(--cyan), transparent);
+    box-shadow: 0 0 18px rgba(102, 255, 181, .55);
+    animation: bootScan 1.35s ease-in-out both;
+  }
+
+  .boot-core {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    justify-items: center;
+    width: min(430px, calc(100vw - 48px));
+    padding: 28px;
+    border: 1px solid rgba(102, 255, 181, .2);
+    background: rgba(1, 8, 6, .82);
+    box-shadow: inset 0 0 54px rgba(102, 255, 181, .035), 0 0 72px rgba(0, 0, 0, .72);
+    clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+    animation: bootCoreIn 520ms cubic-bezier(.18, .84, .22, 1) both;
+  }
+
+  .boot-core .hacker-logo {
+    width: 82px;
+    height: 82px;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 0 16px rgba(102, 255, 181, .3));
+  }
+
+  .boot-label {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .boot-subtitle {
+    margin-top: 5px;
+    color: var(--cyan);
+    font-size: 9px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+
+  .boot-lines {
+    display: grid;
+    gap: 5px;
+    width: 100%;
+    margin-top: 20px;
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .boot-line {
+    display: flex;
+    justify-content: space-between;
+    opacity: 0;
+    transform: translateX(-7px);
+    animation: bootLine 230ms steps(4, end) forwards;
+  }
+
+  .boot-line:nth-child(1) { animation-delay: 280ms; }
+  .boot-line:nth-child(2) { animation-delay: 510ms; }
+  .boot-line:nth-child(3) { animation-delay: 740ms; }
+
+  .boot-line strong {
+    color: var(--green);
+    font-weight: 900;
+  }
+
+  .boot-progress {
+    width: 100%;
+    height: 3px;
+    margin-top: 17px;
+    overflow: hidden;
+    background: rgba(102, 255, 181, .08);
+  }
+
+  .boot-progress span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--cyan));
+    box-shadow: 0 0 12px rgba(102, 255, 181, .48);
+    transform: scaleX(0);
+    transform-origin: left;
+    animation: bootProgress 1.35s cubic-bezier(.35, 0, .2, 1) 160ms forwards;
   }
 
   button, input { font: inherit; }
@@ -284,6 +425,10 @@
     stroke-linejoin: round;
   }
 
+  .cinematic-ready .brand-mark .hacker-logo .hood {
+    animation: hoodSignal 5.8s ease-in-out 2.4s infinite;
+  }
+
   .hacker-logo .mask {
     fill: #010806;
     stroke: rgba(94, 208, 255, .6);
@@ -298,11 +443,23 @@
     stroke-linejoin: miter;
   }
 
+  .cinematic-ready .brand-mark .hacker-logo .eyes {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: eyeScan 4.6s ease-in-out 2.1s infinite, eyeBlink 5.3s ease-in-out 2.1s infinite;
+  }
+
   .hacker-logo .terminal-line {
     fill: none;
     stroke: var(--green);
     stroke-width: 2.2;
     stroke-linecap: round;
+  }
+
+  .cinematic-ready .brand-mark .hacker-logo .terminal-line {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: typeLine 2s steps(9, end) 2.4s infinite;
   }
 
   .eyebrow,
@@ -319,12 +476,28 @@
   h1, h2, h3, p { margin: 0; }
 
   h1 {
+    position: relative;
+    display: inline-block;
     font-size: 24px;
     line-height: 1.05;
     font-weight: 900;
     overflow-wrap: anywhere;
     text-transform: uppercase;
     text-shadow: 0 0 14px rgba(117, 255, 199, .12);
+  }
+
+  h1[data-text]::before {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    color: var(--cyan);
+    opacity: 0;
+    pointer-events: none;
+    text-shadow: -2px 0 rgba(255, 96, 112, .65), 2px 0 rgba(102, 255, 181, .68);
+  }
+
+  .cinematic-ready h1[data-text]::before {
+    animation: titleGlitch 8.6s steps(1, end) 3.1s infinite;
   }
 
   .top-sub {
@@ -406,6 +579,16 @@
     border: 1px solid rgba(91, 220, 255, .05);
     border-radius: 6px;
   }
+
+  .cinematic-ready .topbar,
+  .cinematic-ready .panel {
+    animation: deckReveal 680ms cubic-bezier(.2, .9, .24, 1) backwards;
+  }
+
+  .cinematic-ready .topbar { animation-delay: 1.32s; }
+  .cinematic-ready .matrix { animation-delay: 1.48s; }
+  .cinematic-ready .intel { animation-delay: 1.62s; }
+  .cinematic-ready .feed-panel { animation-delay: 1.76s; }
 
   .matrix { grid-area: matrix; }
   .intel { grid-area: intel; }
@@ -1023,6 +1206,62 @@
   @keyframes sweep { 0% { transform: translateX(-5px); opacity: .2; } 50% { opacity: 1; } 100% { transform: translateX(5px); opacity: .2; } }
   @keyframes livePulse { 50% { box-shadow: inset 0 0 32px rgba(117, 255, 199, .055), 0 0 24px rgba(117, 255, 199, .075); } }
   @keyframes feedIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes bootCurtain {
+    0%, 60% { opacity: 1; visibility: visible; }
+    82% { opacity: .72; }
+    99% { opacity: 0; visibility: visible; }
+    100% { opacity: 0; visibility: hidden; }
+  }
+  @keyframes bootCoreIn {
+    from { opacity: 0; transform: scale(.94) translateY(9px); filter: blur(5px); }
+    to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+  }
+  @keyframes bootScan {
+    0% { opacity: 0; transform: translateY(-42vh) scaleX(.2); }
+    18% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(42vh) scaleX(1); }
+  }
+  @keyframes bootLine {
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes bootProgress {
+    0% { transform: scaleX(0); }
+    72% { transform: scaleX(.72); }
+    100% { transform: scaleX(1); }
+  }
+  @keyframes deckReveal {
+    from { opacity: 0; transform: translateY(13px) scale(.995); filter: blur(4px); }
+    to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+  @keyframes hoodSignal {
+    0%, 88%, 100% { stroke: var(--green); filter: none; }
+    91% { stroke: var(--cyan); filter: drop-shadow(0 0 5px rgba(94, 208, 255, .7)); }
+    94% { stroke: var(--green); filter: drop-shadow(0 0 4px rgba(102, 255, 181, .55)); }
+  }
+  @keyframes eyeScan {
+    0%, 16% { transform: translateX(0); }
+    30%, 44% { transform: translateX(-1.5px); }
+    58%, 72% { transform: translateX(1.5px); }
+    86%, 100% { transform: translateX(0); }
+  }
+  @keyframes eyeBlink {
+    0%, 90%, 100% { opacity: 1; }
+    93%, 96% { opacity: .1; }
+  }
+  @keyframes typeLine {
+    0% { transform: scaleX(.14); opacity: .8; }
+    46% { transform: scaleX(1); opacity: 1; }
+    50% { transform: scaleX(.14); opacity: .8; }
+    96% { transform: scaleX(1); opacity: 1; }
+    100% { transform: scaleX(.14); opacity: .8; }
+  }
+  @keyframes titleGlitch {
+    0%, 87%, 90%, 93%, 100% { opacity: 0; clip-path: inset(0 0 100% 0); transform: translateX(0); }
+    88% { opacity: .74; clip-path: inset(12% 0 58% 0); transform: translateX(2px); }
+    89% { opacity: .42; clip-path: inset(62% 0 12% 0); transform: translateX(-2px); }
+    91% { opacity: .66; clip-path: inset(32% 0 40% 0); transform: translateX(1px); }
+    92% { opacity: .28; clip-path: inset(72% 0 4% 0); transform: translateX(-1px); }
+  }
 
   @media (max-width: 1120px) {
     .topbar,
@@ -1096,6 +1335,18 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .signal-rain,
+    .boot-sequence { display: none !important; }
+
+    .cinematic-ready .topbar,
+    .cinematic-ready .panel,
+    .cinematic-ready h1[data-text]::before,
+    .cinematic-ready .brand-mark .hacker-logo .hood,
+    .cinematic-ready .brand-mark .hacker-logo .eyes,
+    .cinematic-ready .brand-mark .hacker-logo .terminal-line {
+      animation: none !important;
+    }
+
     *, *::before, *::after {
       animation-duration: .001ms !important;
       animation-iteration-count: 1 !important;
@@ -1106,6 +1357,26 @@
 </style>
 </head>
 <body>
+<canvas class="signal-rain" id="signalRain" aria-hidden="true"></canvas>
+<div class="boot-sequence" id="bootSequence" aria-hidden="true">
+  <div class="boot-core">
+    <svg class="hacker-logo" viewBox="0 0 64 64" role="img" aria-hidden="true">
+      <path class="hood" d="M32 6 47 14l9 17-5 22H13L8 31l9-17 15-8Z"/>
+      <path class="hood" d="m17 14 8 9h14l8-9M13 53l9-8h20l9 8"/>
+      <path class="mask" d="M22 24h20l3 8-5 14H24l-5-14 3-8Z"/>
+      <path class="eyes" d="m22 31 8 3-6 4m18-7-8 3 6 4"/>
+      <path class="terminal-line" d="M27 43h10"/>
+    </svg>
+    <div class="boot-label">Hacker's Lair</div>
+    <div class="boot-subtitle">Process Control / Secure Boot</div>
+    <div class="boot-lines">
+      <div class="boot-line"><span>LOCAL NODE HANDSHAKE</span><strong>OK</strong></div>
+      <div class="boot-line"><span>TARGET REGISTRY CHANNEL</span><strong>OPEN</strong></div>
+      <div class="boot-line"><span>OPERATOR CONSOLE</span><strong>READY</strong></div>
+    </div>
+    <div class="boot-progress"><span></span></div>
+  </div>
+</div>
 <div class="desktop-frame">
 <header class="app-titlebar" id="appTitlebar">
   <div class="titlebar-drag">
@@ -1139,7 +1410,7 @@
       </div>
       <div>
         <div class="eyebrow">Hacker's Lair</div>
-        <h1>Process Control<span class="cursor" aria-hidden="true"></span></h1>
+        <h1 data-text="PROCESS CONTROL">Process Control<span class="cursor" aria-hidden="true"></span></h1>
         <p class="top-sub">Low-light command room for local targets and port signals.</p>
       </div>
     </div>
@@ -1219,6 +1490,11 @@
 
   const FEED_KEY = 'operatorConsole.feed';
   const ACTION_KEY = 'operatorConsole.actions';
+  const RAIN_COLUMN_WIDTH = 30;
+  const RAIN_FRAME_INTERVAL = 74;
+  const RAIN_TRAIL_LENGTH = 5;
+  const RAIN_SPEED = .2;
+  const RAIN_GLYPHS = '01<>[]{}#/\\$+-=:;';
 
   const state = {
     view: 'projects',
@@ -1233,6 +1509,104 @@
     feed: loadJson(FEED_KEY, []),
     actions: loadJson(ACTION_KEY, { byTarget: {}, last: null }),
   };
+
+  function installSignalRain() {
+    const canvas = $('signalRain');
+    const context = canvas?.getContext('2d');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (!canvas || !context) return;
+
+    let columns = [];
+    let animationFrame = 0;
+    let lastFrame = 0;
+    let cssWidth = 1;
+    let cssHeight = 1;
+
+    function resizeRain() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cssWidth = Math.max(window.innerWidth, 1);
+      cssHeight = Math.max(window.innerHeight, 1);
+      canvas.width = Math.round(cssWidth * dpr);
+      canvas.height = Math.round(cssHeight * dpr);
+      canvas.style.width = `${cssWidth}px`;
+      canvas.style.height = `${cssHeight}px`;
+      // Draw in CSS pixels; the backing store is scaled up for crisp glyphs on HiDPI.
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const columnCount = Math.ceil(cssWidth / RAIN_COLUMN_WIDTH);
+      const rowCount = Math.ceil(cssHeight / RAIN_COLUMN_WIDTH);
+      columns = Array.from({ length: columnCount }, (_, index) => (
+        columns[index] ?? -Math.floor(Math.random() * rowCount)
+      ));
+      context.font = `600 14px ${getComputedStyle(document.documentElement).getPropertyValue('--mono')}`;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+    }
+
+    function drawRain(timestamp) {
+      animationFrame = requestAnimationFrame(drawRain);
+      if (timestamp - lastFrame < RAIN_FRAME_INTERVAL) return;
+      lastFrame = timestamp;
+      context.clearRect(0, 0, cssWidth, cssHeight);
+
+      const rowCount = Math.ceil(cssHeight / RAIN_COLUMN_WIDTH);
+      const halfColumn = RAIN_COLUMN_WIDTH / 2;
+      columns.forEach((drop, column) => {
+        const x = (column * RAIN_COLUMN_WIDTH) + halfColumn;
+        for (let trail = 0; trail < RAIN_TRAIL_LENGTH; trail += 1) {
+          const row = drop - trail;
+          if (row < 0) continue;
+          const alpha = (RAIN_TRAIL_LENGTH - trail) / RAIN_TRAIL_LENGTH;
+          if (trail === 0) {
+            context.fillStyle = `rgba(148, 224, 255, ${alpha})`;
+            context.shadowColor = 'rgba(94, 208, 255, .85)';
+            context.shadowBlur = 8;
+          } else {
+            context.fillStyle = `rgba(102, 255, 181, ${alpha * .72})`;
+            context.shadowBlur = 0;
+          }
+          const glyph = RAIN_GLYPHS[Math.floor(Math.random() * RAIN_GLYPHS.length)];
+          context.fillText(glyph, x, (row * RAIN_COLUMN_WIDTH) + halfColumn);
+        }
+        context.shadowBlur = 0;
+
+        columns[column] += RAIN_SPEED + ((column % 4) * .02);
+        if (columns[column] - RAIN_TRAIL_LENGTH > rowCount && Math.random() > .86) {
+          columns[column] = -Math.floor(Math.random() * 14);
+        }
+      });
+    }
+
+    function stopRain() {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function syncRain() {
+      const shouldRun = !reducedMotion.matches && !document.hidden;
+      if (shouldRun && !animationFrame) {
+        lastFrame = 0;
+        animationFrame = requestAnimationFrame(drawRain);
+      } else if (!shouldRun && animationFrame) {
+        stopRain();
+      }
+    }
+
+    resizeRain();
+    window.addEventListener('resize', resizeRain);
+    document.addEventListener('visibilitychange', syncRain);
+    reducedMotion.addEventListener('change', syncRain);
+    syncRain();
+  }
+
+  function installCinematicMode() {
+    document.body.classList.add('cinematic-ready');
+    const bootSequence = $('bootSequence');
+    bootSequence?.addEventListener('animationend', (event) => {
+      if (event.animationName === 'bootCurtain') bootSequence.hidden = true;
+    });
+    installSignalRain();
+  }
 
   function installWindowControls() {
     const desktopWindow = window.hackerLairWindow;
@@ -2257,6 +2631,7 @@
   }
 
   installWindowControls();
+  installCinematicMode();
   boot();
 </script>
 </body>

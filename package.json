@@ -6,7 +6,8 @@
   "scripts": {
     "start": "cscript //nologo launcher.vbs",
     "server": "node server.js",
-    "desktop": "electron desktop.js"
+    "desktop": "electron desktop.js",
+    "docs:screenshots": "node scripts/capture-readme-screenshots.js"
   },
   "devDependencies": {
     "electron": "43.1.0"
