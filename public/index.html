@@ -388,27 +388,12 @@
 
   .brand {
     display: flex;
-    gap: 14px;
     align-items: center;
     min-width: 0;
     padding: 16px 18px;
   }
 
   .brand > div:last-child { min-width: 0; }
-
-  .brand-mark {
-    display: grid;
-    place-items: center;
-    width: 48px;
-    height: 48px;
-    flex: none;
-    border: 1px solid var(--line-strong);
-    color: var(--green);
-    border-radius: 4px;
-    background: #04110d;
-    box-shadow: inset 0 0 14px rgba(102, 255, 181, .08), 0 0 16px rgba(102, 255, 181, .08);
-    font-weight: 900;
-  }
 
   .hacker-logo {
     width: 41px;
@@ -423,10 +408,6 @@
     stroke-width: 2.2;
     stroke-linecap: round;
     stroke-linejoin: round;
-  }
-
-  .cinematic-ready .brand-mark .hacker-logo .hood {
-    animation: hoodSignal 5.8s ease-in-out 2.4s infinite;
   }
 
   .hacker-logo .mask {
@@ -451,23 +432,11 @@
     stroke-linejoin: round;
   }
 
-  .cinematic-ready .brand-mark .hacker-logo .eyes {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: eyeScan 4.6s ease-in-out 2.1s infinite, eyeBlink 5.3s ease-in-out 2.1s infinite;
-  }
-
   .hacker-logo .terminal-line {
     fill: none;
     stroke: var(--green);
     stroke-width: 1.6;
     stroke-linecap: round;
-  }
-
-  .cinematic-ready .brand-mark .hacker-logo .terminal-line {
-    transform-box: fill-box;
-    transform-origin: left center;
-    animation: typeLine 2s steps(9, end) 2.4s infinite;
   }
 
   .eyebrow,
@@ -1241,28 +1210,6 @@
     from { opacity: 0; transform: translateY(13px) scale(.995); filter: blur(4px); }
     to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
   }
-  @keyframes hoodSignal {
-    0%, 88%, 100% { stroke: var(--green); filter: none; }
-    91% { stroke: var(--cyan); filter: drop-shadow(0 0 5px rgba(94, 208, 255, .7)); }
-    94% { stroke: var(--green); filter: drop-shadow(0 0 4px rgba(102, 255, 181, .55)); }
-  }
-  @keyframes eyeScan {
-    0%, 16% { transform: translateX(0); }
-    30%, 44% { transform: translateX(-1.5px); }
-    58%, 72% { transform: translateX(1.5px); }
-    86%, 100% { transform: translateX(0); }
-  }
-  @keyframes eyeBlink {
-    0%, 90%, 100% { opacity: 1; }
-    93%, 96% { opacity: .1; }
-  }
-  @keyframes typeLine {
-    0% { transform: scaleX(.14); opacity: .8; }
-    46% { transform: scaleX(1); opacity: 1; }
-    50% { transform: scaleX(.14); opacity: .8; }
-    96% { transform: scaleX(1); opacity: 1; }
-    100% { transform: scaleX(.14); opacity: .8; }
-  }
   @keyframes titleGlitch {
     0%, 87%, 90%, 93%, 100% { opacity: 0; clip-path: inset(0 0 100% 0); transform: translateX(0); }
     88% { opacity: .74; clip-path: inset(12% 0 58% 0); transform: translateX(2px); }
@@ -1291,7 +1238,6 @@
     .shell { padding: 12px; }
     .topbar { gap: 0; }
     .brand { padding: 14px; }
-    .brand-mark { width: 42px; height: 42px; }
     h1 { font-size: 19px; }
     .node-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .panel-head { align-items: flex-start; flex-direction: column; }
@@ -1315,7 +1261,7 @@
 
   @media (max-width: 500px) {
     .shell { padding: 8px; }
-    .brand { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; align-items: flex-start; }
+    .brand { display: block; }
     h1 { font-size: 18px; line-height: 1.18; }
     .top-sub { max-width: 28ch; font-size: 11px; }
     .view-tabs { display: grid; grid-template-columns: 1fr; }
@@ -1348,10 +1294,7 @@
 
     .cinematic-ready .topbar,
     .cinematic-ready .panel,
-    .cinematic-ready h1[data-text]::before,
-    .cinematic-ready .brand-mark .hacker-logo .hood,
-    .cinematic-ready .brand-mark .hacker-logo .eyes,
-    .cinematic-ready .brand-mark .hacker-logo .terminal-line {
+    .cinematic-ready h1[data-text]::before {
       animation: none !important;
     }
 
@@ -1408,16 +1351,6 @@
 <div class="shell">
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark" aria-label="Hacker's Lair anonymous-inspired cyber mask">
-        <svg class="hacker-logo" viewBox="0 0 64 64" role="img" aria-hidden="true">
-          <path class="hood" d="M32 5C20 6 11 15 9 30l4 25h38l4-25C53 15 44 6 32 5Z"/>
-          <path class="hood" d="M17 17c4 2 7 2 10 0m20 0c-4 2-7 2-10 0M13 55l10-8h18l10 8"/>
-          <path class="mask" d="M32 11c-10 0-16 7-16 17 0 13 7 23 16 27 9-4 16-14 16-27 0-10-6-17-16-17Z"/>
-          <path class="eyes" d="M20 25c4-3 7-3 11-1m13 1c-4-3-7-3-11-1M21 29c3 2 6 2 9 0m13 0c-3 2-6 2-9 0"/>
-          <path class="facial-line" d="m32 28-2 8 2 2 2-2M24 38c3-1 5 0 8 3 3-3 5-4 8-3-2 4-5 5-8 3-3 2-6 1-8-3Z"/>
-          <path class="terminal-line" d="M25 47c4 3 10 3 14 0"/>
-        </svg>
-      </div>
       <div>
         <div class="eyebrow">Hacker's Lair</div>
         <h1 data-text="PROCESS CONTROL">Process Control<span class="cursor" aria-hidden="true"></span></h1>
