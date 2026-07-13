@@ -24,6 +24,19 @@ The interface runs inside a custom Electron shell with its own titlebar,
 window controls, and scrollbar. The control service listens only on
 `127.0.0.1`.
 
+## Screenshots
+
+The screenshots use fictional project names, paths, ports, and process IDs so
+the repository does not expose details from a real workstation.
+
+### Project targets
+
+![Hacker's Lair Targets view showing fictional live and dormant projects](docs/screenshots/targets.png)
+
+### Port signals
+
+![Hacker's Lair Port Signals view showing fictional listening and remembered processes](docs/screenshots/port-signals.png)
+
 ## Control surfaces
 
 | Surface | What it controls |
@@ -99,6 +112,23 @@ The service-only UI is also available at <http://localhost:4949>.
 components. Paths and commands are intentionally explicit because detection is
 based on the process command line, not only a port number.
 
+To add your own project:
+
+1. Open `projects.json` and add one object inside its top-level `projects`
+   array.
+2. Add one component for every process Hacker's Lair should start and stop.
+3. Set each component's `cwd` to an existing absolute Windows folder and its
+   `command` to the same command you would run from that folder in PowerShell.
+4. Use a distinctive absolute path or command token for `match`. Hacker's Lair
+   uses this value to identify and stop the correct process.
+5. Set `port` to the expected listening port. For a worker or bot that never
+   opens a port, use `"port": null` and `"track": "process"`.
+6. Save the file and select **Refresh** in Hacker's Lair. The service reads the
+   configuration again without a restart.
+
+For example, add this object to the existing `projects` array and replace the
+example paths with your own:
+
 ```json
 {
   "name": "incident-sim",
@@ -135,6 +165,16 @@ The service reloads `projects.json` on every request, so configuration edits do
 not require a restart. Replace the checked-in Windows paths with paths for your
 own workspace after cloning.
 
+Before refreshing the application, you can validate the JSON from PowerShell:
+
+```powershell
+Get-Content -Raw .\projects.json | ConvertFrom-Json | Out-Null
+```
+
+No output means the JSON parsed successfully. If the same command or port is
+used by several projects, keep every `match` value unique; port numbers alone
+are not used to decide which process should be terminated.
+
 ## Configure scripts
 
 `scripts.json` points to an AutoIt executable and script directory. Every
@@ -151,6 +191,31 @@ Descriptions are optional and keyed by filename:
 }
 ```
 
+To add your own script:
+
+1. Install AutoIt 3 and confirm the location of `AutoIt3.exe`.
+2. Create a folder for your `.au3` files, or choose an existing scripts folder.
+3. Set `scriptsDir` and `autoItExe` in `scripts.json` to absolute Windows paths.
+4. Copy your `.au3` file into `scriptsDir`.
+5. Optionally add a `descriptions` entry whose key exactly matches the filename,
+   including the `.au3` extension. Scripts without an entry still appear with a
+   generic description.
+6. Open the **Scripts** surface or select **Refresh**. New files are discovered
+   immediately; Hacker's Lair does not need to restart.
+
+Validate the configuration before refreshing:
+
+```powershell
+Get-Content -Raw .\scripts.json | ConvertFrom-Json | Out-Null
+Test-Path "C:\Program Files (x86)\AutoIt3\AutoIt3.exe"
+Test-Path "C:\Scripts\autoit"
+```
+
+The two `Test-Path` commands should return `True` after you substitute your
+configured executable and folder. Start and stop detection matches the script's
+absolute path in the AutoIt process command line, so keep script filenames
+distinct within the configured folder.
+
 ## Repository map
 
 | Path | Responsibility |
@@ -164,6 +229,11 @@ Descriptions are optional and keyed by filename:
 | `launcher.vbs` | Silent service bootstrap and desktop launcher |
 | `install.ps1` / `uninstall.ps1` | Windows shortcut and login registration |
 | `make-icon.ps1` / `icon.ico` | Native Hacker's Lair app icon |
+| `scripts/capture-readme-screenshots.js` | Regenerates privacy-safe README screenshots with fictional local data |
+
+Run `npm run docs:screenshots` to refresh both README images. The capture uses
+Microsoft Edge by default; set `EDGE_PATH` to another Chromium executable when
+Edge is installed somewhere else.
 
 ## Operational notes
 
