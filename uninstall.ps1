@@ -14,4 +14,6 @@ $targets = @(
 foreach ($lnk in $targets) {
     if (Test-Path $lnk) { Remove-Item $lnk -Force; Write-Output "Removed: $lnk" }
 }
+$iconCache = Join-Path $env:APPDATA "Hacker's Lair\icons"
+if (Test-Path $iconCache) { Remove-Item $iconCache -Recurse -Force; Write-Output "Removed: $iconCache" }
 Write-Output 'Shortcuts removed. The background server (if running) keeps going until you stop it in the app or reboot.'
