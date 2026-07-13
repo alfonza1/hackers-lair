@@ -20,7 +20,7 @@
       "name": "ClipSignal",
       "type": "Next.js + FastAPI + Celery",
       "components": [
-        { "name": "stack", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\clipsignal", "command": "docker compose -p clipsignal up --build", "port": 3100, "track": "process", "match": "-p clipsignal up" }
+        { "name": "stack", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\clipsignal", "command": "docker compose -p clipsignal up --build", "stopCommand": "docker compose -p clipsignal down", "port": 3100, "track": "process", "match": "-p clipsignal up" }
       ]
     },
     {
