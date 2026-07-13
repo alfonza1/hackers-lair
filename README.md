@@ -92,6 +92,12 @@ Windows key, type `Hacker's Lair`, and launch it like any other desktop app.
 Re-run `install.ps1` after moving the repository. Use `uninstall.ps1` to remove
 the shortcuts and login launcher.
 
+When upgrading from an older Hacker's Lair icon, close the desktop app, unpin
+the existing taskbar entry, run `install.ps1`, launch the refreshed Start menu
+or Desktop shortcut, and pin that running instance. The installer assigns the
+same Windows app identity to the shortcut and Electron process so future
+launches stay grouped under the native command-line icon.
+
 ### Run without installing shortcuts
 
 ```powershell
@@ -225,11 +231,13 @@ distinct within the configured folder.
 | `public/index.html` | Complete Process Control interface and browser-side behavior |
 | `server.js` | Local HTTP service, process discovery, launch, stop, and log APIs |
 | `desktop.js` | Frameless Electron window lifecycle |
+| `app-config.js` | Shared desktop name, Windows app identity, and icon-cache version |
 | `preload.js` | Restricted bridge for in-app window controls |
 | `projects.json` | Project and component launch configuration |
 | `scripts.json` | AutoIt discovery and description configuration |
 | `launcher.vbs` | Silent service bootstrap and desktop launcher |
 | `install.ps1` / `uninstall.ps1` | Windows shortcut and login registration |
+| `scripts/install-shortcuts.js` | Creates Windows shortcuts with matching Electron taskbar metadata |
 | `make-icon.ps1` / `icon.ico` | Native Hacker's Lair app icon |
 | `scripts/capture-readme-screenshots.js` | Regenerates privacy-safe README screenshots with fictional local data |
 
