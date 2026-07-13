@@ -473,7 +473,7 @@ async function getTrackedProcesses(projects) {
   });
 }
 
-// ---- FiveM macro scripts (scripts.json) ------------------------------------
+// ---- Automation scripts (scripts.json) ------------------------------------
 
 const SCRIPTS_FILE = path.join(__dirname, 'scripts.json');
 

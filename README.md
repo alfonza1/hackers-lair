@@ -47,7 +47,7 @@ window controls, and scrollbar. The control service listens only on
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
 | **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |
 | **Signal Tape** | Keeps an operator-readable event feed for starts, stops, refreshes, and failures. |
-| **Cinematic shell** | Runs a short secure-boot handoff, ambient signal rain, scan passes, and subtle operator-mark activity without covering the controls. |
+| **Cinematic shell** | Runs a short secure-boot handoff, ambient signal rain, and scan passes without covering the controls. |
 
 Managed project UIs are opened explicitly in **Firefox**, independent of the
 Windows default browser. Set `FIREFOX_PATH` only when Firefox is installed
@@ -127,29 +127,29 @@ To add your own project:
 6. Save the file and select **Refresh** in Hacker's Lair. The service reads the
    configuration again without a restart.
 
-For example, add this object to the existing `projects` array and replace the
+For example, add this object to the empty `projects` array and replace the
 example paths with your own:
 
 ```json
 {
-  "name": "incident-sim",
+  "name": "sample-workspace",
   "type": "Node monorepo",
   "components": [
     {
       "name": "backend",
       "role": "backend",
-      "cwd": "C:\\Code\\incident-sim\\backend",
+      "cwd": "C:\\Code\\sample-workspace\\api",
       "command": "npm run dev",
       "port": 4000,
-      "match": "C:\\Code\\incident-sim\\backend"
+      "match": "C:\\Code\\sample-workspace\\api"
     },
     {
       "name": "frontend",
       "role": "frontend",
-      "cwd": "C:\\Code\\incident-sim\\frontend",
+      "cwd": "C:\\Code\\sample-workspace\\web",
       "command": "npm run dev",
       "port": 5173,
-      "match": "C:\\Code\\incident-sim\\frontend"
+      "match": "C:\\Code\\sample-workspace\\web"
     }
   ]
 }
@@ -163,8 +163,8 @@ example paths with your own:
 - `track: "process"` supports headless components that never bind a port.
 
 The service reloads `projects.json` on every request, so configuration edits do
-not require a restart. Replace the checked-in Windows paths with paths for your
-own workspace after cloning.
+not require a restart. The checked-in configuration starts empty to avoid
+publishing any contributor's local project names or filesystem paths.
 
 Before refreshing the application, you can validate the JSON from PowerShell:
 
@@ -180,7 +180,8 @@ are not used to decide which process should be terminated.
 
 `scripts.json` points to an AutoIt executable and script directory. Every
 `.au3` file in that directory appears automatically, newest modified first.
-Descriptions are optional and keyed by filename:
+The checked-in values are empty so local script paths and descriptions are not
+published. Descriptions are optional and keyed by filename:
 
 ```json
 {
