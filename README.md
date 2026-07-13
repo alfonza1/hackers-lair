@@ -124,7 +124,9 @@ To add your own project:
    uses this value to identify and stop the correct process.
 5. Set `port` to the expected listening port. For a worker or bot that never
    opens a port, use `"port": null` and `"track": "process"`.
-6. Save the file and select **Refresh** in Hacker's Lair. The service reads the
+6. For a service that needs graceful shutdown, such as Docker Compose, set an
+   optional `stopCommand`. It runs only when that component is detected live.
+7. Save the file and select **Refresh** in Hacker's Lair. The service reads the
    configuration again without a restart.
 
 For example, add this object to the existing `projects` array and replace the
@@ -157,6 +159,8 @@ example paths with your own:
 
 - `cwd` is the component's working directory.
 - `command` is launched inside `cwd` in a detached, hidden process.
+- `stopCommand` is optional and runs inside `cwd` before any remaining matched
+  processes are terminated. It has a 60-second timeout.
 - `port` is the expected listening port and is used as a display hint.
 - `match` is a distinctive substring in the process command line. An absolute
   project path is the safest default.

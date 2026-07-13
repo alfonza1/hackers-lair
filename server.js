@@ -5,11 +5,13 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execFile, spawn } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 
 const PORT = Number(process.env.PORT) || 4949;
 const MAX_PORT_TRIES = 10;
-const STORE = path.join(__dirname, 'stopped.json');
+const CONFIGURED_COMMAND_TIMEOUT_MS = 60_000;
+const DATA_DIR = process.env.PROJECT_MANAGER_DATA_DIR || __dirname;
+const STORE = path.join(DATA_DIR, 'stopped.json');
 const MAX_STOPPED = 40;
 const FIREFOX_CANDIDATES = [
   process.env.FIREFOX_PATH,
@@ -296,6 +298,20 @@ function run(cmd, args) {
   });
 }
 
+function runConfiguredCommand(command, cwd) {
+  return new Promise((resolve, reject) => {
+    exec(command, {
+      cwd,
+      maxBuffer: 8 * 1024 * 1024,
+      timeout: CONFIGURED_COMMAND_TIMEOUT_MS,
+      windowsHide: true,
+    }, (err, stdout, stderr) => {
+      if (err) reject(new Error(stderr.trim() || stdout.trim() || err.message));
+      else resolve(stdout);
+    });
+  });
+}
+
 function parseTasklist(csv) {
   const byPid = new Map();
   for (const raw of csv.split(/\r?\n/)) {
@@ -386,11 +402,11 @@ async function getListeners() {
 
 // ---- Coding projects (projects.json) ---------------------------------------
 
-const PROJECTS_FILE = path.join(__dirname, 'projects.json');
+const PROJECTS_FILE = process.env.PROJECTS_FILE || path.join(__dirname, 'projects.json');
 
 // Last time each project was started from here (name -> epoch ms), persisted
 // so "most recently started first" ordering survives a manager restart.
-const STARTED_FILE = path.join(__dirname, 'started.json');
+const STARTED_FILE = path.join(DATA_DIR, 'started.json');
 let startedTimes = {};
 try {
   startedTimes = JSON.parse(fs.readFileSync(STARTED_FILE, 'utf8'));
@@ -574,7 +590,7 @@ async function getScripts() {
 
 // ---- Launch tracking: capture output + notice early crashes -----------------
 
-const LOG_DIR = path.join(__dirname, 'logs');
+const LOG_DIR = path.join(DATA_DIR, 'logs');
 try { fs.mkdirSync(LOG_DIR, { recursive: true }); } catch { /* ignore */ }
 
 // key `${project}::${component}` -> { status, reason, logFile, startedAt, pid }
@@ -847,8 +863,32 @@ const server = http.createServer(async (req, res) => {
       const proj = loadProjects().find((p) => p.name === name);
       if (!proj) { json(res, 404, { error: `No project named "${name}"` }); return; }
 
-      // Only ever kill *listening* processes (never an editor/terminal that
-      // merely has the path open), and never ourselves or protected system ones.
+      // Some managed services (notably Docker Compose stacks) need a graceful,
+      // service-aware shutdown. Run an explicitly configured stop command only
+      // for components currently detected as live, then clean up any remaining
+      // wrapper/listener processes below.
+      const listenersBeforeStop = await getListeners();
+      const trackedBeforeStop = await getTrackedProcesses([proj]);
+      const stoppedByCommand = [];
+      const stopFailures = [];
+      for (const c of proj.components || []) {
+        if (!c.stopCommand) continue;
+        const pool = c.track === 'process' ? trackedBeforeStop : listenersBeforeStop;
+        if (!listenersFor(c, pool).length) continue;
+        if (!c.cwd || !fs.existsSync(c.cwd)) {
+          stopFailures.push(`${c.name}: missing folder ${c.cwd || '(no cwd)'}`);
+          continue;
+        }
+        try {
+          await runConfiguredCommand(c.stopCommand, c.cwd);
+          stoppedByCommand.push(c.name);
+        } catch (err) {
+          stopFailures.push(`${c.name}: ${err.message}`);
+        }
+      }
+
+      // Only ever kill detected project processes (never an editor/terminal
+      // that merely has the path open), and never ourselves or protected ones.
       const listeners = await getListeners();
       const tracked = await getTrackedProcesses([proj]);
       const pids = new Set();
@@ -864,7 +904,21 @@ const server = http.createServer(async (req, res) => {
       }
       // Forget launch state so the components read as a clean "stopped".
       for (const c of proj.components || []) launches.delete(launchKey(name, c.name));
-      json(res, 200, { ok: true, name, stopped: killed });
+      if (stopFailures.length) {
+        json(res, 500, {
+          error: `Graceful stop failed: ${stopFailures.join('; ')}`,
+          name,
+          stopped: killed + stoppedByCommand.length,
+        });
+        return;
+      }
+      json(res, 200, {
+        ok: true,
+        name,
+        stopped: killed + stoppedByCommand.length,
+        processesStopped: killed,
+        commandsRun: stoppedByCommand,
+      });
       return;
     }
 
