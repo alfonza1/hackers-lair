@@ -184,6 +184,9 @@ foreach ($size in $sizes) {
     $pngs.Add([byte[]](New-TerminalCorePng $size))
 }
 
+$readmeLogoPath = Join-Path $PSScriptRoot 'docs\command-line-mark.png'
+[System.IO.File]::WriteAllBytes($readmeLogoPath, $pngs[0])
+
 # ICO container with PNG-compressed entries (supported by Windows Vista+).
 $output = [System.IO.MemoryStream]::new()
 $writer = [System.IO.BinaryWriter]::new($output)
@@ -213,3 +216,4 @@ $writer.Dispose()
 $output.Dispose()
 
 Write-Output "Wrote $iconPath ($([Math]::Round((Get-Item $iconPath).Length / 1kb, 1)) KB)"
+Write-Output "Wrote $readmeLogoPath ($([Math]::Round((Get-Item $readmeLogoPath).Length / 1kb, 1)) KB)"
