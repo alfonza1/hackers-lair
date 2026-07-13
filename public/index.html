@@ -438,9 +438,17 @@
   .hacker-logo .eyes {
     fill: none;
     stroke: var(--cyan);
-    stroke-width: 3;
-    stroke-linecap: square;
-    stroke-linejoin: miter;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .hacker-logo .facial-line {
+    fill: none;
+    stroke: rgba(102, 255, 181, .88);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .cinematic-ready .brand-mark .hacker-logo .eyes {
@@ -452,7 +460,7 @@
   .hacker-logo .terminal-line {
     fill: none;
     stroke: var(--green);
-    stroke-width: 2.2;
+    stroke-width: 1.6;
     stroke-linecap: round;
   }
 
@@ -1361,11 +1369,12 @@
 <div class="boot-sequence" id="bootSequence" aria-hidden="true">
   <div class="boot-core">
     <svg class="hacker-logo" viewBox="0 0 64 64" role="img" aria-hidden="true">
-      <path class="hood" d="M32 6 47 14l9 17-5 22H13L8 31l9-17 15-8Z"/>
-      <path class="hood" d="m17 14 8 9h14l8-9M13 53l9-8h20l9 8"/>
-      <path class="mask" d="M22 24h20l3 8-5 14H24l-5-14 3-8Z"/>
-      <path class="eyes" d="m22 31 8 3-6 4m18-7-8 3 6 4"/>
-      <path class="terminal-line" d="M27 43h10"/>
+      <path class="hood" d="M32 5C20 6 11 15 9 30l4 25h38l4-25C53 15 44 6 32 5Z"/>
+      <path class="hood" d="M17 17c4 2 7 2 10 0m20 0c-4 2-7 2-10 0M13 55l10-8h18l10 8"/>
+      <path class="mask" d="M32 11c-10 0-16 7-16 17 0 13 7 23 16 27 9-4 16-14 16-27 0-10-6-17-16-17Z"/>
+      <path class="eyes" d="M20 25c4-3 7-3 11-1m13 1c-4-3-7-3-11-1M21 29c3 2 6 2 9 0m13 0c-3 2-6 2-9 0"/>
+      <path class="facial-line" d="m32 28-2 8 2 2 2-2M24 38c3-1 5 0 8 3 3-3 5-4 8-3-2 4-5 5-8 3-3 2-6 1-8-3Z"/>
+      <path class="terminal-line" d="M25 47c4 3 10 3 14 0"/>
     </svg>
     <div class="boot-label">Hacker's Lair</div>
     <div class="boot-subtitle">Process Control / Secure Boot</div>
@@ -1380,7 +1389,7 @@
 <div class="desktop-frame">
 <header class="app-titlebar" id="appTitlebar">
   <div class="titlebar-drag">
-    <img class="titlebar-mark" src="/icon.ico?v=command-core-1" alt="">
+    <img class="titlebar-mark" src="/icon.ico?v=terminal-core-3" alt="">
     <div class="titlebar-copy"><strong>Hacker's Lair</strong></div>
   </div>
   <div class="window-controls" aria-label="Window controls">
@@ -1399,13 +1408,14 @@
 <div class="shell">
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark" aria-label="Hacker's Lair operator mark">
+      <div class="brand-mark" aria-label="Hacker's Lair anonymous-inspired cyber mask">
         <svg class="hacker-logo" viewBox="0 0 64 64" role="img" aria-hidden="true">
-          <path class="hood" d="M32 6 47 14l9 17-5 22H13L8 31l9-17 15-8Z"/>
-          <path class="hood" d="m17 14 8 9h14l8-9M13 53l9-8h20l9 8"/>
-          <path class="mask" d="M22 24h20l3 8-5 14H24l-5-14 3-8Z"/>
-          <path class="eyes" d="m22 31 8 3-6 4m18-7-8 3 6 4"/>
-          <path class="terminal-line" d="M27 43h10"/>
+          <path class="hood" d="M32 5C20 6 11 15 9 30l4 25h38l4-25C53 15 44 6 32 5Z"/>
+          <path class="hood" d="M17 17c4 2 7 2 10 0m20 0c-4 2-7 2-10 0M13 55l10-8h18l10 8"/>
+          <path class="mask" d="M32 11c-10 0-16 7-16 17 0 13 7 23 16 27 9-4 16-14 16-27 0-10-6-17-16-17Z"/>
+          <path class="eyes" d="M20 25c4-3 7-3 11-1m13 1c-4-3-7-3-11-1M21 29c3 2 6 2 9 0m13 0c-3 2-6 2-9 0"/>
+          <path class="facial-line" d="m32 28-2 8 2 2 2-2M24 38c3-1 5 0 8 3 3-3 5-4 8-3-2 4-5 5-8 3-3 2-6 1-8-3Z"/>
+          <path class="terminal-line" d="M25 47c4 3 10 3 14 0"/>
         </svg>
       </div>
       <div>
