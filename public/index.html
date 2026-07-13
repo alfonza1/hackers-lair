@@ -1672,7 +1672,7 @@
     projects: { title: 'Targets', placeholder: 'filter targets by name, branch, module, path, pid, or port', empty: 'No matching targets detected.' },
     processes: { title: 'Port Signals', placeholder: 'filter signals by name, path, pid, or port', empty: 'No matching port signals detected.' },
     scripts: { title: 'Scripts', placeholder: 'filter scripts by name, file, or description', empty: 'No matching scripts detected.' },
-    skills: { title: 'Skills', placeholder: 'filter skills by name, LLM, source, or description', empty: 'No matching skills detected.' },
+    skills: { title: 'Skills', placeholder: 'filter skills by name, source, or description', empty: 'No matching skills detected.' },
   };
 
   const state = {
@@ -2319,8 +2319,8 @@
       <article class="target-card skill-card ${esc(skill.kind)}" data-card-kind="skill" data-skill-id="${esc(skill.id)}">
         <div class="machine-bar">
           <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
-          <span class="machine-label">skill-rig :: ${esc(skill.name)}</span>
-          <span class="machine-node">${esc(skill.llm)}</span>
+          <span class="machine-label">agent-skill :: ${esc(skill.name)}</span>
+          <span class="machine-node">${personal ? 'WORKSPACE' : 'DEFAULT CATALOG'}</span>
         </div>
         <div class="machine-screen">
           <div class="target-main">
@@ -2331,9 +2331,8 @@
             </div>
             <p class="skill-desc">${esc(skill.description)}</p>
             <div class="target-fields">
-              ${field('LLM', skill.llm)}
-              ${field('Scope', personal ? 'Personal folder' : 'Default catalog')}
-              ${field('Invoke', skill.invocation)}
+              ${field('Source', personal ? '.agents/skills' : skill.origin)}
+              ${field('Scope', personal ? 'Personal workspace' : 'Default catalog')}
               ${field('Visibility', personal ? 'Shown by default' : 'Filtered by default')}
             </div>
           </div>
@@ -2422,10 +2421,8 @@
       const haystack = [
         skill.name,
         skill.description,
-        skill.llm,
         skill.kind,
         skill.origin,
-        skill.invocation,
       ].join(' ').toLowerCase();
       return haystack.includes(q);
     });
@@ -2438,7 +2435,7 @@
       : visibleSkills();
     const scanningSkills = state.view === 'skills' && !state.skillsLoaded;
     $('emptyState').hidden = rows.length > 0;
-    $('emptyState').textContent = scanningSkills ? 'Scanning Claude and Codex skill folders...' : VIEW_CONFIG[state.view].empty;
+    $('emptyState').textContent = scanningSkills ? 'Scanning shared agent skill folder...' : VIEW_CONFIG[state.view].empty;
     $('targetList').innerHTML = rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
       : state.view === 'processes' ? processCard(row)
