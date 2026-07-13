@@ -2134,6 +2134,12 @@
     return component.livePorts?.length ? component.livePorts : configuredPorts(component);
   }
 
+  function displayPortsByKind(component, kind) {
+    const configured = configuredPorts(component);
+    if (kind === 'ui' && configured.length) return configured;
+    return displayPorts(component);
+  }
+
   function componentHasPortKind(component, kind) {
     const text = `${component.role || ''} ${component.name || ''}`.toLowerCase();
     const pattern = kind === 'ui'
@@ -2145,7 +2151,7 @@
   function projectPortsByKind(project, kind) {
     return [...new Set((project.components || [])
       .filter((component) => componentHasPortKind(component, kind))
-      .flatMap(displayPorts))]
+      .flatMap((component) => displayPortsByKind(component, kind)))]
       .sort((a, b) => a - b);
   }
 
