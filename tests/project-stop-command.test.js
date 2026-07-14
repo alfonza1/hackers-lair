@@ -122,6 +122,13 @@ test('project stop runs its graceful stop command before process cleanup', async
   assert.deepEqual(stopped.commandsRun, ['worker']);
   assert.equal(fs.readFileSync(stopMarker, 'utf8').trim(), 'stopped');
   assert.ok(stopped.stopped >= 1);
+
+  const afterStopResponse = await fetch(`${baseUrl}/api/projects`);
+  const afterStopPayload = await afterStopResponse.json();
+  const stoppedProject = afterStopPayload.projects[0];
+  const persistedActivity = JSON.parse(fs.readFileSync(path.join(tempDirectory, 'project-activity.json'), 'utf8'));
+  assert.ok(stoppedProject.lastActionAt > stoppedProject.lastStartedAt);
+  assert.equal(persistedActivity['Stop command fixture'], stoppedProject.lastActionAt);
 });
 
 test('declared ports keep a service stoppable after its tracked wrapper exits', async (t) => {

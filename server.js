@@ -407,16 +407,32 @@ async function getListeners() {
 
 const PROJECTS_FILE = process.env.PROJECTS_FILE || path.join(__dirname, 'projects.json');
 
-// Last time each project was started from here (name -> epoch ms), persisted
-// so "most recently started first" ordering survives a manager restart.
+function loadTimestampMap(file, fallback = {}) {
+  try {
+    const values = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (values && typeof values === 'object' && !Array.isArray(values)) return values;
+  } catch { /* use fallback */ }
+  return { ...fallback };
+}
+
+function saveTimestampMap(file, values) {
+  try { fs.writeFileSync(file, JSON.stringify(values, null, 2)); } catch { /* best effort */ }
+}
+
+// Starts and all successful project actions are tracked separately so a recent
+// termination can lead the dormant group without changing lastStartedAt.
 const STARTED_FILE = path.join(DATA_DIR, 'started.json');
-let startedTimes = {};
-try {
-  startedTimes = JSON.parse(fs.readFileSync(STARTED_FILE, 'utf8'));
-  if (!startedTimes || typeof startedTimes !== 'object' || Array.isArray(startedTimes)) startedTimes = {};
-} catch { startedTimes = {}; }
+const ACTIVITY_FILE = path.join(DATA_DIR, 'project-activity.json');
+let startedTimes = loadTimestampMap(STARTED_FILE);
+let projectActivityTimes = loadTimestampMap(ACTIVITY_FILE, startedTimes);
+
 function saveStartedTimes() {
-  try { fs.writeFileSync(STARTED_FILE, JSON.stringify(startedTimes, null, 2)); } catch { /* best effort */ }
+  saveTimestampMap(STARTED_FILE, startedTimes);
+}
+
+function recordProjectActivity(name, timestamp = Date.now()) {
+  projectActivityTimes[name] = timestamp;
+  saveTimestampMap(ACTIVITY_FILE, projectActivityTimes);
 }
 
 // Read fresh each call so edits to projects.json apply without a restart.
@@ -737,7 +753,7 @@ function annotateProjects(projects, listeners, tracked = []) {
       errored: components.some((c) => c.status === 'errored'),
       starting: components.some((c) => c.status === 'starting'),
       lastStartedAt: startedTimes[proj.name] || 0,
-      lastActionAt: Math.max(startedTimes[proj.name] || 0, ...components.map((c) => c.lastActionAt || 0)),
+      lastActionAt: Math.max(projectActivityTimes[proj.name] || 0, ...components.map((c) => c.lastActionAt || 0)),
       pids,
       pid: pids.length === 1 ? pids[0] : null,
       memKB: components.reduce((sum, c) => sum + (Number(c.memKB) || 0), 0),
@@ -906,7 +922,12 @@ const server = http.createServer(async (req, res) => {
       }
       // Bump the project to the top of the "recently started" order — only
       // when something actually launched, not for a no-op click.
-      if (started.length) { startedTimes[name] = Date.now(); saveStartedTimes(); }
+      if (started.length) {
+        const timestamp = Date.now();
+        startedTimes[name] = timestamp;
+        saveStartedTimes();
+        recordProjectActivity(name, timestamp);
+      }
       json(res, 200, { ok: true, name, started, skipped, failed });
       return;
     }
@@ -925,6 +946,10 @@ const server = http.createServer(async (req, res) => {
       // wrapper/listener processes below.
       const listenersBeforeStop = await getListeners();
       const trackedBeforeStop = await getTrackedProcesses([proj]);
+      const wasDetectedLive = (proj.components || []).some((c) => {
+        const pool = c.track === 'process' ? trackedBeforeStop : listenersBeforeStop;
+        return listenersFor(c, pool).length > 0 || anyConfiguredPortDetected(c, listenersBeforeStop);
+      });
       const stoppedByCommand = [];
       const stopFailures = [];
       for (const c of proj.components || []) {
@@ -969,6 +994,7 @@ const server = http.createServer(async (req, res) => {
         });
         return;
       }
+      if (wasDetectedLive) recordProjectActivity(name);
       json(res, 200, {
         ok: true,
         name,

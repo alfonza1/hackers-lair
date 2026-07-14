@@ -266,8 +266,8 @@ Edge is installed somewhere else.
 ## Operational notes
 
 - Runtime logs live under `logs/` and are ignored by Git.
-- `started.json` and `stopped.json` retain local launch state and are ignored by
-  Git.
+- `started.json`, `project-activity.json`, and `stopped.json` retain local launch
+  and ordering state and are ignored by Git.
 - A component startup failure stays visible on its target with the error and a
   link to the full log.
 - Closing the Electron window leaves the local service running so the next
