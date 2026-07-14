@@ -426,24 +426,49 @@ function loadProjects() {
   } catch { return []; }
 }
 
-// A component is "running" if a listening process's command line contains its
-// match string (a folder path or a distinctive token). Matching on the command
-// line — not the port — means several apps that default to the same port
-// (e.g. many Next.js apps on :3000) are still told apart correctly.
+// Legacy components are matched by command line so apps that share a default
+// port can still be told apart. Docker stacks can instead declare `ports`; those
+// ports become their authoritative readiness signal because Docker Desktop's
+// listener processes do not include the project path in their command lines.
 function listenersFor(component, listeners) {
   const needle = String(component.match || component.cwd || '').toLowerCase();
   if (!needle) return [];
   return listeners.filter((l) => (l.cmd || '').toLowerCase().includes(needle));
 }
 
-function configuredPortListeners(component, listeners) {
-  const expectedPort = Number(component.port);
-  if (!Number.isInteger(expectedPort)) return [];
-  return listeners.filter((listener) => listener.ports.some((port) => port.port === expectedPort));
+function configuredPorts(component) {
+  const values = Array.isArray(component.ports) ? component.ports : [component.port];
+  return [...new Set(values
+    .map(Number)
+    .filter((port) => Number.isInteger(port) && port > 0 && port <= 65535))];
 }
 
-function detectedByConfiguredPort(component, listeners) {
-  return component.detectByPort === true && configuredPortListeners(component, listeners).length > 0;
+function configuredPortListeners(component, listeners) {
+  const expectedPorts = new Set(configuredPorts(component));
+  if (!expectedPorts.size) return [];
+  return listeners.filter((listener) => listener.ports.some((port) => expectedPorts.has(port.port)));
+}
+
+function usesConfiguredPortDetection(component) {
+  return component.detectByPort === true || Array.isArray(component.ports);
+}
+
+function liveConfiguredPorts(component, listeners) {
+  const expectedPorts = new Set(configuredPorts(component));
+  return new Set(configuredPortListeners(component, listeners)
+    .flatMap((listener) => listener.ports.map((port) => port.port))
+    .filter((port) => expectedPorts.has(port)));
+}
+
+function allConfiguredPortsDetected(component, listeners) {
+  if (!usesConfiguredPortDetection(component)) return false;
+  const expectedPorts = configuredPorts(component);
+  const livePorts = liveConfiguredPorts(component, listeners);
+  return expectedPorts.length > 0 && expectedPorts.every((port) => livePorts.has(port));
+}
+
+function anyConfiguredPortDetected(component, listeners) {
+  return usesConfiguredPortDetection(component) && liveConfiguredPorts(component, listeners).size > 0;
 }
 
 // Components flagged `"track": "process"` don't bind a port — a background
@@ -639,12 +664,17 @@ function annotateProjects(projects, listeners, tracked = []) {
   return projects.map((proj) => {
     const components = (proj.components || []).map((c) => {
       const hits = listenersFor(c, c.track === 'process' ? tracked : listeners);
-      const expectedPort = Number(c.port);
-      const requiresReadyPort = c.track === 'process' && Number.isInteger(expectedPort);
-      const readinessListeners = requiresReadyPort
+      const expectedPorts = configuredPorts(c);
+      const usesPortDetection = usesConfiguredPortDetection(c);
+      const requiresReadyPort = c.track === 'process' && expectedPorts.length > 0;
+      const readinessListeners = usesPortDetection || requiresReadyPort
         ? configuredPortListeners(c, listeners)
         : [];
-      const detectedByPort = c.detectByPort === true && readinessListeners.length > 0;
+      const liveReadinessPorts = usesPortDetection
+        ? [...liveConfiguredPorts(c, listeners)]
+        : readinessListeners.flatMap((listener) => listener.ports.map((port) => port.port));
+      const detectedByPort = allConfiguredPortsDetected(c, listeners);
+      const partiallyDetectedByPort = anyConfiguredPortDetected(c, listeners) && !detectedByPort;
       const running = detectedByPort || (hits.length > 0 && (!requiresReadyPort || readinessListeners.length > 0));
       const rec = launches.get(launchKey(proj.name, c.name));
       if (running && rec) { rec.status = 'running'; rec.reason = ''; } // it made it up
@@ -653,7 +683,7 @@ function annotateProjects(projects, listeners, tracked = []) {
       let error = '';
       if (running) status = 'running';
       else if (rec && rec.status === 'errored') { status = 'errored'; error = rec.reason || 'Failed to start.'; }
-      else if ((rec && rec.status === 'starting') || hits.length) status = 'starting';
+      else if ((rec && rec.status === 'starting') || hits.length || partiallyDetectedByPort) status = 'starting';
 
       const pids = [...new Set([
         ...hits.map((l) => l.pid),
@@ -667,7 +697,10 @@ function annotateProjects(projects, listeners, tracked = []) {
       return {
         name: c.name,
         role: c.role || '',
-        port: c.port || null,
+        port: c.port || expectedPorts[0] || null,
+        ports: expectedPorts,
+        uiPorts: configuredPorts({ ports: c.uiPorts }),
+        backendPorts: configuredPorts({ ports: c.backendPorts }),
         command: c.command || '',
         cwd: c.cwd || '',
         match: c.match || '',
@@ -684,7 +717,10 @@ function annotateProjects(projects, listeners, tracked = []) {
         uptimeSeconds: uptimeValues.length ? Math.max(...uptimeValues) : null,
         lastActionAt: (rec && rec.startedAt) || startedTimes[proj.name] || 0,
         livePorts: [...new Set(
-          [...hits, ...readinessListeners].flatMap((l) => l.ports.map((p) => p.port)),
+          [
+            ...hits.flatMap((listener) => listener.ports.map((port) => port.port)),
+            ...liveReadinessPorts,
+          ],
         )].sort((a, b) => a - b),
       };
     });
@@ -823,7 +859,7 @@ const server = http.createServer(async (req, res) => {
       const started = [], skipped = [], failed = [];
       for (const c of proj.components || []) {
         const pool = c.track === 'process' ? tracked : listeners;
-        const detectedByPort = detectedByConfiguredPort(c, listeners);
+        const detectedByPort = allConfiguredPortsDetected(c, listeners);
         if (listenersFor(c, pool).length || detectedByPort) { skipped.push(c.name); continue; } // already running
         if (!c.command || !c.cwd || !fs.existsSync(c.cwd)) {
           launches.set(launchKey(name, c.name), { status: 'errored', reason: `Missing command or folder: ${c.cwd || '(no cwd)'}`, logFile: '', startedAt: Date.now() });
@@ -896,7 +932,7 @@ const server = http.createServer(async (req, res) => {
       for (const c of proj.components || []) {
         if (!c.stopCommand) continue;
         const pool = c.track === 'process' ? trackedBeforeStop : listenersBeforeStop;
-        const detectedByPort = detectedByConfiguredPort(c, listenersBeforeStop);
+        const detectedByPort = anyConfiguredPortDetected(c, listenersBeforeStop);
         if (!listenersFor(c, pool).length && !detectedByPort) continue;
         if (!c.cwd || !fs.existsSync(c.cwd)) {
           stopFailures.push(`${c.name}: missing folder ${c.cwd || '(no cwd)'}`);

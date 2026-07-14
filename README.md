@@ -116,23 +116,26 @@ The service-only UI is also available at <http://localhost:4949>.
 
 ## Configure projects
 
-`projects.json` defines each target and its frontend, backend, or headless
-components. Paths and commands are intentionally explicit because detection is
-based on the process command line, not only a port number.
+`projects.json` defines each target and its frontend, backend, Docker stack, or
+headless components. Docker stacks declare their published `ports` as the
+authoritative readiness signal, so Hacker's Lair recognizes containers started
+inside or outside the app even though Docker owns the Windows listener process.
 
 To add your own project:
 
 1. Open `projects.json` and add one object inside its top-level `projects`
    array.
-2. Add one component for every process Hacker's Lair should start and stop.
+2. Add one component for every command Hacker's Lair should start and stop. A
+   Docker Compose project should normally be one `stack` component.
 3. Set each component's `cwd` to an existing absolute Windows folder and its
    `command` to the same command you would run from that folder in PowerShell.
 4. Use a distinctive absolute path or command token for `match`. Hacker's Lair
    uses this value to identify and stop the correct process.
-5. Set `port` to the expected listening port. For a worker or bot that never
-   opens a port, use `"port": null` and `"track": "process"`.
-6. For a service that needs graceful shutdown, such as Docker Compose, set an
-   optional `stopCommand`. It runs only when that component is detected live.
+5. For Docker, set `ports` to the project's unique published readiness ports.
+   All must be listening before the stack is reported running. Use optional
+   `uiPorts` and `backendPorts` to classify them on the target card.
+6. Set `stopCommand` for Docker Compose. It runs when any declared port is live,
+   including when the stack was started outside Hacker's Lair.
 7. Save the file and select **Refresh** in Hacker's Lair. The service reads the
    configuration again without a restart.
 
@@ -142,23 +145,19 @@ example paths with your own:
 ```json
 {
   "name": "incident-sim",
-  "type": "Node monorepo",
+  "type": "Docker Compose",
   "components": [
     {
-      "name": "backend",
-      "role": "backend",
-      "cwd": "C:\\Code\\incident-sim\\backend",
-      "command": "npm run dev",
-      "port": 4000,
-      "match": "C:\\Code\\incident-sim\\backend"
-    },
-    {
-      "name": "frontend",
-      "role": "frontend",
-      "cwd": "C:\\Code\\incident-sim\\frontend",
-      "command": "npm run dev",
-      "port": 5173,
-      "match": "C:\\Code\\incident-sim\\frontend"
+      "name": "stack",
+      "role": "fullstack",
+      "cwd": "C:\\Code\\incident-sim",
+      "command": "docker compose -p incident-sim up --build",
+      "stopCommand": "docker compose -p incident-sim down",
+      "ports": [5173, 4000],
+      "uiPorts": [5173],
+      "backendPorts": [4000],
+      "track": "process",
+      "match": "-p incident-sim up"
     }
   ]
 }
@@ -168,7 +167,11 @@ example paths with your own:
 - `command` is launched inside `cwd` in a detached, hidden process.
 - `stopCommand` is optional and runs inside `cwd` before any remaining matched
   processes are terminated. It has a 60-second timeout.
-- `port` is the expected listening port and is used as a display hint.
+- `ports` opts into authoritative port detection. Keep these published ports
+  unique across projects; all declared ports are required for the running state.
+- `uiPorts` and `backendPorts` control where declared ports appear on the card.
+- Legacy `port` is a display/readiness hint for command-line-matched processes.
+- `detectByPort: true` remains supported for older single-port configurations.
 - `match` is a distinctive substring in the process command line. An absolute
   project path is the safest default.
 - `track: "process"` supports headless components that never bind a port.
@@ -183,9 +186,9 @@ Before refreshing the application, you can validate the JSON from PowerShell:
 Get-Content -Raw .\projects.json | ConvertFrom-Json | Out-Null
 ```
 
-No output means the JSON parsed successfully. If the same command or port is
-used by several projects, keep every `match` value unique; port numbers alone
-are not used to decide which process should be terminated.
+No output means the JSON parsed successfully. Authoritative `ports` must be
+unique across projects. Legacy components may share defaults such as `3000`
+because their distinctive `match` value still identifies the owning process.
 
 ## Configure scripts
 

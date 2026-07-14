@@ -2125,9 +2125,16 @@
     return unique.length ? unique.map((port) => `:${port}`).join(', ') : 'N/A';
   }
 
-  function configuredPorts(component) {
-    const port = Number(component.port);
-    return Number.isInteger(port) && port > 0 ? [port] : [];
+  function configuredPorts(component, kind = '') {
+    const kindPorts = kind === 'ui'
+      ? component.uiPorts
+      : kind === 'backend' ? component.backendPorts : null;
+    const values = Array.isArray(kindPorts) && kindPorts.length
+      ? kindPorts
+      : Array.isArray(component.ports) && component.ports.length
+        ? component.ports
+        : [component.port];
+    return [...new Set(values.map(Number).filter((port) => Number.isInteger(port) && port > 0))];
   }
 
   function displayPorts(component) {
@@ -2135,6 +2142,10 @@
   }
 
   function displayPortsByKind(component, kind) {
+    const kindSpecific = configuredPorts(component, kind);
+    if ((kind === 'ui' && component.uiPorts?.length) || (kind === 'backend' && component.backendPorts?.length)) {
+      return kindSpecific;
+    }
     const configured = configuredPorts(component);
     if (kind === 'ui' && configured.length) return configured;
     return displayPorts(component);
@@ -2364,6 +2375,9 @@
           component.path,
           component.command,
           component.port,
+          component.ports?.join(' '),
+          component.uiPorts?.join(' '),
+          component.backendPorts?.join(' '),
           component.pids?.join(' '),
           component.livePorts?.join(' '),
         ]),

@@ -120,17 +120,18 @@ test('project stop runs its graceful stop command before process cleanup', async
   assert.ok(stopped.stopped >= 1);
 });
 
-test('port detection keeps a service stoppable after its tracked wrapper exits', async (t) => {
+test('declared ports keep a service stoppable after its tracked wrapper exits', async (t) => {
   const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'project-manager-port-stop-'));
   const configPath = path.join(tempDirectory, 'projects.json');
   const stopMarker = path.join(tempDirectory, 'port-stop.txt');
   const workerPath = path.join(tempDirectory, 'worker.js');
-  const workerPort = await freePort();
+  const workerPorts = [await freePort(), await freePort()];
+  const unrelatedPort = await freePort();
   fs.writeFileSync(
     workerPath,
-    "require('node:http').createServer((_request, response) => response.end('ok')).listen(Number(process.argv[2]), '127.0.0.1');",
+    "for (const port of process.argv.slice(2).map(Number)) require('node:http').createServer((_request, response) => response.end('ok')).listen(port, '127.0.0.1');",
   );
-  const worker = spawn(process.execPath, [workerPath, String(workerPort)], {
+  const worker = spawn(process.execPath, [workerPath, ...workerPorts.map(String), String(unrelatedPort)], {
     cwd: tempDirectory,
     stdio: 'ignore',
     windowsHide: true,
@@ -145,9 +146,10 @@ test('port detection keeps a service stoppable after its tracked wrapper exits',
         cwd: tempDirectory,
         command: 'this-command-must-not-run',
         stopCommand: `powershell -NoProfile -NonInteractive -Command "Set-Content -LiteralPath '${stopMarker.replaceAll("'", "''")}' -Value stopped; Stop-Process -Id ${worker.pid} -Force"`,
-        port: workerPort,
+        ports: workerPorts,
+        uiPorts: [workerPorts[0]],
+        backendPorts: [workerPorts[1]],
         track: 'process',
-        detectByPort: true,
         match: 'wrapper-that-already-exited',
       }],
     }],
@@ -177,7 +179,10 @@ test('port detection keeps a service stoppable after its tracked wrapper exits',
     const response = await fetch(`${baseUrl}/api/projects`);
     if (!response.ok) return false;
     const payload = await response.json();
-    return payload.projects[0].running;
+    const component = payload.projects[0].components[0];
+    return payload.projects[0].running
+      && workerPorts.every((port) => component.livePorts.includes(port))
+      && !component.livePorts.includes(unrelatedPort);
   }, 'port-detected fixture was not reported running');
 
   const start = await postJson(`${baseUrl}/api/projects/start`, { name: 'Port-detected fixture' });
