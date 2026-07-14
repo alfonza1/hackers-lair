@@ -7,6 +7,7 @@ const path = require('path');
 const os = require('os');
 const { exec, execFile, spawn } = require('child_process');
 const { gitBranchesForProject } = require('./lib/git-branches');
+const { compareProjectsForDisplay } = require('./lib/project-order');
 const { listSkills } = require('./lib/skill-registry');
 
 const PORT = Number(process.env.PORT) || 4949;
@@ -827,9 +828,8 @@ const server = http.createServer(async (req, res) => {
       const projects = loadProjects();
       const tracked = await getTrackedProcesses(projects);
       const annotated = annotateProjects(projects, listeners, tracked);
-      // Most recently started from here first; never-started projects keep
-      // their projects.json order below (sort is stable).
-      annotated.sort((a, b) => b.lastStartedAt - a.lastStartedAt);
+      // Live targets always lead; recency orders targets within each group.
+      annotated.sort(compareProjectsForDisplay);
       json(res, 200, { projects: annotated });
       return;
     }
