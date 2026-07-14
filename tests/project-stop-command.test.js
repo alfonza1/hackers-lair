@@ -51,10 +51,11 @@ test('project stop runs its graceful stop command before process cleanup', async
   const stopMarker = path.join(tempDirectory, 'graceful-stop.txt');
   const workerPath = path.join(tempDirectory, 'worker.js');
   const workerPort = await freePort();
+  const unrelatedPort = await freePort();
   const match = `pm-stop-command-test-${process.pid}`;
   fs.writeFileSync(
     workerPath,
-    "require('node:http').createServer((_request, response) => response.end('ok')).listen(Number(process.argv[2]), '127.0.0.1');",
+    "for (const port of process.argv.slice(2).map(Number).filter(Number.isInteger)) require('node:http').createServer((_request, response) => response.end('ok')).listen(port, '127.0.0.1');",
   );
   const projects = {
     projects: [{
@@ -64,7 +65,7 @@ test('project stop runs its graceful stop command before process cleanup', async
         name: 'worker',
         role: 'backend',
         cwd: tempDirectory,
-        command: `"${process.execPath}" "${workerPath}" ${workerPort} ${match}`,
+        command: `"${process.execPath}" "${workerPath}" ${workerPort} ${unrelatedPort} ${match}`,
         stopCommand: `powershell -NoProfile -NonInteractive -Command "Set-Content -LiteralPath '${stopMarker.replaceAll("'", "''")}' -Value stopped"`,
         port: workerPort,
         track: 'process',
@@ -110,7 +111,10 @@ test('project stop runs its graceful stop command before process cleanup', async
   await waitFor(async () => {
     const response = await fetch(`${baseUrl}/api/projects`);
     const payload = await response.json();
-    return payload.projects[0].running;
+    const component = payload.projects[0].components[0];
+    return payload.projects[0].running
+      && component.livePorts.includes(workerPort)
+      && !component.livePorts.includes(unrelatedPort);
   }, 'fixture process was not detected');
 
   const stopped = await postJson(`${baseUrl}/api/projects/stop`, { name: 'Stop command fixture' });

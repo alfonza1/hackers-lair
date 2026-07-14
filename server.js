@@ -670,9 +670,7 @@ function annotateProjects(projects, listeners, tracked = []) {
       const readinessListeners = usesPortDetection || requiresReadyPort
         ? configuredPortListeners(c, listeners)
         : [];
-      const liveReadinessPorts = usesPortDetection
-        ? [...liveConfiguredPorts(c, listeners)]
-        : readinessListeners.flatMap((listener) => listener.ports.map((port) => port.port));
+      const liveReadinessPorts = [...liveConfiguredPorts(c, listeners)];
       const detectedByPort = allConfiguredPortsDetected(c, listeners);
       const partiallyDetectedByPort = anyConfiguredPortDetected(c, listeners) && !detectedByPort;
       const running = detectedByPort || (hits.length > 0 && (!requiresReadyPort || readinessListeners.length > 0));
