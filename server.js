@@ -5,11 +5,16 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execFile, spawn } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
+const { gitBranchesForProject } = require('./lib/git-branches');
+const { compareProjectsForDisplay } = require('./lib/project-order');
+const { listSkills } = require('./lib/skill-registry');
 
 const PORT = Number(process.env.PORT) || 4949;
 const MAX_PORT_TRIES = 10;
-const STORE = path.join(__dirname, 'stopped.json');
+const CONFIGURED_COMMAND_TIMEOUT_MS = 60_000;
+const DATA_DIR = process.env.PROJECT_MANAGER_DATA_DIR || __dirname;
+const STORE = path.join(DATA_DIR, 'stopped.json');
 const MAX_STOPPED = 40;
 const FIREFOX_CANDIDATES = [
   process.env.FIREFOX_PATH,
@@ -296,6 +301,20 @@ function run(cmd, args) {
   });
 }
 
+function runConfiguredCommand(command, cwd) {
+  return new Promise((resolve, reject) => {
+    exec(command, {
+      cwd,
+      maxBuffer: 8 * 1024 * 1024,
+      timeout: CONFIGURED_COMMAND_TIMEOUT_MS,
+      windowsHide: true,
+    }, (err, stdout, stderr) => {
+      if (err) reject(new Error(stderr.trim() || stdout.trim() || err.message));
+      else resolve(stdout);
+    });
+  });
+}
+
 function parseTasklist(csv) {
   const byPid = new Map();
   for (const raw of csv.split(/\r?\n/)) {
@@ -386,18 +405,34 @@ async function getListeners() {
 
 // ---- Coding projects (projects.json) ---------------------------------------
 
-const PROJECTS_FILE = path.join(__dirname, 'projects.json');
+const PROJECTS_FILE = process.env.PROJECTS_FILE || path.join(__dirname, 'projects.json');
 
-// Last time each project was started from here (name -> epoch ms), persisted
-// so "most recently started first" ordering survives a manager restart.
-const STARTED_FILE = path.join(__dirname, 'started.json');
-let startedTimes = {};
-try {
-  startedTimes = JSON.parse(fs.readFileSync(STARTED_FILE, 'utf8'));
-  if (!startedTimes || typeof startedTimes !== 'object' || Array.isArray(startedTimes)) startedTimes = {};
-} catch { startedTimes = {}; }
+function loadTimestampMap(file, fallback = {}) {
+  try {
+    const values = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (values && typeof values === 'object' && !Array.isArray(values)) return values;
+  } catch { /* use fallback */ }
+  return { ...fallback };
+}
+
+function saveTimestampMap(file, values) {
+  try { fs.writeFileSync(file, JSON.stringify(values, null, 2)); } catch { /* best effort */ }
+}
+
+// Starts and all successful project actions are tracked separately so a recent
+// termination can lead the dormant group without changing lastStartedAt.
+const STARTED_FILE = path.join(DATA_DIR, 'started.json');
+const ACTIVITY_FILE = path.join(DATA_DIR, 'project-activity.json');
+let startedTimes = loadTimestampMap(STARTED_FILE);
+let projectActivityTimes = loadTimestampMap(ACTIVITY_FILE, startedTimes);
+
 function saveStartedTimes() {
-  try { fs.writeFileSync(STARTED_FILE, JSON.stringify(startedTimes, null, 2)); } catch { /* best effort */ }
+  saveTimestampMap(STARTED_FILE, startedTimes);
+}
+
+function recordProjectActivity(name, timestamp = Date.now()) {
+  projectActivityTimes[name] = timestamp;
+  saveTimestampMap(ACTIVITY_FILE, projectActivityTimes);
 }
 
 // Read fresh each call so edits to projects.json apply without a restart.
@@ -408,14 +443,49 @@ function loadProjects() {
   } catch { return []; }
 }
 
-// A component is "running" if a listening process's command line contains its
-// match string (a folder path or a distinctive token). Matching on the command
-// line — not the port — means several apps that default to the same port
-// (e.g. many Next.js apps on :3000) are still told apart correctly.
+// Legacy components are matched by command line so apps that share a default
+// port can still be told apart. Docker stacks can instead declare `ports`; those
+// ports become their authoritative readiness signal because Docker Desktop's
+// listener processes do not include the project path in their command lines.
 function listenersFor(component, listeners) {
   const needle = String(component.match || component.cwd || '').toLowerCase();
   if (!needle) return [];
   return listeners.filter((l) => (l.cmd || '').toLowerCase().includes(needle));
+}
+
+function configuredPorts(component) {
+  const values = Array.isArray(component.ports) ? component.ports : [component.port];
+  return [...new Set(values
+    .map(Number)
+    .filter((port) => Number.isInteger(port) && port > 0 && port <= 65535))];
+}
+
+function configuredPortListeners(component, listeners) {
+  const expectedPorts = new Set(configuredPorts(component));
+  if (!expectedPorts.size) return [];
+  return listeners.filter((listener) => listener.ports.some((port) => expectedPorts.has(port.port)));
+}
+
+function usesConfiguredPortDetection(component) {
+  return component.detectByPort === true || Array.isArray(component.ports);
+}
+
+function liveConfiguredPorts(component, listeners) {
+  const expectedPorts = new Set(configuredPorts(component));
+  return new Set(configuredPortListeners(component, listeners)
+    .flatMap((listener) => listener.ports.map((port) => port.port))
+    .filter((port) => expectedPorts.has(port)));
+}
+
+function allConfiguredPortsDetected(component, listeners) {
+  if (!usesConfiguredPortDetection(component)) return false;
+  const expectedPorts = configuredPorts(component);
+  const livePorts = liveConfiguredPorts(component, listeners);
+  return expectedPorts.length > 0 && expectedPorts.every((port) => livePorts.has(port));
+}
+
+function anyConfiguredPortDetected(component, listeners) {
+  return usesConfiguredPortDetection(component) && liveConfiguredPorts(component, listeners).size > 0;
 }
 
 // Components flagged `"track": "process"` don't bind a port — a background
@@ -473,7 +543,7 @@ async function getTrackedProcesses(projects) {
   });
 }
 
-// ---- Automation scripts (scripts.json) ------------------------------------
+// ---- FiveM macro scripts (scripts.json) ------------------------------------
 
 const SCRIPTS_FILE = path.join(__dirname, 'scripts.json');
 
@@ -574,7 +644,7 @@ async function getScripts() {
 
 // ---- Launch tracking: capture output + notice early crashes -----------------
 
-const LOG_DIR = path.join(__dirname, 'logs');
+const LOG_DIR = path.join(DATA_DIR, 'logs');
 try { fs.mkdirSync(LOG_DIR, { recursive: true }); } catch { /* ignore */ }
 
 // key `${project}::${component}` -> { status, reason, logFile, startedAt, pid }
@@ -611,7 +681,16 @@ function annotateProjects(projects, listeners, tracked = []) {
   return projects.map((proj) => {
     const components = (proj.components || []).map((c) => {
       const hits = listenersFor(c, c.track === 'process' ? tracked : listeners);
-      const running = hits.length > 0;
+      const expectedPorts = configuredPorts(c);
+      const usesPortDetection = usesConfiguredPortDetection(c);
+      const requiresReadyPort = c.track === 'process' && expectedPorts.length > 0;
+      const readinessListeners = usesPortDetection || requiresReadyPort
+        ? configuredPortListeners(c, listeners)
+        : [];
+      const liveReadinessPorts = [...liveConfiguredPorts(c, listeners)];
+      const detectedByPort = allConfiguredPortsDetected(c, listeners);
+      const partiallyDetectedByPort = anyConfiguredPortDetected(c, listeners) && !detectedByPort;
+      const running = detectedByPort || (hits.length > 0 && (!requiresReadyPort || readinessListeners.length > 0));
       const rec = launches.get(launchKey(proj.name, c.name));
       if (running && rec) { rec.status = 'running'; rec.reason = ''; } // it made it up
 
@@ -619,7 +698,7 @@ function annotateProjects(projects, listeners, tracked = []) {
       let error = '';
       if (running) status = 'running';
       else if (rec && rec.status === 'errored') { status = 'errored'; error = rec.reason || 'Failed to start.'; }
-      else if (rec && rec.status === 'starting') status = 'starting';
+      else if ((rec && rec.status === 'starting') || hits.length || partiallyDetectedByPort) status = 'starting';
 
       const pids = [...new Set([
         ...hits.map((l) => l.pid),
@@ -633,7 +712,10 @@ function annotateProjects(projects, listeners, tracked = []) {
       return {
         name: c.name,
         role: c.role || '',
-        port: c.port || null,
+        port: c.port || expectedPorts[0] || null,
+        ports: expectedPorts,
+        uiPorts: configuredPorts({ ports: c.uiPorts }),
+        backendPorts: configuredPorts({ ports: c.backendPorts }),
         command: c.command || '',
         cwd: c.cwd || '',
         match: c.match || '',
@@ -649,7 +731,12 @@ function annotateProjects(projects, listeners, tracked = []) {
         startedAt,
         uptimeSeconds: uptimeValues.length ? Math.max(...uptimeValues) : null,
         lastActionAt: (rec && rec.startedAt) || startedTimes[proj.name] || 0,
-        livePorts: [...new Set(hits.flatMap((l) => l.ports.map((p) => p.port)))].sort((a, b) => a - b),
+        livePorts: [...new Set(
+          [
+            ...hits.flatMap((listener) => listener.ports.map((port) => port.port)),
+            ...liveReadinessPorts,
+          ],
+        )].sort((a, b) => a - b),
       };
     });
     const runningCount = components.filter((c) => c.running).length;
@@ -659,13 +746,14 @@ function annotateProjects(projects, listeners, tracked = []) {
     return {
       name: proj.name,
       type: proj.type || '',
+      gitBranches: gitBranchesForProject(proj),
       components,
       running: runningCount > 0,
       partial: runningCount > 0 && runningCount < components.length,
       errored: components.some((c) => c.status === 'errored'),
       starting: components.some((c) => c.status === 'starting'),
       lastStartedAt: startedTimes[proj.name] || 0,
-      lastActionAt: Math.max(startedTimes[proj.name] || 0, ...components.map((c) => c.lastActionAt || 0)),
+      lastActionAt: Math.max(projectActivityTimes[proj.name] || 0, ...components.map((c) => c.lastActionAt || 0)),
       pids,
       pid: pids.length === 1 ? pids[0] : null,
       memKB: components.reduce((sum, c) => sum + (Number(c.memKB) || 0), 0),
@@ -756,9 +844,8 @@ const server = http.createServer(async (req, res) => {
       const projects = loadProjects();
       const tracked = await getTrackedProcesses(projects);
       const annotated = annotateProjects(projects, listeners, tracked);
-      // Most recently started from here first; never-started projects keep
-      // their projects.json order below (sort is stable).
-      annotated.sort((a, b) => b.lastStartedAt - a.lastStartedAt);
+      // Live targets always lead; recency orders targets within each group.
+      annotated.sort(compareProjectsForDisplay);
       json(res, 200, { projects: annotated });
       return;
     }
@@ -786,7 +873,8 @@ const server = http.createServer(async (req, res) => {
       const started = [], skipped = [], failed = [];
       for (const c of proj.components || []) {
         const pool = c.track === 'process' ? tracked : listeners;
-        if (listenersFor(c, pool).length) { skipped.push(c.name); continue; } // already running
+        const detectedByPort = allConfiguredPortsDetected(c, listeners);
+        if (listenersFor(c, pool).length || detectedByPort) { skipped.push(c.name); continue; } // already running
         if (!c.command || !c.cwd || !fs.existsSync(c.cwd)) {
           launches.set(launchKey(name, c.name), { status: 'errored', reason: `Missing command or folder: ${c.cwd || '(no cwd)'}`, logFile: '', startedAt: Date.now() });
           failed.push(c.name);
@@ -834,7 +922,12 @@ const server = http.createServer(async (req, res) => {
       }
       // Bump the project to the top of the "recently started" order — only
       // when something actually launched, not for a no-op click.
-      if (started.length) { startedTimes[name] = Date.now(); saveStartedTimes(); }
+      if (started.length) {
+        const timestamp = Date.now();
+        startedTimes[name] = timestamp;
+        saveStartedTimes();
+        recordProjectActivity(name, timestamp);
+      }
       json(res, 200, { ok: true, name, started, skipped, failed });
       return;
     }
@@ -847,8 +940,37 @@ const server = http.createServer(async (req, res) => {
       const proj = loadProjects().find((p) => p.name === name);
       if (!proj) { json(res, 404, { error: `No project named "${name}"` }); return; }
 
-      // Only ever kill *listening* processes (never an editor/terminal that
-      // merely has the path open), and never ourselves or protected system ones.
+      // Some managed services (notably Docker Compose stacks) need a graceful,
+      // service-aware shutdown. Run an explicitly configured stop command only
+      // for components currently detected as live, then clean up any remaining
+      // wrapper/listener processes below.
+      const listenersBeforeStop = await getListeners();
+      const trackedBeforeStop = await getTrackedProcesses([proj]);
+      const wasDetectedLive = (proj.components || []).some((c) => {
+        const pool = c.track === 'process' ? trackedBeforeStop : listenersBeforeStop;
+        return listenersFor(c, pool).length > 0 || anyConfiguredPortDetected(c, listenersBeforeStop);
+      });
+      const stoppedByCommand = [];
+      const stopFailures = [];
+      for (const c of proj.components || []) {
+        if (!c.stopCommand) continue;
+        const pool = c.track === 'process' ? trackedBeforeStop : listenersBeforeStop;
+        const detectedByPort = anyConfiguredPortDetected(c, listenersBeforeStop);
+        if (!listenersFor(c, pool).length && !detectedByPort) continue;
+        if (!c.cwd || !fs.existsSync(c.cwd)) {
+          stopFailures.push(`${c.name}: missing folder ${c.cwd || '(no cwd)'}`);
+          continue;
+        }
+        try {
+          await runConfiguredCommand(c.stopCommand, c.cwd);
+          stoppedByCommand.push(c.name);
+        } catch (err) {
+          stopFailures.push(`${c.name}: ${err.message}`);
+        }
+      }
+
+      // Only ever kill detected project processes (never an editor/terminal
+      // that merely has the path open), and never ourselves or protected ones.
       const listeners = await getListeners();
       const tracked = await getTrackedProcesses([proj]);
       const pids = new Set();
@@ -864,12 +986,32 @@ const server = http.createServer(async (req, res) => {
       }
       // Forget launch state so the components read as a clean "stopped".
       for (const c of proj.components || []) launches.delete(launchKey(name, c.name));
-      json(res, 200, { ok: true, name, stopped: killed });
+      if (stopFailures.length) {
+        json(res, 500, {
+          error: `Graceful stop failed: ${stopFailures.join('; ')}`,
+          name,
+          stopped: killed + stoppedByCommand.length,
+        });
+        return;
+      }
+      if (wasDetectedLive) recordProjectActivity(name);
+      json(res, 200, {
+        ok: true,
+        name,
+        stopped: killed + stoppedByCommand.length,
+        processesStopped: killed,
+        commandsRun: stoppedByCommand,
+      });
       return;
     }
 
     if (req.method === 'GET' && req.url === '/api/scripts') {
       json(res, 200, { scripts: await getScripts() });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/skills') {
+      json(res, 200, { skills: listSkills() });
       return;
     }
 
