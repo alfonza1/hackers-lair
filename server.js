@@ -6,14 +6,16 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { exec, execFile, spawn } = require('child_process');
-const { gitBranchesForProject } = require('./lib/git-branches');
+const { gitAttentionForProject } = require('./lib/git-attention');
 const { compareProjectsForDisplay } = require('./lib/project-order');
+const { onboardingState } = require('./lib/onboarding-prompts');
 const { listSkills } = require('./lib/skill-registry');
 
 const PORT = Number(process.env.PORT) || 4949;
 const MAX_PORT_TRIES = 10;
 const CONFIGURED_COMMAND_TIMEOUT_MS = 60_000;
 const DATA_DIR = process.env.PROJECT_MANAGER_DATA_DIR || __dirname;
+const AGENTS_HOME = process.env.AGENTS_HOME || path.resolve(__dirname, '..', '.agents');
 const STORE = path.join(DATA_DIR, 'stopped.json');
 const MAX_STOPPED = 40;
 const FIREFOX_CANDIDATES = [
@@ -679,6 +681,7 @@ function tailLog(file, code) {
 
 function annotateProjects(projects, listeners, tracked = []) {
   return projects.map((proj) => {
+    const gitAttention = gitAttentionForProject(proj);
     const components = (proj.components || []).map((c) => {
       const hits = listenersFor(c, c.track === 'process' ? tracked : listeners);
       const expectedPorts = configuredPorts(c);
@@ -746,7 +749,8 @@ function annotateProjects(projects, listeners, tracked = []) {
     return {
       name: proj.name,
       type: proj.type || '',
-      gitBranches: gitBranchesForProject(proj),
+      gitBranches: [...new Set(gitAttention.repositories.map((repository) => repository.branch).filter(Boolean))],
+      gitAttention,
       components,
       running: runningCount > 0,
       partial: runningCount > 0 && runningCount < components.length,
@@ -1007,6 +1011,16 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && req.url === '/api/scripts') {
       json(res, 200, { scripts: await getScripts() });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/onboarding') {
+      json(res, 200, onboardingState({
+        projectsFile: PROJECTS_FILE,
+        agentsHome: AGENTS_HOME,
+        projects: loadProjects(),
+        skills: listSkills({ agentsHome: AGENTS_HOME }),
+      }));
       return;
     }
 

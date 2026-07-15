@@ -822,6 +822,33 @@
   .status-terminating,
   .status-signal-lost { color: var(--red); background: rgba(255, 77, 91, .07); }
 
+  .git-attention {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    margin-top: 12px;
+    border-left: 2px solid var(--amber);
+    padding: 7px 10px;
+    color: var(--muted);
+    background: rgba(255, 204, 87, .045);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .git-attention strong {
+    flex: none;
+    color: var(--amber);
+    font-size: 10px;
+    letter-spacing: .08em;
+  }
+
+  .git-attention.critical {
+    border-left-color: var(--red);
+    background: rgba(255, 77, 91, .055);
+  }
+
+  .git-attention.critical strong { color: var(--red); }
+
   .status-booting::after,
   .status-terminating::after {
     content: "";
@@ -1040,6 +1067,74 @@
     color: var(--muted);
     text-align: center;
     text-transform: uppercase;
+  }
+
+  .onboarding {
+    display: grid;
+    gap: 14px;
+    max-width: 880px;
+    margin: 0 auto;
+    text-align: left;
+    text-transform: none;
+  }
+
+  .onboarding-intro {
+    display: grid;
+    gap: 5px;
+    border-left: 2px solid var(--cyan);
+    padding-left: 12px;
+  }
+
+  .onboarding-intro strong {
+    color: var(--text);
+    font-size: 14px;
+    text-transform: uppercase;
+  }
+
+  .onboarding-intro span {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .prompt-card {
+    display: grid;
+    gap: 10px;
+    border: 1px solid rgba(91, 220, 255, .2);
+    border-radius: 5px;
+    padding: 14px;
+    background: rgba(0, 0, 0, .22);
+  }
+
+  .prompt-head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .prompt-head strong {
+    color: var(--cyan);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .copy-prompt {
+    min-width: 94px;
+    border-color: rgba(102, 255, 181, .28);
+    color: var(--green);
+    background: rgba(102, 255, 181, .05);
+  }
+
+  .prompt-card pre {
+    margin: 0;
+    overflow: auto;
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font: 11px/1.6 Consolas, "Courier New", monospace;
+    word-break: break-word;
+    white-space: pre-wrap;
   }
 
   .intel {
@@ -1462,6 +1557,10 @@
     .view-tabs { display: grid; grid-template-columns: 1fr; }
     .view-tab { width: 100%; padding-inline: 6px; font-size: 11px; }
     .target-list { padding: 10px 8px 12px; }
+    .empty { padding: 32px 8px; }
+    .git-attention { align-items: flex-start; flex-direction: column; gap: 3px; }
+    .prompt-head { align-items: stretch; flex-direction: column; }
+    .copy-prompt { width: 100%; }
     .target-card { overflow: hidden; padding: 12px; }
     .target-card { padding: 0; }
     .machine-screen { padding: 12px; }
@@ -1593,6 +1692,7 @@
         <div class="intel-body">
           <div class="intel-row"><span class="intel-label" id="liveLabel">Live Targets</span><strong class="intel-value" id="liveCount">0</strong></div>
           <div class="intel-row"><span class="intel-label" id="dormantLabel">Dormant Targets</span><strong class="intel-value" id="dormantCount">0</strong></div>
+          <div class="intel-row"><span class="intel-label">Git Attention</span><strong class="intel-value" id="gitAttentionCount">0</strong></div>
           <div class="intel-row"><span class="intel-label">CPU Usage</span><strong class="intel-value" id="cpuUsage">N/A</strong><span class="bar"><span id="cpuBar"></span></span></div>
           <div class="intel-row"><span class="intel-label">Memory Usage</span><strong class="intel-value" id="memoryUsage">N/A</strong><span class="bar"><span id="memoryBar"></span></span></div>
           <div class="intel-row"><span class="intel-label">Last Command</span><strong class="intel-value" id="lastCommand">NONE</strong></div>
@@ -1682,6 +1782,7 @@
     scripts: [],
     skills: [],
     skillsLoaded: false,
+    onboarding: null,
     system: null,
     showSystem: false,
     showDefaultSkills: false,
@@ -2178,10 +2279,27 @@
     const uiPorts = projectPortsByKind(project, 'ui');
     const backendPorts = projectPortsByKind(project, 'backend');
     const gitBranches = project.gitBranches?.length ? project.gitBranches.join(', ') : 'N/A';
+    const gitSummary = project.gitAttention?.summary || {};
+    const gitRepository = project.gitAttention?.repositories?.[0];
+    const gitState = gitSummary.changedPaths ? `${gitSummary.changedPaths} CHANGED` : gitRepository ? 'CLEAN' : 'N/A';
+    const gitSync = gitRepository
+      ? `UP ${gitSummary.ahead || 0} / DOWN ${gitSummary.behind || 0}${gitSummary.withoutUpstream ? ' / NO UPSTREAM' : ''}`
+      : 'N/A';
     const lastSignal = formatDateTime(lastActionFor(key, project.lastActionAt || project.lastStartedAt));
     const isBusy = state.busy.has(key);
     const initiateDisabled = isBusy || status.key === 'live' || status.key === 'booting';
     const terminateDisabled = isBusy || status.key === 'dormant';
+    const attentionReasons = [
+      gitSummary.protectedBranchDirty ? 'DIRTY PROTECTED BRANCH' : '',
+      gitSummary.detached ? 'DETACHED HEAD' : '',
+      gitSummary.changedPaths ? `${gitSummary.changedPaths} UNCOMMITTED PATH${gitSummary.changedPaths === 1 ? '' : 'S'}` : '',
+      gitSummary.ahead ? `${gitSummary.ahead} UNPUSHED COMMIT${gitSummary.ahead === 1 ? '' : 'S'}` : '',
+      gitSummary.behind ? `${gitSummary.behind} COMMIT${gitSummary.behind === 1 ? '' : 'S'} BEHIND` : '',
+      gitSummary.withoutUpstream ? 'NO UPSTREAM' : '',
+    ].filter(Boolean);
+    const attention = attentionReasons.length
+      ? `<div class="git-attention ${gitSummary.level === 'critical' ? 'critical' : ''}"><strong>GIT ATTENTION</strong><span>${esc(attentionReasons.join(' / '))}</span></div>`
+      : '';
 
     const modules = project.components.map((component) => {
       const mini = componentStatus(component);
@@ -2215,6 +2333,7 @@
               <span class="target-type">${esc(project.type || 'module')}</span>
               ${statusBadge(status)}
             </div>
+            ${attention}
             <div class="target-fields">
               ${field('PID', pids)}
               ${field('Uptime', formatDuration(project.uptimeSeconds))}
@@ -2224,6 +2343,8 @@
               ${fieldHtml('UI Port', portLinks(uiPorts), portTitle(uiPorts))}
               ${fieldHtml('Backend Port', portLinks(backendPorts), portTitle(backendPorts))}
               ${field('Git Branch', gitBranches)}
+              ${field('Working Tree', gitState)}
+              ${field('Git Sync', gitSync)}
               ${field('Modules', String(project.components.length))}
               ${field('Path', path, 'path')}
             </div>
@@ -2450,14 +2571,47 @@
     });
   }
 
+  function onboardingPromptsForView() {
+    if (state.query || !state.onboarding?.prompts?.length) return [];
+    if (state.view === 'projects' && state.projects.length === 0) {
+      return state.onboarding.prompts.filter((prompt) => ['complete', 'projects'].includes(prompt.id));
+    }
+    if (state.view === 'skills' && state.skillsLoaded && !state.skills.some((skill) => skill.kind === 'personal')) {
+      return state.onboarding.prompts.filter((prompt) => prompt.id === 'skills');
+    }
+    return [];
+  }
+
+  function onboardingHtml(prompts) {
+    return `
+      <div class="onboarding">
+        <div class="onboarding-intro">
+          <strong>Configuration needed</strong>
+          <span>Copy a prompt into your coding agent. It contains the live paths for this machine and guardrails that preserve existing work.</span>
+        </div>
+        ${prompts.map((prompt) => `
+          <section class="prompt-card">
+            <div class="prompt-head">
+              <strong>${esc(prompt.title)}</strong>
+              <button class="copy-prompt" type="button" data-copy-prompt="${esc(prompt.id)}">Copy prompt</button>
+            </div>
+            <pre>${esc(prompt.prompt)}</pre>
+          </section>
+        `).join('')}
+      </div>
+    `;
+  }
+
   function renderTargets() {
     const rows = state.view === 'projects' ? visibleProjects()
       : state.view === 'processes' ? visibleProcesses()
       : state.view === 'scripts' ? visibleScripts()
       : visibleSkills();
     const scanningSkills = state.view === 'skills' && !state.skillsLoaded;
+    const onboardingPrompts = onboardingPromptsForView();
     $('emptyState').hidden = rows.length > 0;
-    $('emptyState').textContent = scanningSkills ? 'Scanning shared agent skill folder...' : VIEW_CONFIG[state.view].empty;
+    if (onboardingPrompts.length) $('emptyState').innerHTML = onboardingHtml(onboardingPrompts);
+    else $('emptyState').textContent = scanningSkills ? 'Scanning shared agent skill folder...' : VIEW_CONFIG[state.view].empty;
     $('targetList').innerHTML = rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
       : state.view === 'processes' ? processCard(row)
@@ -2526,6 +2680,7 @@
     $('dormantLabel').textContent = state.view === 'skills' ? 'Default Skills' : 'Dormant Targets';
     $('liveCount').textContent = String(live);
     $('dormantCount').textContent = String(dormant);
+    $('gitAttentionCount').textContent = String(state.projects.filter((project) => project.gitAttention?.summary?.level !== 'clean').length);
     $('cpuUsage').textContent = formatCpu(cpu);
     $('cpuBar').style.width = `${Math.max(0, Math.min(Number(cpu) || 0, 100))}%`;
     $('memoryUsage').textContent = formatCpu(memoryUsed);
@@ -2582,6 +2737,16 @@
     } catch (error) {
       toast('Signal lost: script registry unavailable', true);
       pushFeed('SCRIPT_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    }
+  }
+
+  async function loadOnboarding() {
+    try {
+      state.onboarding = await fetchJson('/api/onboarding');
+      renderTargets();
+    } catch {
+      state.onboarding = null;
+      pushFeed('ONBOARDING_SCAN_FAILED', 'reason=configuration_state_unavailable', 'warn');
     }
   }
 
@@ -2948,6 +3113,7 @@
     pushFeed('MANUAL_SCAN', `view=${state.view}`, 'info');
     await Promise.all([
       loadSystem(),
+      loadOnboarding(),
       state.view === 'projects' ? loadProjects(true)
         : state.view === 'processes' ? Promise.all([loadProjects(true), loadProcesses(true)])
         : state.view === 'scripts' ? loadScripts(true)
@@ -2971,6 +3137,21 @@
     renderTargets();
   });
 
+  $('emptyState').addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-copy-prompt]');
+    if (!button) return;
+    const prompt = state.onboarding?.prompts?.find((item) => item.id === button.dataset.copyPrompt);
+    if (!prompt) return;
+    try {
+      await navigator.clipboard.writeText(prompt.prompt);
+      button.textContent = 'Copied';
+      pushFeed('SETUP_PROMPT_COPIED', `scope=${slug(prompt.id)}`, 'info');
+      setTimeout(() => { button.textContent = 'Copy prompt'; }, 1600);
+    } catch {
+      toast('Clipboard unavailable. Select the prompt text manually.', true);
+    }
+  });
+
   $('clearFeed').addEventListener('click', () => {
     state.feed = [];
     saveFeed();
@@ -2986,7 +3167,7 @@
       pushFeed('CONSOLE_BOOT', 'mode=process_control node=local', 'info');
       pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
     }
-    await Promise.all([loadSystem(), loadProjects()]);
+    await Promise.all([loadSystem(), loadProjects(), loadOnboarding()]);
     setInterval(() => {
       if (document.hidden) return;
       loadSystem();
