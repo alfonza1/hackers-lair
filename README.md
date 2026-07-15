@@ -59,9 +59,10 @@ Managed project UIs are opened explicitly in **Firefox**, independent of the
 Windows default browser. Set `FIREFOX_PATH` only when Firefox is installed
 outside a standard Windows location.
 
-Git attention is read-only. Each target reports its working-tree changes,
-upstream divergence, missing upstream, detached HEAD, and dirty protected-branch
-state. Hacker's Lair does not stage, commit, reset, pull, or push repositories.
+Git attention is read-only. Each target reports its total local commit count,
+working-tree changes, upstream divergence, missing upstream, detached HEAD, and
+dirty protected-branch state. Hacker's Lair does not stage, commit, reset, pull,
+or push repositories.
 
 When no targets or personal skills are configured, the empty view provides
 copyable prompts for a coding agent. The service inserts the current machine's

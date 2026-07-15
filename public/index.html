@@ -2282,6 +2282,7 @@
     const gitSummary = project.gitAttention?.summary || {};
     const gitRepository = project.gitAttention?.repositories?.[0];
     const gitState = gitSummary.changedPaths ? `${gitSummary.changedPaths} CHANGED` : gitRepository ? 'CLEAN' : 'N/A';
+    const localCommits = gitRepository ? String(gitSummary.localCommits || 0) : 'N/A';
     const gitSync = gitRepository
       ? `UP ${gitSummary.ahead || 0} / DOWN ${gitSummary.behind || 0}${gitSummary.withoutUpstream ? ' / NO UPSTREAM' : ''}`
       : 'N/A';
@@ -2343,6 +2344,7 @@
               ${fieldHtml('UI Port', portLinks(uiPorts), portTitle(uiPorts))}
               ${fieldHtml('Backend Port', portLinks(backendPorts), portTitle(backendPorts))}
               ${field('Git Branch', gitBranches)}
+              ${field('Local Commits', localCommits)}
               ${field('Working Tree', gitState)}
               ${field('Git Sync', gitSync)}
               ${field('Modules', String(project.components.length))}

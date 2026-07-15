@@ -23,6 +23,7 @@ const gitAttention = (root, branch, overrides = {}) => {
     behind: 0,
     dirty: false,
     changedPaths: 0,
+    commitCount: 0,
     ...overrides,
   };
   const dirtyRepositories = repository.dirty ? 1 : 0;
@@ -35,6 +36,7 @@ const gitAttention = (root, branch, overrides = {}) => {
       changedPaths: repository.changedPaths,
       ahead: repository.ahead,
       behind: repository.behind,
+      localCommits: repository.commitCount,
       withoutUpstream,
       protectedBranchDirty: repository.dirty && ['main', 'master'].includes(branch),
       detached: repository.detached,
@@ -42,9 +44,9 @@ const gitAttention = (root, branch, overrides = {}) => {
   };
 };
 const projects = [
-  { name: 'nightwatch-relay', type: 'Vite + Node API', gitBranches: ['feature/relay-observability'], gitAttention: gitAttention('C:\\Workspaces\\nightwatch-relay', 'feature/relay-observability', { dirty: true, changedPaths: 2, ahead: 3 }), components: [component('relay-ui', 'frontend', 5173, true, 18420), component('relay-api', 'backend', 4100, true, 22108)], running: true, partial: false, errored: false, starting: false, pids: [18420, 22108], memKB: 372480, cpuPercent: 4.8, uptimeSeconds: 8421, lastActionAt: now - 420000 },
-  { name: 'atlas-worker', type: 'Python task runner', gitBranches: ['main'], gitAttention: gitAttention('C:\\Workspaces\\atlas-worker', 'main'), components: [component('atlas-worker', 'headless', null, true, 27144)], running: true, partial: false, errored: false, starting: false, pids: [27144], memKB: 92160, cpuPercent: 1.1, uptimeSeconds: 3644, lastActionAt: now - 910000 },
-  { name: 'static-forge', type: 'Next.js workspace', gitBranches: ['release/next'], gitAttention: gitAttention('C:\\Workspaces\\static-forge', 'release/next'), components: [component('static-forge', 'fullstack', 3000, false)], running: false, partial: false, errored: false, starting: false, pids: [], memKB: 0, cpuPercent: null, uptimeSeconds: null, lastActionAt: now - 7200000 },
+  { name: 'nightwatch-relay', type: 'Vite + Node API', gitBranches: ['feature/relay-observability'], gitAttention: gitAttention('C:\\Workspaces\\nightwatch-relay', 'feature/relay-observability', { dirty: true, changedPaths: 2, ahead: 3, commitCount: 684 }), components: [component('relay-ui', 'frontend', 5173, true, 18420), component('relay-api', 'backend', 4100, true, 22108)], running: true, partial: false, errored: false, starting: false, pids: [18420, 22108], memKB: 372480, cpuPercent: 4.8, uptimeSeconds: 8421, lastActionAt: now - 420000 },
+  { name: 'atlas-worker', type: 'Python task runner', gitBranches: ['main'], gitAttention: gitAttention('C:\\Workspaces\\atlas-worker', 'main', { commitCount: 217 }), components: [component('atlas-worker', 'headless', null, true, 27144)], running: true, partial: false, errored: false, starting: false, pids: [27144], memKB: 92160, cpuPercent: 1.1, uptimeSeconds: 3644, lastActionAt: now - 910000 },
+  { name: 'static-forge', type: 'Next.js workspace', gitBranches: ['release/next'], gitAttention: gitAttention('C:\\Workspaces\\static-forge', 'release/next', { commitCount: 93 }), components: [component('static-forge', 'fullstack', 3000, false)], running: false, partial: false, errored: false, starting: false, pids: [], memKB: 0, cpuPercent: null, uptimeSeconds: null, lastActionAt: now - 7200000 },
 ];
 const processes = [
   { pid: 18420, name: 'node.exe', label: 'Nightwatch UI', cmd: 'node vite.js', exePath: 'C:\\Program Files\\nodejs\\node.exe', cwd: 'C:\\Workspaces\\nightwatch-relay', memKB: 186240, uptimeSeconds: 8421, cpuPercent: 2.4, self: false, protected: false, system: false, ports: [{ port: 5173, addresses: ['127.0.0.1'] }] },
