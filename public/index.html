@@ -900,24 +900,6 @@
     overflow-wrap: anywhere;
   }
 
-  .skill-card.personal { border-color: rgba(91, 220, 255, .36); }
-
-  .skill-card.default {
-    opacity: .84;
-    border-style: dashed;
-  }
-
-  .skill-card .machine-screen { grid-template-columns: minmax(0, 1fr); }
-
-  .skill-desc {
-    max-width: 920px;
-    margin: 11px 0 2px;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.6;
-    overflow-wrap: anywhere;
-  }
-
   .module-strip {
     display: grid;
     gap: 0;
@@ -1543,7 +1525,7 @@
       <div>
         <div class="eyebrow">Hacker's Lair</div>
         <h1 data-text="PROCESS CONTROL">Process Control<span class="cursor" aria-hidden="true"></span></h1>
-        <p class="top-sub">Low-light command room for local targets, port signals, scripts, and AI skills.</p>
+        <p class="top-sub">Low-light command room for local targets, port signals, and scripts.</p>
       </div>
     </div>
     <div class="node-strip" aria-label="System state">
@@ -1566,7 +1548,6 @@
             <button class="view-tab active" data-view="projects" role="tab" aria-selected="true">Targets</button>
             <button class="view-tab" data-view="processes" role="tab" aria-selected="false">Port Signals</button>
             <button class="view-tab" data-view="scripts" role="tab" aria-selected="false">Scripts</button>
-            <button class="view-tab" data-view="skills" role="tab" aria-selected="false">Skills</button>
           </div>
           <button class="utility" id="refreshBtn" type="button">Refresh</button>
         </div>
@@ -1576,7 +1557,6 @@
           <input id="search" type="text" autocomplete="off" placeholder="filter targets by name, branch, module, path, pid, or port">
         </div>
         <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
-        <button class="utility" id="defaultSkillsToggle" type="button" aria-pressed="false" hidden>Default Skills</button>
       </div>
       <div class="target-list" id="targetList"></div>
       <div class="empty" id="emptyState" hidden>No matching targets detected.</div>
@@ -1672,7 +1652,6 @@
     projects: { title: 'Targets', placeholder: 'filter targets by name, branch, module, path, pid, or port', empty: 'No matching targets detected.' },
     processes: { title: 'Port Signals', placeholder: 'filter signals by name, path, pid, or port', empty: 'No matching port signals detected.' },
     scripts: { title: 'Scripts', placeholder: 'filter scripts by name, file, or description', empty: 'No matching scripts detected.' },
-    skills: { title: 'Skills', placeholder: 'filter skills by name, source, or description', empty: 'No matching skills detected.' },
   };
 
   const state = {
@@ -1680,11 +1659,8 @@
     projects: [],
     processes: [],
     scripts: [],
-    skills: [],
-    skillsLoaded: false,
     system: null,
     showSystem: false,
-    showDefaultSkills: false,
     query: '',
     busy: new Map(),
     confirming: new Map(),
@@ -2330,35 +2306,6 @@
     `;
   }
 
-  function skillCard(skill) {
-    const personal = skill.kind === 'personal';
-    const status = { key: personal ? 'live' : 'dormant', label: personal ? 'PERSONAL' : 'DEFAULT' };
-    return `
-      <article class="target-card skill-card ${esc(skill.kind)}" data-card-kind="skill" data-skill-id="${esc(skill.id)}">
-        <div class="machine-bar">
-          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
-          <span class="machine-label">agent-skill :: ${esc(skill.name)}</span>
-          <span class="machine-node">${personal ? 'WORKSPACE' : 'DEFAULT CATALOG'}</span>
-        </div>
-        <div class="machine-screen">
-          <div class="target-main">
-            <div class="target-title">
-              <h3><span class="target-prefix">SKILL</span>${esc(skill.name)}</h3>
-              <span class="target-type">${esc(skill.origin)}</span>
-              ${statusBadge(status)}
-            </div>
-            <p class="skill-desc">${esc(skill.description)}</p>
-            <div class="target-fields">
-              ${field('Source', personal ? '.agents/skills' : skill.origin)}
-              ${field('Scope', personal ? 'Personal workspace' : 'Default catalog')}
-              ${field('Visibility', personal ? 'Shown by default' : 'Filtered by default')}
-            </div>
-          </div>
-        </div>
-      </article>
-    `;
-  }
-
   function visibleProjects() {
     const q = state.query;
     return state.projects.filter((project) => {
@@ -2434,35 +2381,16 @@
     });
   }
 
-  function visibleSkills() {
-    const q = state.query;
-    return state.skills.filter((skill) => {
-      const selectedKind = state.showDefaultSkills ? 'default' : 'personal';
-      if (skill.kind !== selectedKind) return false;
-      if (!q) return true;
-      const haystack = [
-        skill.name,
-        skill.description,
-        skill.kind,
-        skill.origin,
-      ].join(' ').toLowerCase();
-      return haystack.includes(q);
-    });
-  }
-
   function renderTargets() {
     const rows = state.view === 'projects' ? visibleProjects()
       : state.view === 'processes' ? visibleProcesses()
-      : state.view === 'scripts' ? visibleScripts()
-      : visibleSkills();
-    const scanningSkills = state.view === 'skills' && !state.skillsLoaded;
+      : visibleScripts();
     $('emptyState').hidden = rows.length > 0;
-    $('emptyState').textContent = scanningSkills ? 'Scanning shared agent skill folder...' : VIEW_CONFIG[state.view].empty;
+    $('emptyState').textContent = VIEW_CONFIG[state.view].empty;
     $('targetList').innerHTML = rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
       : state.view === 'processes' ? processCard(row)
-      : state.view === 'scripts' ? scriptCard(row)
-      : skillCard(row)
+      : scriptCard(row)
     ).join('');
   }
 
@@ -2475,7 +2403,6 @@
     $('viewTitle').textContent = config.title;
     $('search').placeholder = config.placeholder;
     $('systemToggle').hidden = view !== 'processes';
-    $('defaultSkillsToggle').hidden = view !== 'skills';
     document.querySelectorAll('.view-tab').forEach((tab) => {
       const active = tab.dataset.view === view;
       tab.classList.toggle('active', active);
@@ -2485,8 +2412,7 @@
     updateIntel();
     if (view === 'projects') loadProjects(true);
     else if (view === 'processes') Promise.all([loadProjects(true), loadProcesses(true)]);
-    else if (view === 'scripts') loadScripts(true);
-    else loadSkills(true);
+    else loadScripts(true);
   }
 
   function updateClock() {
@@ -2509,9 +2435,6 @@
     } else if (state.view === 'scripts') {
       rows = state.scripts;
       live = rows.filter((row) => row.running).length;
-    } else if (state.view === 'skills') {
-      rows = state.skills;
-      live = rows.filter((row) => row.kind === 'personal').length;
     } else {
       rows = state.processes.filter((process) => !isConfiguredProjectProcess(process) && (state.showSystem || !process.system));
       live = rows.filter((row) => !row.stopped).length;
@@ -2522,8 +2445,6 @@
     const memoryUsed = state.system?.memory?.usedPercent;
     const cpu = state.system?.cpuPercent;
 
-    $('liveLabel').textContent = state.view === 'skills' ? 'Personal Skills' : 'Live Targets';
-    $('dormantLabel').textContent = state.view === 'skills' ? 'Default Skills' : 'Dormant Targets';
     $('liveCount').textContent = String(live);
     $('dormantCount').textContent = String(dormant);
     $('cpuUsage').textContent = formatCpu(cpu);
@@ -2582,25 +2503,6 @@
     } catch (error) {
       toast('Signal lost: script registry unavailable', true);
       pushFeed('SCRIPT_REGISTRY_FAILED', `reason=${error.message}`, 'error');
-    }
-  }
-
-  async function loadSkills(quiet = false) {
-    try {
-      const data = await fetchJson('/api/skills');
-      state.skills = data.skills || [];
-      state.skillsLoaded = true;
-      if (!quiet) {
-        const personal = state.skills.filter((skill) => skill.kind === 'personal').length;
-        pushFeed('SKILL_REGISTRY_SYNCED', `personal=${personal} total=${state.skills.length}`, 'info');
-      }
-      renderTargets();
-      updateIntel();
-    } catch (error) {
-      state.skillsLoaded = true;
-      renderTargets();
-      toast('Signal lost: skill registry unavailable', true);
-      pushFeed('SKILL_REGISTRY_FAILED', `reason=${error.message}`, 'error');
     }
   }
 
@@ -2950,8 +2852,7 @@
       loadSystem(),
       state.view === 'projects' ? loadProjects(true)
         : state.view === 'processes' ? Promise.all([loadProjects(true), loadProcesses(true)])
-        : state.view === 'scripts' ? loadScripts(true)
-        : loadSkills(true),
+        : loadScripts(true),
     ]);
   });
 
@@ -2961,14 +2862,6 @@
     $('systemToggle').textContent = state.showSystem ? 'Hide System' : 'System Signals';
     renderTargets();
     updateIntel();
-  });
-
-  $('defaultSkillsToggle').addEventListener('click', () => {
-    state.showDefaultSkills = !state.showDefaultSkills;
-    $('defaultSkillsToggle').classList.toggle('toggled', state.showDefaultSkills);
-    $('defaultSkillsToggle').setAttribute('aria-pressed', String(state.showDefaultSkills));
-    $('defaultSkillsToggle').textContent = state.showDefaultSkills ? 'Personal Skills' : 'Default Skills';
-    renderTargets();
   });
 
   $('clearFeed').addEventListener('click', () => {
@@ -2992,7 +2885,6 @@
       loadSystem();
       if (state.view === 'projects') loadProjects(true);
       else if (state.view === 'scripts') loadScripts(true);
-      else if (state.view === 'skills') loadSkills(true);
       else {
         loadProjects(true);
         loadProcesses(true);

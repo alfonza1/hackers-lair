@@ -5,7 +5,7 @@
 <h1 align="center">Hacker's Lair</h1>
 
 <p align="center">
-  <strong>A frameless Windows command room for projects, localhost ports, automation scripts, and agent skills.</strong>
+  <strong>A frameless Windows command room for projects, localhost ports, and automation scripts.</strong>
 </p>
 
 <p align="center">
@@ -38,10 +38,6 @@ window controls, and scrollbar. The control service listens only on
 
 ![Hacker's Lair Scripts view showing active and dormant automation modules](docs/screenshots/scripts.png)
 
-### Agent skills
-
-![Hacker's Lair Skills view showing fictional shared agent capabilities](docs/screenshots/skills.png)
-
 ## Control surfaces
 
 | Surface | What it controls |
@@ -49,7 +45,6 @@ window controls, and scrollbar. The control service listens only on
 | **Targets** | Starts or stops every configured component of a project as one unit, while showing component status, the checked-out Git branch, and logs. Live projects stay first; the most recently terminated project leads the dormant group. |
 | **Port Signals** | Shows listening localhost ports, labels known development servers, stops processes, and relaunches processes previously stopped by the console. |
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
-| **Skills** | Live-scans the shared workspace agent skills and keeps bundled, system, and plugin defaults behind an optional filter. |
 | **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |
 | **Desktop Core** | Runs guarded restart and shutdown sequences for the Electron host without stopping managed projects or the local control service. |
 | **Signal Tape** | Keeps an operator-readable event feed for starts, stops, refreshes, and failures. |
@@ -67,7 +62,6 @@ flowchart LR
     API --> PROJECTS["projects.json<br/>targets + components"]
     API --> WINDOWS["Windows process + port tools"]
     API --> SCRIPTS["scripts.json<br/>AutoIt discovery"]
-    API --> SKILLS[".agents/skills<br/>live shared skill discovery"]
     API --> FIREFOX["Firefox<br/>managed project UIs"]
 ```
 
@@ -242,25 +236,12 @@ configured executable and folder. Start and stop detection matches the script's
 absolute path in the AutoIt process command line, so keep script filenames
 distinct within the configured folder.
 
-### Skill discovery
-
-The **Skills** surface reads personal skill metadata directly from the shared
-workspace `.agents/skills/*/SKILL.md` folder. It re-scans while the surface is
-open, so adding, editing, or removing a personal skill does not require a
-Hacker's Lair restart.
-
-Personal skills are shown first as shared workspace capabilities. Selecting
-**Default Skills** switches to an exclusive view of bundled, system, and
-installed-plugin skills; selecting **Personal Skills** switches back. Only
-skill metadata is sent to the local UI; filesystem paths are not exposed.
-
 ## Repository map
 
 | Path | Responsibility |
 |---|---|
 | `public/index.html` | Complete Process Control interface and browser-side behavior |
 | `server.js` | Local HTTP service, process discovery, launch, stop, and log APIs |
-| `lib/skill-registry.js` | Live shared and default agent skill metadata discovery |
 | `desktop.js` | Frameless Electron window lifecycle |
 | `app-config.js` | Shared desktop name, Windows app identity, and icon-cache version |
 | `preload.js` | Restricted bridge for in-app window controls |

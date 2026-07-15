@@ -29,18 +29,11 @@ const scripts = [
   { file: 'nightly-cleanup.au3', path: 'C:\\Automation\\nightly-cleanup.au3', name: 'nightly-cleanup', description: 'Runs the local workspace cleanup sequence for generated caches and temporary files.', modifiedAt: now - 86400000, running: false, pids: [], pid: null, uptimeSeconds: null, memKB: 0 },
   { file: 'focus-mode.au3', path: 'C:\\Automation\\focus-mode.au3', name: 'focus-mode', description: 'Applies the operator focus layout and restores the previous desktop state when stopped.', modifiedAt: now - 172800000, running: false, pids: [], pid: null, uptimeSeconds: null, memKB: 0 },
 ];
-const skills = [
-  { id: 'personal-release-watch', name: 'release-watch', description: 'Checks release candidates for missing verification, migration notes, and rollback instructions.', kind: 'personal', origin: 'Workspace' },
-  { id: 'personal-accessibility-audit', name: 'accessibility-audit', description: 'Reviews product screens for keyboard access, focus order, contrast, and useful labels.', kind: 'personal', origin: 'Workspace' },
-  { id: 'personal-api-contract-review', name: 'api-contract-review', description: 'Validates API changes for compatibility, error behavior, and consumer impact.', kind: 'personal', origin: 'Workspace' },
-  { id: 'default-code-review', name: 'code-review', description: 'Reviews repository changes for correctness, reuse, simplicity, and efficiency.', kind: 'default', origin: 'Bundled' },
-];
 const fixtures = {
   '/api/system': { node: 'NIGHTHAWK-07', status: 'ONLINE', mode: 'PROCESS CONTROL', pid: 9000, port: 4949, cpuPercent: 18.7, memory: { totalKB: 33554432, freeKB: 18874368, usedPercent: 43.8 } },
   '/api/projects': { projects },
   '/api/processes': { self: 9000, port: 4949, processes, stopped },
   '/api/scripts': { scripts },
-  '/api/skills': { skills },
 };
 
 const injection = `<style>
@@ -64,7 +57,7 @@ const injection = `<style>
     const bootSequence = document.getElementById('bootSequence');
     if (bootSequence) bootSequence.style.display = 'none';
     const view = location.hash.slice(1);
-    if (['processes', 'scripts', 'skills'].includes(view)) document.querySelector('[data-view="' + view + '"]')?.click();
+    if (['processes', 'scripts'].includes(view)) document.querySelector('[data-view="' + view + '"]')?.click();
   }, 120));
 </script>`;
 
@@ -80,7 +73,7 @@ fs.mkdirSync(outputDir, { recursive: true });
 const edge = process.env.EDGE_PATH || path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
 if (!fs.existsSync(edge)) throw new Error('Microsoft Edge was not found. Set EDGE_PATH to a Chromium executable.');
 
-for (const [name, hash] of [['targets', ''], ['port-signals', '#processes'], ['scripts', '#scripts'], ['skills', '#skills']]) {
+for (const [name, hash] of [['targets', ''], ['port-signals', '#processes'], ['scripts', '#scripts']]) {
   const output = path.join(outputDir, `${name}.png`);
   const profile = path.join(os.tmpdir(), `hackers-lair-readme-${name}-${process.pid}`);
   fs.rmSync(output, { force: true });
