@@ -30,6 +30,10 @@ window controls, and scrollbar. The control service listens only on
 
 ![Hacker's Lair Targets view showing fictional live and dormant projects](docs/screenshots/targets.png)
 
+### Agent-assisted first run
+
+![Hacker's Lair first-run view showing copyable agent configuration prompts](docs/screenshots/onboarding.png)
+
 ### Port signals
 
 ![Hacker's Lair Port Signals view showing fictional listening and remembered processes](docs/screenshots/port-signals.png)
@@ -42,7 +46,7 @@ window controls, and scrollbar. The control service listens only on
 
 | Surface | What it controls |
 |---|---|
-| **Targets** | Starts or stops every configured component of a project as one unit, while showing component status, the checked-out Git branch, and logs. |
+| **Targets** | Starts or stops every configured component of a project as one unit, while showing component status, Git attention, and logs. |
 | **Port Signals** | Shows listening localhost ports, labels known development servers, stops processes, and relaunches processes previously stopped by the console. |
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
 | **Skills** | Live-scans the shared workspace agent skills and keeps bundled, system, and plugin defaults behind an optional filter. |
@@ -54,6 +58,16 @@ window controls, and scrollbar. The control service listens only on
 Managed project UIs are opened explicitly in **Firefox**, independent of the
 Windows default browser. Set `FIREFOX_PATH` only when Firefox is installed
 outside a standard Windows location.
+
+Git attention is read-only. Each target reports its working-tree changes,
+upstream divergence, missing upstream, detached HEAD, and dirty protected-branch
+state. Hacker's Lair does not stage, commit, reset, pull, or push repositories.
+
+When no targets or personal skills are configured, the empty view provides
+copyable prompts for a coding agent. The service inserts the current machine's
+real `projects.json` and `.agents\skills` paths, while the prompt tells the agent
+to inspect first, preserve existing files, ask about ambiguity, validate the
+result, and verify it in the running app.
 
 ## Architecture
 
@@ -250,6 +264,8 @@ skill metadata is sent to the local UI; filesystem paths are not exposed.
 | `public/index.html` | Complete Process Control interface and browser-side behavior |
 | `server.js` | Local HTTP service, process discovery, launch, stop, and log APIs |
 | `lib/skill-registry.js` | Live shared and default agent skill metadata discovery |
+| `lib/git-attention.js` | Read-only Git working-tree and upstream attention state |
+| `lib/onboarding-prompts.js` | Portable first-run prompts using live machine paths |
 | `desktop.js` | Frameless Electron window lifecycle |
 | `preload.js` | Restricted bridge for in-app window controls |
 | `projects.json` | Project and component launch configuration |
