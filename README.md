@@ -5,7 +5,7 @@
 <h1 align="center">Hacker's Lair</h1>
 
 <p align="center">
-  <strong>A frameless Windows command room for projects, localhost ports, and automation scripts.</strong>
+  <strong>A frameless Windows command room for projects, localhost ports, automation scripts, and agent skills.</strong>
 </p>
 
 <p align="center">
@@ -38,14 +38,20 @@ window controls, and scrollbar. The control service listens only on
 
 ![Hacker's Lair Scripts view showing active and dormant automation modules](docs/screenshots/scripts.png)
 
+### Agent skills
+
+![Hacker's Lair Skills view showing fictional shared agent capabilities](docs/screenshots/skills.png)
+
 ## Control surfaces
 
 | Surface | What it controls |
 |---|---|
-| **Targets** | Starts or stops every configured component of a project as one unit, while retaining component-level status and logs. |
+| **Targets** | Starts or stops every configured component of a project as one unit, while showing component status, the checked-out Git branch, and logs. Live projects stay first; the most recently terminated project leads the dormant group. |
 | **Port Signals** | Shows listening localhost ports, labels known development servers, stops processes, and relaunches processes previously stopped by the console. |
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
+| **Skills** | Live-scans the shared workspace agent skills and keeps bundled, system, and plugin defaults behind an optional filter. |
 | **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |
+| **Desktop Core** | Runs guarded restart and shutdown sequences for the Electron host without stopping managed projects or the local control service. |
 | **Signal Tape** | Keeps an operator-readable event feed for starts, stops, refreshes, and failures. |
 | **Cinematic shell** | Runs a short secure-boot handoff, ambient signal rain, and scan passes without covering the controls. |
 
@@ -61,11 +67,16 @@ flowchart LR
     API --> PROJECTS["projects.json<br/>targets + components"]
     API --> WINDOWS["Windows process + port tools"]
     API --> SCRIPTS["scripts.json<br/>AutoIt discovery"]
+    API --> SKILLS[".agents/skills<br/>live shared skill discovery"]
     API --> FIREFOX["Firefox<br/>managed project UIs"]
 ```
 
 The Node service uses built-in modules and Windows tools such as `netstat`,
 `tasklist`, and `taskkill`. Electron is the only npm dependency.
+
+The Intel Rack's **Desktop Core** controls require two clicks within five
+seconds. **Restart** relaunches the Electron host; **Shutdown** exits it. Both
+leave managed targets and the background localhost control service running.
 
 ## Quick start
 
@@ -115,22 +126,27 @@ The service-only UI is also available at <http://localhost:4949>.
 
 ## Configure projects
 
-`projects.json` defines each target and its frontend, backend, or headless
-components. Paths and commands are intentionally explicit because detection is
-based on the process command line, not only a port number.
+`projects.json` defines each target and its frontend, backend, Docker stack, or
+headless components. Docker stacks declare their published `ports` as the
+authoritative readiness signal, so Hacker's Lair recognizes containers started
+inside or outside the app even though Docker owns the Windows listener process.
 
 To add your own project:
 
 1. Open `projects.json` and add one object inside its top-level `projects`
    array.
-2. Add one component for every process Hacker's Lair should start and stop.
+2. Add one component for every command Hacker's Lair should start and stop. A
+   Docker Compose project should normally be one `stack` component.
 3. Set each component's `cwd` to an existing absolute Windows folder and its
    `command` to the same command you would run from that folder in PowerShell.
 4. Use a distinctive absolute path or command token for `match`. Hacker's Lair
    uses this value to identify and stop the correct process.
-5. Set `port` to the expected listening port. For a worker or bot that never
-   opens a port, use `"port": null` and `"track": "process"`.
-6. Save the file and select **Refresh** in Hacker's Lair. The service reads the
+5. For Docker, set `ports` to the project's unique published readiness ports.
+   All must be listening before the stack is reported running. Use optional
+   `uiPorts` and `backendPorts` to classify them on the target card.
+6. Set `stopCommand` for Docker Compose. It runs when any declared port is live,
+   including when the stack was started outside Hacker's Lair.
+7. Save the file and select **Refresh** in Hacker's Lair. The service reads the
    configuration again without a restart.
 
 For example, add this object to the empty `projects` array and replace the
@@ -138,24 +154,20 @@ example paths with your own:
 
 ```json
 {
-  "name": "sample-workspace",
-  "type": "Node monorepo",
+  "name": "sample-docker-stack",
+  "type": "Docker Compose",
   "components": [
     {
-      "name": "backend",
-      "role": "backend",
-      "cwd": "C:\\Code\\sample-workspace\\api",
-      "command": "npm run dev",
-      "port": 4000,
-      "match": "C:\\Code\\sample-workspace\\api"
-    },
-    {
-      "name": "frontend",
-      "role": "frontend",
-      "cwd": "C:\\Code\\sample-workspace\\web",
-      "command": "npm run dev",
-      "port": 5173,
-      "match": "C:\\Code\\sample-workspace\\web"
+      "name": "stack",
+      "role": "fullstack",
+      "cwd": "C:\\Code\\sample-docker-stack",
+      "command": "docker compose -p sample-docker-stack up --build",
+      "stopCommand": "docker compose -p sample-docker-stack down",
+      "ports": [5173, 4000],
+      "uiPorts": [5173],
+      "backendPorts": [4000],
+      "track": "process",
+      "match": "-p sample-docker-stack up"
     }
   ]
 }
@@ -163,7 +175,13 @@ example paths with your own:
 
 - `cwd` is the component's working directory.
 - `command` is launched inside `cwd` in a detached, hidden process.
-- `port` is the expected listening port and is used as a display hint.
+- `stopCommand` is optional and runs inside `cwd` before any remaining matched
+  processes are terminated. It has a 60-second timeout.
+- `ports` opts into authoritative port detection. Keep these published ports
+  unique across projects; all declared ports are required for the running state.
+- `uiPorts` and `backendPorts` control where declared ports appear on the card.
+- Legacy `port` is a display/readiness hint for command-line-matched processes.
+- `detectByPort: true` remains supported for older single-port configurations.
 - `match` is a distinctive substring in the process command line. An absolute
   project path is the safest default.
 - `track: "process"` supports headless components that never bind a port.
@@ -178,9 +196,9 @@ Before refreshing the application, you can validate the JSON from PowerShell:
 Get-Content -Raw .\projects.json | ConvertFrom-Json | Out-Null
 ```
 
-No output means the JSON parsed successfully. If the same command or port is
-used by several projects, keep every `match` value unique; port numbers alone
-are not used to decide which process should be terminated.
+No output means the JSON parsed successfully. Authoritative `ports` must be
+unique across projects. Legacy components may share defaults such as `3000`
+because their distinctive `match` value still identifies the owning process.
 
 ## Configure scripts
 
@@ -224,12 +242,25 @@ configured executable and folder. Start and stop detection matches the script's
 absolute path in the AutoIt process command line, so keep script filenames
 distinct within the configured folder.
 
+### Skill discovery
+
+The **Skills** surface reads personal skill metadata directly from the shared
+workspace `.agents/skills/*/SKILL.md` folder. It re-scans while the surface is
+open, so adding, editing, or removing a personal skill does not require a
+Hacker's Lair restart.
+
+Personal skills are shown first as shared workspace capabilities. Selecting
+**Default Skills** switches to an exclusive view of bundled, system, and
+installed-plugin skills; selecting **Personal Skills** switches back. Only
+skill metadata is sent to the local UI; filesystem paths are not exposed.
+
 ## Repository map
 
 | Path | Responsibility |
 |---|---|
 | `public/index.html` | Complete Process Control interface and browser-side behavior |
 | `server.js` | Local HTTP service, process discovery, launch, stop, and log APIs |
+| `lib/skill-registry.js` | Live shared and default agent skill metadata discovery |
 | `desktop.js` | Frameless Electron window lifecycle |
 | `app-config.js` | Shared desktop name, Windows app identity, and icon-cache version |
 | `preload.js` | Restricted bridge for in-app window controls |
@@ -248,8 +279,8 @@ Edge is installed somewhere else.
 ## Operational notes
 
 - Runtime logs live under `logs/` and are ignored by Git.
-- `started.json` and `stopped.json` retain local launch state and are ignored by
-  Git.
+- `started.json`, `project-activity.json`, and `stopped.json` retain local launch
+  and ordering state and are ignored by Git.
 - A component startup failure stays visible on its target with the error and a
   link to the full log.
 - Closing the Electron window leaves the local service running so the next
