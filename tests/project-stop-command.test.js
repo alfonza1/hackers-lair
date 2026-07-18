@@ -203,3 +203,78 @@ test('declared ports keep a service stoppable after its tracked wrapper exits', 
   assert.deepEqual(stopped.commandsRun, ['stack']);
   assert.equal(fs.readFileSync(stopMarker, 'utf8').trim(), 'stopped');
 });
+
+test('does not report success while configured ports remain live', async (t) => {
+  const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'project-manager-stop-verify-'));
+  const configPath = path.join(tempDirectory, 'projects.json');
+  const stopMarker = path.join(tempDirectory, 'stop-attempted.txt');
+  const workerPath = path.join(tempDirectory, 'worker.js');
+  const workerPort = await freePort();
+  fs.writeFileSync(
+    workerPath,
+    "require('node:http').createServer((_request, response) => response.end('ok')).listen(Number(process.argv[2]), '127.0.0.1');",
+  );
+  const worker = spawn(process.execPath, [workerPath, String(workerPort)], {
+    cwd: tempDirectory,
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  fs.writeFileSync(configPath, JSON.stringify({
+    projects: [{
+      name: 'Incomplete stop fixture',
+      type: 'test',
+      components: [{
+        name: 'stack',
+        role: 'fullstack',
+        cwd: tempDirectory,
+        command: 'this-command-must-not-run',
+        stopCommand: `powershell -NoProfile -NonInteractive -Command "Set-Content -LiteralPath '${stopMarker.replaceAll("'", "''")}' -Value attempted"`,
+        ports: [workerPort],
+        track: 'process',
+        match: 'wrapper-that-does-not-exist',
+      }],
+    }],
+  }));
+
+  const port = await freePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const manager = spawn(process.execPath, [path.join(ROOT, 'server.js')], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      PROJECTS_FILE: configPath,
+      PROJECT_MANAGER_DATA_DIR: tempDirectory,
+      PROJECT_STOP_VERIFY_TIMEOUT_MS: '300',
+    },
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  t.after(() => {
+    try { manager.kill(); } catch { /* already stopped */ }
+    try { worker.kill(); } catch { /* already stopped */ }
+    fs.rmSync(tempDirectory, { recursive: true, force: true });
+  });
+
+  await waitFor(async () => {
+    const response = await fetch(`${baseUrl}/api/projects`);
+    if (!response.ok) return false;
+    const payload = await response.json();
+    return payload.projects[0].running;
+  }, 'fixture process was not detected');
+
+  const response = await fetch(`${baseUrl}/api/projects/stop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Incomplete stop fixture' }),
+  });
+  const payload = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.match(payload.error, /still live/i);
+  assert.deepEqual(payload.remaining[0].ports, [workerPort]);
+  assert.equal(fs.readFileSync(stopMarker, 'utf8').trim(), 'attempted');
+
+  const afterStop = await fetch(`${baseUrl}/api/projects`).then((result) => result.json());
+  assert.equal(afterStop.projects[0].running, true);
+});
