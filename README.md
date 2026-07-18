@@ -49,7 +49,7 @@ window controls, and scrollbar. The control service listens only on
 | **Targets** | Starts or stops every configured component of a project as one unit, while showing component status, Git attention, and logs. |
 | **Port Signals** | Shows listening localhost ports, labels known development servers, stops processes, and relaunches processes previously stopped by the console. |
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
-| **Skills** | Live-scans the shared workspace agent skills and keeps bundled, system, and plugin defaults behind an optional filter. |
+| **Skills** | Live-scans shared and repository-local agent skills while keeping bundled, system, and plugin defaults behind an optional filter. |
 | **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |
 | **Desktop Core** | Runs guarded restart and shutdown sequences for the Electron host without stopping managed projects or the local control service. |
 | **Signal Tape** | Keeps an operator-readable event feed for starts, stops, refreshes, and failures. |
@@ -78,7 +78,7 @@ flowchart LR
     API --> PROJECTS["projects.json<br/>targets + components"]
     API --> WINDOWS["Windows process + port tools"]
     API --> SCRIPTS["scripts.json<br/>AutoIt discovery"]
-    API --> SKILLS[".agents/skills<br/>live shared skill discovery"]
+    API --> SKILLS[".agents/skills + project .agents/skills<br/>live personal skill discovery"]
     API --> FIREFOX["Firefox<br/>managed project UIs"]
 ```
 
@@ -153,6 +153,11 @@ To add your own project:
    including when the stack was started outside Hacker's Lair.
 7. Save the file and select **Refresh** in Hacker's Lair. The service reads the
    configuration again without a restart.
+
+For a source repository that should be visible but has no long-running app,
+add a component with its `cwd` and an empty `command`. The target remains
+read-only, reports Git attention, and shows **SOURCE ONLY** instead of process
+controls.
 
 For example, add this object to the existing `projects` array and replace the
 example paths with your own:
@@ -248,9 +253,10 @@ distinct within the configured folder.
 
 ### Skill discovery
 
-The **Skills** surface reads personal skill metadata directly from the shared
-workspace `.agents/skills/*/SKILL.md` folder. It re-scans while the surface is
-open, so adding, editing, or removing a personal skill does not require a
+The **Skills** surface reads personal skill metadata from both the shared
+workspace `.agents/skills/*/SKILL.md` folder and each direct child
+repository's `.agents/skills/*/SKILL.md` folder. It re-scans while the surface
+is open, so adding, editing, or removing a personal skill does not require a
 Hacker's Lair restart.
 
 Personal skills are shown first as shared workspace capabilities. Selecting

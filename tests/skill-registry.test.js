@@ -50,6 +50,30 @@ test('lists personal skills from the shared workspace agent folder', (t) => {
   assert.ok(personal.every((skill) => !('path' in skill) && !('llm' in skill) && !('invocation' in skill)));
 });
 
+test('discovers repository-local personal skills in the workspace', (t) => {
+  const root = temporaryDirectory();
+  t.after(() => fs.rmSync(root, { force: true, recursive: true }));
+  const agentsHome = path.join(root, '.agents');
+  const codexHome = path.join(root, '.codex');
+  const claudeHome = path.join(root, '.claude');
+  writeSkill(
+    path.join(root, 'incident-sim', '.agents', 'skills', 'scenario-author', 'SKILL.md'),
+    'scenario-author',
+    'Author production incident scenarios.',
+  );
+
+  const personal = listSkills({
+    agentsHome,
+    workspaceRoot: root,
+    codexHome,
+    claudeHome,
+  }).filter((skill) => skill.kind === 'personal');
+
+  assert.deepEqual(personal.map(({ name, origin }) => ({ name, origin })), [
+    { name: 'scenario-author', origin: 'Project: incident-sim' },
+  ]);
+});
+
 test('discovers Codex system and plugin skills behind the default classification', (t) => {
   const root = temporaryDirectory();
   t.after(() => fs.rmSync(root, { force: true, recursive: true }));

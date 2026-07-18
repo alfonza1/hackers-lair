@@ -2165,7 +2165,12 @@
     updateIntel();
   }
 
+  function projectIsLaunchable(project) {
+    return (project.components || []).some((component) => String(component.command || '').trim());
+  }
+
   function projectStatus(project) {
+    if (!projectIsLaunchable(project)) return { key: 'dormant', label: 'SOURCE' };
     const busy = state.busy.get(targetKey('project', project.name));
     if (busy?.mode === 'booting') return { key: 'booting', label: 'BOOTING' };
     if (busy?.mode === 'terminating') return { key: 'terminating', label: 'TERMINATING' };
@@ -2176,6 +2181,7 @@
   }
 
   function componentStatus(component) {
+    if (!String(component.command || '').trim()) return { key: 'dormant', label: 'SOURCE' };
     if (component.status === 'running') return { key: 'live', label: 'LIVE' };
     if (component.status === 'starting') return { key: 'booting', label: 'BOOTING' };
     if (component.status === 'errored') return { key: 'signal-lost', label: 'SIGNAL LOST' };
@@ -2273,6 +2279,7 @@
 
   function projectCard(project) {
     const status = projectStatus(project);
+    const launchable = projectIsLaunchable(project);
     const key = targetKey('project', project.name);
     const pids = project.pids?.length ? project.pids.join(', ') : 'N/A';
     const path = compactPath(project.components.find((component) => component.path)?.path || project.components.find((component) => component.cwd)?.cwd || '');
@@ -2288,8 +2295,8 @@
       : 'N/A';
     const lastSignal = formatDateTime(lastActionFor(key, project.lastActionAt || project.lastStartedAt));
     const isBusy = state.busy.has(key);
-    const initiateDisabled = isBusy || status.key === 'live' || status.key === 'booting';
-    const terminateDisabled = isBusy || status.key === 'dormant';
+    const initiateDisabled = !launchable || isBusy || status.key === 'live' || status.key === 'booting';
+    const terminateDisabled = !launchable || isBusy || status.key === 'dormant';
     const attentionReasons = [
       gitSummary.protectedBranchDirty ? 'DIRTY PROTECTED BRANCH' : '',
       gitSummary.detached ? 'DETACHED HEAD' : '',
@@ -2353,8 +2360,10 @@
             <div class="module-strip">${modules}</div>
           </div>
           <div class="action-cluster">
-            ${actionButton('project', 'initiate', 'INITIATE', initiateDisabled)}
-            ${actionButton('project', 'terminate', 'TERMINATE', terminateDisabled)}
+            ${launchable
+              ? `${actionButton('project', 'initiate', 'INITIATE', initiateDisabled)}
+                 ${actionButton('project', 'terminate', 'TERMINATE', terminateDisabled)}`
+              : actionButton('project', 'initiate', 'SOURCE ONLY', true)}
           </div>
         </div>
       </article>
