@@ -14,6 +14,11 @@ const { listSkills } = require('./lib/skill-registry');
 const PORT = Number(process.env.PORT) || 4949;
 const MAX_PORT_TRIES = 10;
 const CONFIGURED_COMMAND_TIMEOUT_MS = 60_000;
+const configuredStopVerifyTimeout = Number(process.env.PROJECT_STOP_VERIFY_TIMEOUT_MS);
+const PROJECT_STOP_VERIFY_TIMEOUT_MS = Number.isFinite(configuredStopVerifyTimeout)
+  ? Math.max(0, configuredStopVerifyTimeout)
+  : 5_000;
+const PROJECT_STOP_VERIFY_INTERVAL_MS = 200;
 const DATA_DIR = process.env.PROJECT_MANAGER_DATA_DIR || __dirname;
 const AGENTS_HOME = process.env.AGENTS_HOME || path.resolve(__dirname, '..', '.agents');
 const STORE = path.join(DATA_DIR, 'stopped.json');
@@ -488,6 +493,39 @@ function allConfiguredPortsDetected(component, listeners) {
 
 function anyConfiguredPortDetected(component, listeners) {
   return usesConfiguredPortDetection(component) && liveConfiguredPorts(component, listeners).size > 0;
+}
+
+function pause(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function remainingProjectSignals(project) {
+  const listeners = await getListeners();
+  const tracked = await getTrackedProcesses([project]);
+  const remaining = [];
+
+  for (const component of project.components || []) {
+    const pool = component.track === 'process' ? tracked : listeners;
+    const hits = listenersFor(component, pool);
+    const ports = [...liveConfiguredPorts(component, listeners)].sort((left, right) => left - right);
+    if (hits.length || ports.length) {
+      remaining.push({
+        component: component.name,
+        ports,
+        pids: [...new Set(hits.map((hit) => hit.pid))].sort((left, right) => left - right),
+      });
+    }
+  }
+  return remaining;
+}
+
+async function waitForProjectStop(project) {
+  const deadline = Date.now() + PROJECT_STOP_VERIFY_TIMEOUT_MS;
+  while (true) {
+    const remaining = await remainingProjectSignals(project);
+    if (!remaining.length || Date.now() >= deadline) return remaining;
+    await pause(PROJECT_STOP_VERIFY_INTERVAL_MS);
+  }
 }
 
 // Components flagged `"track": "process"` don't bind a port — a background
@@ -988,8 +1026,6 @@ const server = http.createServer(async (req, res) => {
       for (const pid of pids) {
         try { await run('taskkill', ['/PID', String(pid), '/T', '/F']); killed++; } catch { /* already gone */ }
       }
-      // Forget launch state so the components read as a clean "stopped".
-      for (const c of proj.components || []) launches.delete(launchKey(name, c.name));
       if (stopFailures.length) {
         json(res, 500, {
           error: `Graceful stop failed: ${stopFailures.join('; ')}`,
@@ -998,6 +1034,25 @@ const server = http.createServer(async (req, res) => {
         });
         return;
       }
+
+      const remaining = wasDetectedLive ? await waitForProjectStop(proj) : [];
+      if (remaining.length) {
+        const details = remaining.map((signal) => {
+          const parts = [];
+          if (signal.ports.length) parts.push(`ports ${signal.ports.join(', ')}`);
+          if (signal.pids.length) parts.push(`PIDs ${signal.pids.join(', ')}`);
+          return `${signal.component}: ${parts.join(' and ') || 'live signal detected'}`;
+        });
+        json(res, 409, {
+          error: `Termination incomplete; target is still live (${details.join('; ')}). Check the configured stop command and runtime context.`,
+          name,
+          remaining,
+        });
+        return;
+      }
+
+      // Forget launch state only after every configured live signal disappears.
+      for (const c of proj.components || []) launches.delete(launchKey(name, c.name));
       if (wasDetectedLive) recordProjectActivity(name);
       json(res, 200, {
         ok: true,

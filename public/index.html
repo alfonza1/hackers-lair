@@ -2852,6 +2852,11 @@
 
     try {
       const out = await postJson('/api/projects/stop', { name: project.name });
+      await loadProjects(true);
+      const fresh = state.projects.find((item) => item.name === project.name);
+      if (fresh?.running || fresh?.starting) {
+        throw new Error(`${project.name} is still live after the termination command.`);
+      }
       recordAction('project', project.name, 'TERMINATE', project.name);
       if (!out.stopped) {
         pushFeed('TERMINATION_BLOCKED', `target=${slug(project.name)} reason=already_dormant`, 'warn');
@@ -2861,7 +2866,6 @@
         pushFeed('MODULE_DORMANT', `target=${slug(project.name)}`);
         toast(`${project.name} is dormant.`);
       }
-      await loadProjects(true);
     } catch (error) {
       const accessDenied = error.status === 403 || /denied|permission|access/i.test(error.message);
       pushFeed(accessDenied ? 'ACCESS_DENIED' : 'TERMINATION_FAILED', `target=${slug(project.name)}`, 'error');

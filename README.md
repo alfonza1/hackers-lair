@@ -187,6 +187,9 @@ example paths with your own:
 - `command` is launched inside `cwd` in a detached, hidden process.
 - `stopCommand` is optional and runs inside `cwd` before any remaining matched
   processes are terminated. It has a 60-second timeout.
+- After termination, every configured process and port is checked for up to
+  five seconds. If a live signal remains, the target stays live and the
+  interface reports a failed termination instead of claiming it is dormant.
 - `ports` opts into authoritative port detection. Keep these published ports
   unique across projects; all declared ports are required for the running state.
 - `uiPorts` and `backendPorts` control where declared ports appear on the card.
