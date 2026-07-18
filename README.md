@@ -171,13 +171,13 @@ example paths with your own:
       "name": "stack",
       "role": "fullstack",
       "cwd": "C:\\Code\\incident-sim",
-      "command": "docker compose -p incident-sim up --build",
-      "stopCommand": "docker compose -p incident-sim down",
+      "command": "docker compose -p incident-sim -f docker-compose.yml -f docker-compose.dev.yml up --build",
+      "stopCommand": "docker compose -p incident-sim -f docker-compose.yml -f docker-compose.dev.yml down",
       "ports": [5173, 4000],
       "uiPorts": [5173],
       "backendPorts": [4000],
       "track": "process",
-      "match": "-p incident-sim up"
+      "match": "-p incident-sim -f docker-compose.yml -f docker-compose.dev.yml up"
     }
   ]
 }

@@ -69,7 +69,7 @@
       "name": "incident-sim",
       "type": "Docker Compose",
       "components": [
-        { "name": "stack", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\incident-sim", "command": "docker compose -p incident-sim up --build", "stopCommand": "docker compose -p incident-sim down", "ports": [5173, 4000], "uiPorts": [5173], "backendPorts": [4000], "track": "process", "match": "-p incident-sim up" }
+        { "name": "stack", "role": "fullstack", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\incident-sim", "command": "docker compose -p incident-sim -f docker-compose.yml -f docker-compose.dev.yml up --build", "stopCommand": "docker compose -p incident-sim -f docker-compose.yml -f docker-compose.dev.yml down", "ports": [5173, 4000], "uiPorts": [5173], "backendPorts": [4000], "track": "process", "match": "-p incident-sim -f docker-compose.yml -f docker-compose.dev.yml up" }
       ]
     },
     {
