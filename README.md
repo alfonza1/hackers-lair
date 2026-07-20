@@ -165,25 +165,19 @@ example paths with your own:
 ```json
 {
   "name": "incident-sim",
-  "type": "Vite + Spring Boot",
+  "type": "Docker Compose",
   "components": [
     {
-      "name": "java-api",
-      "role": "backend",
-      "cwd": "C:\\Code\\incident-sim\\backend_java",
-      "command": "mvnw.cmd spring-boot:run",
-      "port": 4000,
-      "detectByPort": true,
-      "match": "C:\\Code\\incident-sim\\backend_java"
-    },
-    {
-      "name": "web",
-      "role": "frontend",
-      "cwd": "C:\\Code\\incident-sim\\frontend",
-      "command": "npm run dev",
-      "port": 5173,
-      "detectByPort": true,
-      "match": "C:\\Code\\incident-sim\\frontend"
+      "name": "stack",
+      "role": "fullstack",
+      "cwd": "C:\\Code\\incident-sim",
+      "command": "docker compose -p incident-sim -f docker-compose.yml -f docker-compose.dev.yml up --build",
+      "stopCommand": "docker compose -p incident-sim -f docker-compose.yml -f docker-compose.dev.yml down",
+      "ports": [5173, 4000],
+      "uiPorts": [5173],
+      "backendPorts": [4000],
+      "track": "process",
+      "match": "-p incident-sim -f docker-compose.yml -f docker-compose.dev.yml up"
     }
   ]
 }
