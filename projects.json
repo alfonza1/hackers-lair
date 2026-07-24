@@ -114,6 +114,54 @@
       "components": [
         { "name": "app", "role": "backend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\Portfolio2", "command": "python portfolio2.py", "port": null, "track": "process", "match": "portfolio2.py" }
       ]
+    },
+    {
+      "name": "Patch Party",
+      "type": "Next.js + Spring Boot",
+      "components": [
+        { "name": "web", "role": "frontend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\patch-party", "command": "npm run dev", "port": 3201, "match": "C:\\Users\\Fonza\\Desktop\\Code\\patch-party" },
+        { "name": "api", "role": "backend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\patch-party\\api", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\Fonza\\Desktop\\Code\\patch-party\\api\\run-dev.ps1", "port": 8201, "match": "C:\\Users\\Fonza\\Desktop\\Code\\patch-party\\api" }
+      ]
+    },
+    {
+      "name": "Incident Party",
+      "type": "Next.js + Spring Boot",
+      "components": [
+        { "name": "web", "role": "frontend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\incident-party", "command": "npm run dev", "port": 3202, "match": "C:\\Users\\Fonza\\Desktop\\Code\\incident-party" },
+        { "name": "api", "role": "backend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\incident-party\\api", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\Fonza\\Desktop\\Code\\incident-party\\api\\run-dev.ps1", "port": 8202, "match": "C:\\Users\\Fonza\\Desktop\\Code\\incident-party\\api" }
+      ]
+    },
+    {
+      "name": "API Rescue League",
+      "type": "Next.js + Spring Boot",
+      "components": [
+        { "name": "web", "role": "frontend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\api-rescue-league", "command": "npm run dev", "port": 3203, "match": "C:\\Users\\Fonza\\Desktop\\Code\\api-rescue-league" },
+        { "name": "api", "role": "backend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\api-rescue-league\\api", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\Fonza\\Desktop\\Code\\api-rescue-league\\api\\run-dev.ps1", "port": 8203, "match": "C:\\Users\\Fonza\\Desktop\\Code\\api-rescue-league\\api" }
+      ]
+    },
+    {
+      "name": "HumanCheck Calls",
+      "type": "Next.js + Spring Boot",
+      "components": [
+        { "name": "web", "role": "frontend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\humancheck-calls", "command": "npm run dev", "port": 3204, "match": "C:\\Users\\Fonza\\Desktop\\Code\\humancheck-calls" },
+        { "name": "api", "role": "backend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\humancheck-calls\\api", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\Fonza\\Desktop\\Code\\humancheck-calls\\api\\run-dev.ps1", "port": 8204, "match": "C:\\Users\\Fonza\\Desktop\\Code\\humancheck-calls\\api" }
+      ]
+    },
+    {
+      "name": "Compliance Quest",
+      "type": "Next.js + Spring Boot",
+      "components": [
+        { "name": "web", "role": "frontend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\compliance-quest", "command": "npm run dev", "port": 3205, "match": "C:\\Users\\Fonza\\Desktop\\Code\\compliance-quest" },
+        { "name": "api", "role": "backend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\compliance-quest\\api", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\Fonza\\Desktop\\Code\\compliance-quest\\api\\run-dev.ps1", "port": 8205, "match": "C:\\Users\\Fonza\\Desktop\\Code\\compliance-quest\\api" }
+      ]
+    },
+    {
+      "name": "FieldOS Arcade",
+      "type": "Next.js + Spring Boot",
+      "components": [
+        { "name": "web", "role": "frontend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\fieldos-arcade", "command": "npm run dev", "port": 3206, "match": "C:\\Users\\Fonza\\Desktop\\Code\\fieldos-arcade" },
+        { "name": "api", "role": "backend", "cwd": "C:\\Users\\Fonza\\Desktop\\Code\\fieldos-arcade\\api", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\Fonza\\Desktop\\Code\\fieldos-arcade\\api\\run-dev.ps1", "port": 8206, "match": "C:\\Users\\Fonza\\Desktop\\Code\\fieldos-arcade\\api" }
+      ]
     }
   ]
 }
