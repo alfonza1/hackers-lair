@@ -109,7 +109,8 @@ restricted to the actual localhost origin, IPC senders are origin-checked, and
 the packaged page uses a restrictive Content Security Policy. Config parse
 failures retain the last known-good value and surface a visible error.
 
-The current release artifacts are checksum-published but unsigned. See
+The current release artifacts are checksum-published and carry GitHub build
+provenance, but remain unsigned. See [SECURITY.md](SECURITY.md) and
 [SIGNING.md](SIGNING.md); the project does not self-sign distribution packages
 or tell users to disable operating-system security.
 
@@ -158,7 +159,9 @@ pure-static `site/` directory to GitHub Pages.
 
 See [TESTING.md](TESTING.md) for clean-VM acceptance steps and
 [distribution/WINGET.md](distribution/WINGET.md) for the one manual community
-manifest submission.
+manifest submission. Contributor workflow and compatibility rules live in
+[CONTRIBUTING.md](CONTRIBUTING.md), [VERSIONING.md](VERSIONING.md), and
+[CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

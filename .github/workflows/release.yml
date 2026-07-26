@@ -135,6 +135,7 @@ jobs:
             --version "$version" \
             --assets release-assets \
             --manifests generated-manifests
+          node scripts/extract-release-notes.js "$version" release-notes.md
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: package-channel-manifests
@@ -150,7 +151,7 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" release-assets/* \
             --title "Hacker's Lair $GITHUB_REF_NAME" \
-            --generate-notes \
+            --notes-file release-notes.md \
             --verify-tag
 
   publish-scoop:

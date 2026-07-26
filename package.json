@@ -21,6 +21,7 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "notices": "node scripts/generate-third-party-notices.js",
+    "release:notes": "node scripts/extract-release-notes.js",
     "prepackage": "npm run notices",
     "premake": "npm run notices",
     "smoke:package": "node scripts/smoke-packaged-lifecycle.js",
