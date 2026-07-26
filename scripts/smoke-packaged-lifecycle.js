@@ -4,6 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { listPackage } = require('@electron/asar');
+const { PACKAGED_NODE_MODULES } = require('../forge.config');
 
 const root = path.resolve(__dirname, '..');
 const platformFolder = process.platform === 'win32'
@@ -86,7 +87,6 @@ async function main() {
     '/distribution',
     '/docs',
     '/install.ps1',
-    '/node_modules',
     '/scripts',
     '/site',
     '/TESTING.md',
@@ -100,6 +100,19 @@ async function main() {
       `Packaged runtime contains repository-only path ${forbiddenRoot}.`,
     );
   }
+  const packagedModules = new Set(packagedFiles
+    .filter((file) => file.startsWith('/node_modules/'))
+    .map((file) => {
+      const segments = file.split('/');
+      return segments[2].startsWith('@')
+        ? `${segments[2]}/${segments[3]}`
+        : segments[2];
+    }));
+  assert.deepEqual(
+    [...packagedModules].sort(),
+    [...PACKAGED_NODE_MODULES].sort(),
+    'Packaged runtime dependency allowlist does not match app.asar.',
+  );
   const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'hackers-lair-packaged-smoke-'));
   const identityFile = path.join(dataDirectory, 'api-token');
   const output = { text: '' };

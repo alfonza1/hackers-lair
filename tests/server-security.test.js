@@ -324,7 +324,12 @@ test('protects localhost mutations and verifies the bound service identity', asy
 
   const html = await request({ port });
   assert.equal(html.status, 200);
+  assert.equal(html.headers['cache-control'], 'no-store');
   assert.match(html.headers['content-security-policy'], /default-src 'self'/);
   assert.match(html.body, new RegExp(identity.token));
   assert.doesNotMatch(html.body, /__LAIR_CSP_NONCE__|__LAIR_BOOTSTRAP_PAYLOAD__/);
+
+  const icon = await request({ port, pathname: '/icon.ico' });
+  assert.equal(icon.status, 200);
+  assert.match(icon.headers['cache-control'], /max-age=86400/);
 });

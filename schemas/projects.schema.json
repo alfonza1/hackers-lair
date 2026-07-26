@@ -6,6 +6,11 @@
   "type": "object",
   "required": ["projects"],
   "properties": {
+    "configVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Configuration format version. Newer builds migrate older versions after creating a backup."
+    },
     "$schema": {
       "type": "string",
       "description": "Keep this as ./projects.schema.json for offline editor autocomplete."

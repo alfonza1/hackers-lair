@@ -1,11 +1,13 @@
 const {
   app,
+  autoUpdater,
   BrowserWindow,
   dialog,
   globalShortcut,
   ipcMain,
   Menu,
   screen,
+  shell,
   Tray,
 } = require('electron');
 
@@ -14,6 +16,12 @@ const fs = require('fs');
 const path = require('path');
 const { APP_NAME, APP_USER_MODEL_ID } = require('./app-config');
 const { performPowerAction } = require('./lib/app-power');
+const { detectInstallChannel, installChannelDetails } = require('./lib/install-channel');
+const {
+  managedTargetsRunning,
+  releaseVersion,
+  updateStateForChannel,
+} = require('./lib/update-policy');
 const {
   APP_ID,
   desktopDataDirectory,
@@ -54,6 +62,86 @@ let isQuitting = false;
 let serviceProcess = null;
 let serviceStopped = false;
 let quitAfterServiceStops = false;
+let quitSequenceStarted = false;
+let updateStop = null;
+let installUpdateAfterStop = false;
+const installChannel = detectInstallChannel({
+  isPackaged: app.isPackaged,
+  platform: process.platform,
+  executablePath: process.execPath,
+});
+const channelDetails = installChannelDetails(installChannel);
+let updateState = updateStateForChannel(installChannel, channelDetails, app.getVersion());
+
+function publishUpdateState(patch = {}) {
+  updateState = { ...updateState, ...patch };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app:update-state', updateState);
+  }
+  void refreshTrayMenu();
+  return updateState;
+}
+
+async function runningManagedTargets() {
+  if (!appOrigin) return [];
+  try {
+    const data = await localApi('/api/projects');
+    return managedTargetsRunning(data.projects);
+  } catch {
+    return ['backend-unavailable'];
+  }
+}
+
+async function requestUpdateApply() {
+  if (updateState.status !== 'ready' && updateState.status !== 'blocked') return updateState;
+  const running = await runningManagedTargets();
+  if (running.length) {
+    return publishUpdateState({
+      status: 'blocked',
+      managedTargets: running,
+      message: `Stop managed targets before applying ${updateState.version || 'the update'}.`,
+    });
+  }
+  installUpdateAfterStop = true;
+  publishUpdateState({
+    status: 'applying',
+    managedTargets: [],
+    message: `Restarting to apply ${updateState.version || 'the update'}.`,
+  });
+  isQuitting = true;
+  app.quit();
+  return updateState;
+}
+
+function initializeUpdates() {
+  if (installChannel !== 'squirrel' || !app.isPackaged) return;
+  const { UpdateSourceType, updateElectronApp } = require('update-electron-app');
+  autoUpdater.on('error', (error) => {
+    publishUpdateState({
+      status: 'error',
+      message: `Update check unavailable: ${error.message}`,
+    });
+  });
+  const updater = updateElectronApp({
+    updateSource: {
+      type: UpdateSourceType.ElectronPublicUpdateService,
+      repo: 'alfonza1/hackers-lair',
+    },
+    updateInterval: '1 hour',
+    notifyUser: true,
+    onNotifyUser: (info) => {
+      const version = releaseVersion(info.releaseName, 'New version');
+      publishUpdateState({
+        status: 'ready',
+        version,
+        message: `v${version} ready — restart to apply.`,
+        releaseUrl: info.updateURL || updateState.releaseUrl,
+        managedTargets: [],
+      });
+    },
+  });
+  updateStop = updater.stopUpdates;
+}
 
 function pathIsWithin(candidate, parent) {
   const relative = path.relative(path.resolve(parent), path.resolve(candidate));
@@ -220,7 +308,7 @@ function startLocalService() {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',
       PROJECT_MANAGER_DATA_DIR: dataDirectory,
-      LAIR_INSTALL_CHANNEL: app.isPackaged ? 'desktop' : 'source',
+      LAIR_INSTALL_CHANNEL: installChannel,
     },
     stdio: 'ignore',
     windowsHide: true,
@@ -390,6 +478,15 @@ async function refreshTrayMenu() {
     : [{ label: 'No configured targets', enabled: false }];
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Open Hacker's Lair", click: showMainWindow },
+    ...(updateState.status === 'ready' || updateState.status === 'blocked'
+      ? [{
+        label: `Restart to apply v${updateState.version}`,
+        click: () => void requestUpdateApply(),
+      }, {
+        label: 'View release notes',
+        click: () => void shell.openExternal(updateState.releaseUrl),
+      }]
+      : []),
     { type: 'separator' },
     { label: 'Targets', submenu: projectItems },
     { type: 'separator' },
@@ -511,6 +608,10 @@ ipcMain.on('app:power', (event, action) => {
   if (!window || window !== mainWindow) return;
 
   if (['restart', 'shutdown'].includes(action)) saveWindowState(window);
+  if (action === 'restart' && ['ready', 'blocked'].includes(updateState.status)) {
+    void requestUpdateApply();
+    return;
+  }
   performPowerAction(action, app);
 });
 
@@ -547,6 +648,23 @@ ipcMain.handle('app:launch-at-login', (event, enabled) => {
   };
 });
 
+ipcMain.handle('app:get-update-state', (event) => {
+  if (!senderBelongsToApplication(event)) return null;
+  return updateState;
+});
+
+ipcMain.handle('app:apply-update', async (event) => {
+  if (!senderBelongsToApplication(event)) return null;
+  return requestUpdateApply();
+});
+
+ipcMain.handle('app:open-update-notes', async (event) => {
+  if (!senderBelongsToApplication(event)) return false;
+  if (!updateState.releaseUrl.startsWith('https://github.com/alfonza1/hackers-lair/')) return false;
+  await shell.openExternal(updateState.releaseUrl);
+  return true;
+});
+
 app.on('second-instance', () => {
   showMainWindow();
 });
@@ -567,6 +685,7 @@ app.whenReady().then(async () => {
   installLinuxCli();
   await createWindow();
   if (appOrigin) installDesktopControls();
+  initializeUpdates();
   const smokeExitAfterMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_MS);
   if (Number.isFinite(smokeExitAfterMs) && smokeExitAfterMs > 0) {
     setTimeout(() => app.quit(), smokeExitAfterMs).unref?.();
@@ -575,12 +694,20 @@ app.whenReady().then(async () => {
 app.on('activate', showMainWindow);
 app.on('before-quit', (event) => {
   isQuitting = true;
-  if (serviceStopped || !serviceProcess || quitAfterServiceStops) return;
+  if (quitAfterServiceStops) return;
   event.preventDefault();
-  quitAfterServiceStops = true;
-  void stopLocalService().finally(() => {
-    app.quit();
-  });
+  if (quitSequenceStarted) return;
+  quitSequenceStarted = true;
+  void (async () => {
+    if (!installUpdateAfterStop && updateState.status === 'ready') {
+      installUpdateAfterStop = (await runningManagedTargets()).length === 0;
+    }
+    updateStop?.();
+    await stopLocalService();
+    quitAfterServiceStops = true;
+    if (installUpdateAfterStop) autoUpdater.quitAndInstall(false, true);
+    else app.quit();
+  })();
 });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => {});

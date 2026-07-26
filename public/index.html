@@ -1568,6 +1568,27 @@
     grid-column: 1 / -1;
   }
 
+  .update-banner {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 10px;
+    align-items: center;
+    margin: 0 0 14px;
+    padding: 9px 12px;
+    border: 1px solid rgba(var(--secondary-rgb), .38);
+    border-radius: 4px;
+    color: var(--text);
+    background: rgba(var(--secondary-rgb), .08);
+    font: 700 .7rem/1.45 var(--mono);
+  }
+
+  .update-banner code {
+    color: var(--cyan);
+    overflow-wrap: anywhere;
+  }
+
+  .update-banner .update-message { flex: 1; }
+
   .setup-panel {
     grid-column: 1 / -1;
   }
@@ -2442,6 +2463,12 @@
   </header>
 
   <main class="console-layout">
+    <section class="update-banner" id="updateBanner" role="status" hidden>
+      <span class="update-message" id="updateMessage"></span>
+      <code id="updateCommand" hidden></code>
+      <button class="utility" id="applyUpdate" type="button" hidden>Restart to Apply</button>
+      <button class="utility" id="updateNotes" type="button">Release Notes</button>
+    </section>
     <div class="config-banner" id="configBanner" role="alert" hidden></div>
     <section class="panel matrix" aria-labelledby="viewTitle">
       <div class="panel-head">
@@ -2715,6 +2742,7 @@
     skillsLoaded: false,
     onboarding: null,
     settings: null,
+    update: null,
     discovery: null,
     uiPreferences: normalizeUiPreferences(loadJson(UI_PREFERENCES_KEY, {})),
     expandedCards: new Set(),
@@ -3911,6 +3939,35 @@
       $('launchAtLogin').checked = Boolean(setting.enabled);
     } catch {
       $('launchAtLoginField').hidden = true;
+    }
+  }
+
+  function renderUpdateState(update) {
+    state.update = update;
+    const banner = $('updateBanner');
+    if (!update) {
+      banner.hidden = true;
+      return;
+    }
+    const show = update.mode === 'manual'
+      || ['ready', 'blocked', 'applying', 'error'].includes(update.status);
+    banner.hidden = !show;
+    $('updateMessage').textContent = update.message || 'Update status unavailable.';
+    $('updateCommand').hidden = !update.upgradeCommand;
+    $('updateCommand').textContent = update.upgradeCommand || '';
+    $('applyUpdate').hidden = !['ready', 'blocked'].includes(update.status);
+    $('applyUpdate').disabled = update.status === 'applying';
+    $('updateNotes').hidden = !update.releaseUrl;
+  }
+
+  async function syncDesktopUpdate() {
+    const desktop = window.hackerLairWindow;
+    if (!desktop?.getUpdateState) return;
+    try {
+      renderUpdateState(await desktop.getUpdateState());
+      desktop.onUpdateState?.(renderUpdateState);
+    } catch {
+      renderUpdateState(null);
     }
   }
 
@@ -5273,6 +5330,13 @@
       toast(`Could not update launch at login: ${error.message}`, true);
     }
   });
+  $('applyUpdate').addEventListener('click', async () => {
+    const update = await window.hackerLairWindow?.applyUpdate?.();
+    if (update) renderUpdateState(update);
+  });
+  $('updateNotes').addEventListener('click', () => {
+    void window.hackerLairWindow?.openUpdateNotes?.();
+  });
   window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => {
     applyUiPreferences(state.uiPreferences);
   });
@@ -5318,7 +5382,7 @@
       pushFeed('CONSOLE_BOOT', 'mode=process_control node=local', 'info');
       pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
     }
-    await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings()]);
+    await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings(), syncDesktopUpdate()]);
     setInterval(() => void pollVisibleView(), 3500);
   }
 

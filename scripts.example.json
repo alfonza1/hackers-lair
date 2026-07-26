@@ -1,4 +1,5 @@
 {
+  "configVersion": 1,
   "_comment": "Optional AutoIt script configuration. Set scriptsDir and autoItExe to absolute Windows paths. Descriptions are keyed by .au3 filename; unlisted scripts receive a generic description.",
   "scriptsDir": "",
   "autoItExe": "",

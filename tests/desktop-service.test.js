@@ -79,6 +79,8 @@ test('packaging excludes repository-only files and keeps runtime files', () => {
   for (const runtimePath of [
     '/desktop.js',
     '/lib/platform/linux.js',
+    '/node_modules/update-electron-app/dist/index.js',
+    '/node_modules/github-url-to-object/index.js',
     '/public/index.html',
     '/schemas/projects.schema.json',
   ]) {

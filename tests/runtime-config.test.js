@@ -7,6 +7,7 @@ const test = require('node:test');
 const {
   compareBackupNamesNewestFirst,
   createRuntimeConfig,
+  CURRENT_CONFIG_VERSION,
   JsonConfigStore,
 } = require('../lib/runtime-config');
 const { DEFAULT_UI_PREFERENCES } = require('../lib/ui-preferences');
@@ -37,6 +38,7 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
   const runtime = createRuntimeConfig(root);
   assert.equal(runtime.dataDirectory, data);
   assert.deepEqual(runtime.projects.read().value, {
+    configVersion: CURRENT_CONFIG_VERSION,
     $schema: './projects.schema.json',
     projects: [],
   });
@@ -73,6 +75,50 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
       fontScale: 100,
     },
   }), /uiPreferences\.theme/i);
+});
+
+test('migrates legacy config after snapshotting and tolerates newer config fields', (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-config-migration-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const backupDirectory = path.join(directory, 'backups');
+  const file = path.join(directory, 'config.json');
+  fs.writeFileSync(file, JSON.stringify({ projects: [], legacyField: true }));
+  const store = new JsonConfigStore({
+    file,
+    fallback: { configVersion: 1, projects: [] },
+    validate(value) {
+      if (!Array.isArray(value.projects)) throw new Error('projects required');
+    },
+    backupDirectory,
+    currentVersion: 1,
+    migrations: [{
+      from: 0,
+      to: 1,
+      run: (value) => ({ ...value, migratedField: 'ready' }),
+    }],
+  });
+
+  const upgraded = store.read();
+  assert.equal(upgraded.error, null);
+  assert.equal(upgraded.value.configVersion, 1);
+  assert.equal(upgraded.value.migratedField, 'ready');
+  const [snapshot] = store.listBackups();
+  assert.ok(snapshot);
+  assert.deepEqual(JSON.parse(fs.readFileSync(snapshot.path, 'utf8')), {
+    projects: [],
+    legacyField: true,
+  });
+
+  const future = {
+    configVersion: 99,
+    projects: [],
+    futureField: { retained: true },
+  };
+  fs.writeFileSync(file, JSON.stringify(future));
+  const downgraded = store.read();
+  assert.equal(downgraded.error, null);
+  assert.deepEqual(downgraded.value, future);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), future);
 });
 
 test('validates nested project fields and retains ten restorable backups', (t) => {

@@ -419,7 +419,7 @@ async function refreshDoctor() {
     dataDirectory: DATA_DIR,
     projects: projects.value.projects,
     configErrors: [projects.error, scripts.error, settings.error],
-    installChannel: process.env.LAUNCH_CHANNEL || (process.versions.electron ? 'portable' : 'source'),
+    installChannel: process.env.LAIR_INSTALL_CHANNEL || (process.versions.electron ? 'portable' : 'source'),
     port: currentPort,
   });
   return doctorSnapshot;
