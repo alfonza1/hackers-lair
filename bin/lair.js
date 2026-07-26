@@ -3,10 +3,19 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const dataDirectory = process.env.PROJECT_MANAGER_DATA_DIR
-  || (process.env.APPDATA
-    ? path.join(process.env.APPDATA, 'HackersLair')
-    : path.join(os.homedir(), 'AppData', 'Roaming', 'HackersLair'));
+function defaultDataDirectory({
+  environment = process.env,
+  platform = process.platform,
+  homeDirectory = os.homedir(),
+} = {}) {
+  if (environment.PROJECT_MANAGER_DATA_DIR) return environment.PROJECT_MANAGER_DATA_DIR;
+  if (platform === 'win32') {
+    return path.join(environment.APPDATA || path.join(homeDirectory, 'AppData', 'Roaming'), 'HackersLair');
+  }
+  return path.join(environment.XDG_CONFIG_HOME || path.join(homeDirectory, '.config'), 'HackersLair');
+}
+
+const dataDirectory = defaultDataDirectory();
 const identityFile = path.join(dataDirectory, 'api-token');
 
 function usage() {
@@ -151,4 +160,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { findProject };
+module.exports = { defaultDataDirectory, findProject };

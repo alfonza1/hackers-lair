@@ -5,7 +5,7 @@ const test = require('node:test');
 
 const { instantiateTemplate, PROJECT_TEMPLATES } = require('../lib/project-templates');
 const { redactText, redactValue } = require('../lib/redaction');
-const { findProject } = require('../bin/lair');
+const { defaultDataDirectory, findProject } = require('../bin/lair');
 const {
   extractLocalUrls,
   isZombieComponent,
@@ -77,6 +77,25 @@ test('runtime intelligence accepts local announced URLs and rejects unsafe or in
     establishedConnections: 1,
     thresholdHours: 8,
   }), false);
+});
+
+test('CLI identity follows platform user-data conventions', () => {
+  assert.equal(
+    defaultDataDirectory({
+      environment: { APPDATA: 'C:\\Profile\\Roaming' },
+      platform: 'win32',
+      homeDirectory: 'C:\\Profile',
+    }),
+    path.join('C:\\Profile\\Roaming', 'HackersLair'),
+  );
+  assert.equal(
+    defaultDataDirectory({
+      environment: { XDG_CONFIG_HOME: '/tmp/config' },
+      platform: 'linux',
+      homeDirectory: '/home/dev',
+    }),
+    path.join('/tmp/config', 'HackersLair'),
+  );
 });
 
 test('target URLs separate live detections from dormant configured ports', () => {

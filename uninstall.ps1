@@ -1,7 +1,10 @@
 [CmdletBinding()]
 param(
+    [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'Programs\HackersLair'),
     [switch]$DeleteData,
-    [switch]$KeepData
+    [switch]$KeepData,
+    [switch]$NoShortcut,
+    [switch]$NoPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -9,73 +12,70 @@ if ($DeleteData -and $KeepData) {
     throw 'Use either -DeleteData or -KeepData, not both.'
 }
 
-$installDirectory = [System.IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\')
-$serverScript = [System.IO.Path]::GetFullPath((Join-Path $installDirectory 'server.js'))
-$escapedServerScript = [Regex]::Escape($serverScript)
-$serverProcesses = Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+function Get-NormalizedPath([string]$PathValue) {
+    return [System.IO.Path]::GetFullPath($PathValue).TrimEnd('\')
+}
+
+function Test-PathWithin([string]$Candidate, [string]$Parent) {
+    $candidatePath = Get-NormalizedPath $Candidate
+    $parentPath = Get-NormalizedPath $Parent
+    return $candidatePath.StartsWith(
+        $parentPath + [System.IO.Path]::DirectorySeparatorChar,
+        [System.StringComparison]::OrdinalIgnoreCase
+    )
+}
+
+$installRoot = Get-NormalizedPath $InstallDirectory
+$allowedParent = Get-NormalizedPath (Join-Path $env:LOCALAPPDATA 'Programs')
+if (-not (Test-PathWithin $installRoot $allowedParent)) {
+    throw "InstallDirectory must be a child of $allowedParent."
+}
+
+$processes = Get-CimInstance Win32_Process -Filter "Name='HackersLair.exe'" |
     Where-Object {
-        $_.CommandLine -and (
-            $_.CommandLine -match ('(?i)"?' + $escapedServerScript + '"?')
-        )
+        $_.ExecutablePath -and (Test-PathWithin $_.ExecutablePath $installRoot)
     }
-
-foreach ($serverProcess in $serverProcesses) {
-    Stop-Process -Id $serverProcess.ProcessId -Force -ErrorAction Stop
-    Write-Output "Stopped verified Hacker's Lair server PID $($serverProcess.ProcessId)."
+foreach ($process in $processes) {
+    Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+    Write-Output "Stopped verified Hacker's Lair process PID $($process.ProcessId)."
 }
 
-$startup = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'
-$targets = @(
-    (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Hacker's Lair.lnk"),
-    (Join-Path ([Environment]::GetFolderPath('Desktop')) "Hacker's Lair.lnk"),
-    (Join-Path $startup "Hacker's Lair.lnk"),
-    (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Project Manager.lnk'),
-    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Project Manager.lnk'),
-    (Join-Path $startup 'Project Manager.lnk'),
-    (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Localhost Manager.lnk'),
-    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Localhost Manager.lnk')
-)
-foreach ($shortcut in $targets) {
-    if (Test-Path -LiteralPath $shortcut) {
-        Remove-Item -LiteralPath $shortcut -Force
-        Write-Output "Removed: $shortcut"
+if (-not $NoShortcut) {
+    $shortcutPath = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Hacker's Lair.lnk"
+    if (Test-Path -LiteralPath $shortcutPath) {
+        Remove-Item -LiteralPath $shortcutPath -Force
     }
 }
 
-$iconCache = Join-Path $env:APPDATA "Hacker's Lair\icons"
-if (Test-Path -LiteralPath $iconCache) {
-    Remove-Item -LiteralPath $iconCache -Recurse -Force
-    Write-Output "Removed icon cache: $iconCache"
+if (-not $NoPath) {
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if ($userPath) {
+        $cleanPath = @($userPath -split ';' | Where-Object {
+            $_ -and $_.TrimEnd('\') -ne $installRoot.TrimEnd('\')
+        }) -join ';'
+        [Environment]::SetEnvironmentVariable('Path', $cleanPath, 'User')
+    }
 }
 
-$cliDirectory = Join-Path $env:LOCALAPPDATA 'HackersLair\bin'
-if (Test-Path -LiteralPath $cliDirectory) {
-    Remove-Item -LiteralPath $cliDirectory -Recurse -Force
-    Write-Output "Removed CLI: $cliDirectory"
-}
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if ($userPath) {
-    $cleanPath = @($userPath -split ';' | Where-Object {
-        $_ -and $_.TrimEnd('\') -ne $cliDirectory.TrimEnd('\')
-    }) -join ';'
-    [Environment]::SetEnvironmentVariable('Path', $cleanPath, 'User')
+if (Test-Path -LiteralPath $installRoot) {
+    Remove-Item -LiteralPath $installRoot -Recurse -Force
+    Write-Output "Removed application files: $installRoot"
 }
 
-$dataDirectory = Join-Path $env:APPDATA 'HackersLair'
+$dataDirectory = Get-NormalizedPath (Join-Path $env:APPDATA 'HackersLair')
 if (-not $DeleteData -and -not $KeepData) {
-    $answer = Read-Host "Delete Hacker's Lair user configuration and logs at `"$dataDirectory`"? [y/N]"
+    $answer = Read-Host "Delete Hacker's Lair config, logs, and backups at `"$dataDirectory`"? [y/N]"
     $DeleteData = $answer -match '^(?i)y(?:es)?$'
 }
 if ($DeleteData -and (Test-Path -LiteralPath $dataDirectory)) {
-    $resolvedData = [System.IO.Path]::GetFullPath($dataDirectory).TrimEnd('\')
-    $expectedData = [System.IO.Path]::GetFullPath((Join-Path $env:APPDATA 'HackersLair')).TrimEnd('\')
-    if ($resolvedData -ne $expectedData) {
-        throw "Refusing to remove unexpected data path: $resolvedData"
+    $expectedData = Get-NormalizedPath (Join-Path $env:APPDATA 'HackersLair')
+    if ($dataDirectory -ne $expectedData) {
+        throw "Refusing to remove unexpected data path: $dataDirectory"
     }
-    Remove-Item -LiteralPath $resolvedData -Recurse -Force
-    Write-Output "Removed user data: $resolvedData"
+    Remove-Item -LiteralPath $dataDirectory -Recurse -Force
+    Write-Output "Removed user data: $dataDirectory"
 } else {
     Write-Output "Kept user data: $dataDirectory"
 }
 
-Write-Output "Hacker's Lair shortcuts were removed."
+Write-Output "Hacker's Lair was uninstalled."

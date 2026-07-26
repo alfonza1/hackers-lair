@@ -1,72 +1,156 @@
-# Registers the Hacker's Lair desktop app in Windows Search / Start menu and
-# on the Desktop, then starts its local service silently when you log in.
-# Re-run this any time you move the folder.
 [CmdletBinding()]
 param(
-    [switch]$NoStartup
+    [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'Programs\HackersLair'),
+    [string]$ReleaseApi = 'https://api.github.com/repos/alfonza1/hackers-lair/releases/latest',
+    [switch]$NoLaunch,
+    [switch]$NoStartup,
+    [switch]$NoShortcut,
+    [switch]$NoPath
 )
 
 $ErrorActionPreference = 'Stop'
-$dir = $PSScriptRoot
-$name = "Hacker's Lair"
+$ProgressPreference = 'SilentlyContinue'
+$AssetName = 'hackers-lair-win32-x64.zip'
+$ChecksumName = 'checksums.txt'
+$ApplicationName = "Hacker's Lair"
 
-# Make sure the icon exists (generate it if missing).
-$icon = Join-Path $dir 'icon.ico'
-if (-not (Test-Path $icon)) { & (Join-Path $dir 'make-icon.ps1') | Out-Null }
+function Get-NormalizedPath([string]$PathValue) {
+    return [System.IO.Path]::GetFullPath($PathValue).TrimEnd('\')
+}
 
-$startup = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'
+function Test-PathWithin([string]$Candidate, [string]$Parent) {
+    $candidatePath = Get-NormalizedPath $Candidate
+    $parentPath = Get-NormalizedPath $Parent
+    return $candidatePath.StartsWith(
+        $parentPath + [System.IO.Path]::DirectorySeparatorChar,
+        [System.StringComparison]::OrdinalIgnoreCase
+    )
+}
 
-# Remove shortcuts from the previous visible names.
-foreach ($old in @(
-    (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Project Manager.lnk'),
-    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Project Manager.lnk'),
-    (Join-Path $startup 'Project Manager.lnk'),
-    (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Localhost Manager.lnk'),
-    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Localhost Manager.lnk'),
-    (Join-Path $startup 'Localhost Manager.lnk')
-)) { if (Test-Path $old) { Remove-Item $old -Force } }
-if ($NoStartup) {
-    $currentStartup = Join-Path $startup "Hacker's Lair.lnk"
-    if (Test-Path -LiteralPath $currentStartup) {
-        Remove-Item -LiteralPath $currentStartup -Force
+function Stop-InstalledProcesses([string]$Directory) {
+    $installRoot = Get-NormalizedPath $Directory
+    $processes = Get-CimInstance Win32_Process -Filter "Name='HackersLair.exe'" |
+        Where-Object {
+            $_.ExecutablePath -and (Test-PathWithin $_.ExecutablePath $installRoot)
+        }
+    foreach ($process in $processes) {
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+        Write-Output "Stopped verified Hacker's Lair process PID $($process.ProcessId)."
     }
 }
 
-# Install the offline CLI shim in a stable per-user folder and add it to the
-# user PATH once. The command delegates to the verified local token/port file.
-$cliDirectory = Join-Path $env:LOCALAPPDATA 'HackersLair\bin'
-New-Item -ItemType Directory -Path $cliDirectory -Force | Out-Null
-$cliScript = Join-Path $dir 'bin\lair.js'
-$cliCommand = Join-Path $cliDirectory 'lair.cmd'
-$cliBody = "@echo off`r`nnode `"$cliScript`" %*`r`n"
-Set-Content -LiteralPath $cliCommand -Value $cliBody -Encoding Ascii
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-$pathEntries = @($userPath -split ';' | Where-Object { $_ })
-if ($pathEntries -notcontains $cliDirectory) {
-    [Environment]::SetEnvironmentVariable('Path', (($pathEntries + $cliDirectory) -join ';'), 'User')
+function Add-UserPath([string]$Directory) {
+    $current = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $entries = @($current -split ';' | Where-Object { $_ })
+    if ($entries.TrimEnd('\') -notcontains $Directory.TrimEnd('\')) {
+        [Environment]::SetEnvironmentVariable('Path', (($entries + $Directory) -join ';'), 'User')
+    }
 }
 
-$electron = Join-Path $dir 'node_modules\electron\dist\electron.exe'
-if (-not (Test-Path $electron)) {
-    throw 'Electron is not installed. Run npm install before install.ps1.'
+if (-not $env:LOCALAPPDATA) {
+    throw 'LOCALAPPDATA is unavailable. Hacker''s Lair installs per user on Windows.'
 }
 
-# Electron writes the same AppUserModelID to each shortcut that the running
-# desktop process uses. Windows needs that shared identity to associate a pin
-# with the correct window and native icon.
-$shortcutInstaller = Join-Path $dir 'scripts\install-shortcuts.js'
-$shortcutArguments = @("`"$shortcutInstaller`"")
-if ($NoStartup) { $shortcutArguments += '--no-startup' }
-$installerProcess = Start-Process -FilePath $electron -ArgumentList $shortcutArguments -WindowStyle Hidden -Wait -PassThru
-if ($installerProcess.ExitCode -ne 0) {
-    throw "Shortcut installation failed with exit code $($installerProcess.ExitCode)."
+$installRoot = Get-NormalizedPath $InstallDirectory
+$allowedParent = Get-NormalizedPath (Join-Path $env:LOCALAPPDATA 'Programs')
+if (-not (Test-PathWithin $installRoot $allowedParent)) {
+    throw "InstallDirectory must be a child of $allowedParent."
 }
 
-Write-Output ''
-Write-Output "Done. Press the Windows key and type `"$name`" to launch it."
-if ($NoStartup) {
-    Write-Output 'Login startup was skipped.'
-} else {
-    Write-Output 'It will also start automatically (in the background) each time you log in.'
+$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("hackers-lair-install-" + [Guid]::NewGuid().ToString('N'))
+$archivePath = Join-Path $temporaryRoot $AssetName
+$checksumPath = Join-Path $temporaryRoot $ChecksumName
+$stagingPath = Join-Path $temporaryRoot 'staging'
+
+try {
+    New-Item -ItemType Directory -Path $temporaryRoot -Force | Out-Null
+    $headers = @{
+        Accept = 'application/vnd.github+json'
+        'User-Agent' = 'Hackers-Lair-Installer'
+    }
+    $release = Invoke-RestMethod -Uri $ReleaseApi -Headers $headers
+    $archiveAsset = $release.assets | Where-Object name -eq $AssetName | Select-Object -First 1
+    $checksumAsset = $release.assets | Where-Object name -eq $ChecksumName | Select-Object -First 1
+    if (-not $archiveAsset -or -not $checksumAsset) {
+        throw "Release $($release.tag_name) does not contain $AssetName and $ChecksumName."
+    }
+
+    Write-Output "Downloading Hacker's Lair $($release.tag_name)..."
+    Invoke-WebRequest -Uri $archiveAsset.browser_download_url -OutFile $archivePath -Headers $headers
+    Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $checksumPath -Headers $headers
+
+    $escapedName = [Regex]::Escape($AssetName)
+    $checksumLine = Get-Content -LiteralPath $checksumPath |
+        Where-Object { $_ -match "^(?<hash>[A-Fa-f0-9]{64})\s+\*?$escapedName$" } |
+        Select-Object -First 1
+    if (-not $checksumLine) {
+        throw "$ChecksumName does not contain a SHA256 entry for $AssetName."
+    }
+    $expectedHash = ([Regex]::Match($checksumLine, '^[A-Fa-f0-9]{64}')).Value.ToLowerInvariant()
+    $actualHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualHash -ne $expectedHash) {
+        throw "SHA256 mismatch for $AssetName. Nothing was installed or unblocked."
+    }
+    Write-Output "SHA256 verified: $actualHash"
+
+    Unblock-File -LiteralPath $archivePath
+    New-Item -ItemType Directory -Path $stagingPath -Force | Out-Null
+    Expand-Archive -LiteralPath $archivePath -DestinationPath $stagingPath -Force
+    $stagedExecutable = Get-ChildItem -LiteralPath $stagingPath -Filter 'HackersLair.exe' -File -Recurse |
+        Select-Object -First 1
+    if (-not $stagedExecutable) {
+        throw 'The verified archive does not contain HackersLair.exe.'
+    }
+    $payloadRoot = $stagedExecutable.Directory.FullName
+
+    Stop-InstalledProcesses $installRoot
+    New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
+    Get-ChildItem -LiteralPath $installRoot -Force | Remove-Item -Recurse -Force
+    Copy-Item -Path (Join-Path $payloadRoot '*') -Destination $installRoot -Recurse -Force
+
+    $installedExecutable = Join-Path $installRoot 'HackersLair.exe'
+    $applicationArchive = Join-Path $installRoot 'resources\app.asar'
+    if (-not (Test-Path -LiteralPath $installedExecutable) -or -not (Test-Path -LiteralPath $applicationArchive)) {
+        throw 'The installed package is incomplete.'
+    }
+
+    $cliCommand = Join-Path $installRoot 'lair.cmd'
+    $cliBody = @(
+        '@echo off'
+        'set "ELECTRON_RUN_AS_NODE=1"'
+        '"%~dp0HackersLair.exe" "%~dp0resources\app.asar\bin\lair.js" %*'
+    ) -join "`r`n"
+    Set-Content -LiteralPath $cliCommand -Value $cliBody -Encoding Ascii
+    Set-Content -LiteralPath (Join-Path $installRoot 'install-channel.txt') -Value 'powershell' -Encoding Ascii
+    if (-not $NoPath) {
+        Add-UserPath $installRoot
+    }
+
+    if (-not $NoShortcut) {
+        $programs = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
+        New-Item -ItemType Directory -Path $programs -Force | Out-Null
+        $shortcutPath = Join-Path $programs "$ApplicationName.lnk"
+        $shell = New-Object -ComObject WScript.Shell
+        $shortcut = $shell.CreateShortcut($shortcutPath)
+        $shortcut.TargetPath = $installedExecutable
+        $shortcut.WorkingDirectory = $installRoot
+        $shortcut.IconLocation = "$installedExecutable,0"
+        $shortcut.Description = 'Local developer process control'
+        $shortcut.Save()
+    }
+
+    Write-Output ''
+    Write-Output "Installed $ApplicationName to $installRoot."
+    Write-Output 'Launch at login remains off; enable it inside the app if wanted.'
+    Write-Output 'Open a new terminal and run "lair doctor".'
+    if (-not $NoLaunch) {
+        Start-Process -FilePath $installedExecutable -WorkingDirectory $installRoot
+    }
+} finally {
+    if (
+        (Test-Path -LiteralPath $temporaryRoot) -and
+        $temporaryRoot.StartsWith([System.IO.Path]::GetTempPath(), [System.StringComparison]::OrdinalIgnoreCase)
+    ) {
+        Remove-Item -LiteralPath $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
-Write-Output 'Open a new terminal and run "lair ls" to use the CLI.'

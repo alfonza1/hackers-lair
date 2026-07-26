@@ -8,7 +8,6 @@ const {
   screen,
   Tray,
 } = require('electron');
-if (require('electron-squirrel-startup')) app.quit();
 
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -27,14 +26,25 @@ let apiToken = '';
 
 const DEFAULT_BOUNDS = { width: 1480, height: 940 };
 const MIN_SIZE = { width: 900, height: 620 };
+const SQUIRREL_COMMANDS = new Set([
+  '--squirrel-install',
+  '--squirrel-updated',
+  '--squirrel-uninstall',
+  '--squirrel-obsolete',
+]);
+const squirrelCommand = process.platform === 'win32'
+  ? process.argv.find((argument) => SQUIRREL_COMMANDS.has(argument)) || ''
+  : '';
 
 app.setName(APP_NAME);
 app.setAppUserModelId(APP_USER_MODEL_ID);
 if (process.env.PROJECT_MANAGER_DATA_DIR) {
   app.setPath('userData', path.resolve(process.env.PROJECT_MANAGER_DATA_DIR));
+} else {
+  app.setPath('userData', path.join(app.getPath('appData'), 'HackersLair'));
 }
 
-const hasLock = app.requestSingleInstanceLock();
+const hasLock = squirrelCommand ? true : app.requestSingleInstanceLock();
 if (!hasLock) app.quit();
 
 let mainWindow = null;
@@ -43,6 +53,130 @@ let isQuitting = false;
 let serviceProcess = null;
 let serviceStopped = false;
 let quitAfterServiceStops = false;
+
+function pathIsWithin(candidate, parent) {
+  const relative = path.relative(path.resolve(parent), path.resolve(candidate));
+  return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+function runSquirrelUpdate(args) {
+  const updateExecutable = path.resolve(path.dirname(process.execPath), '..', 'Update.exe');
+  if (!fs.existsSync(updateExecutable)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const child = spawn(updateExecutable, args, {
+      detached: false,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    child.once('error', reject);
+    child.once('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Update.exe exited with code ${code}.`));
+    });
+  });
+}
+
+function squirrelInstallRoot() {
+  return path.resolve(path.dirname(process.execPath), '..');
+}
+
+async function setWindowsUserPath(directory, enabled) {
+  const platform = require('./lib/platform').createPlatform('win32');
+  const script = enabled
+    ? [
+      "$current = [Environment]::GetEnvironmentVariable('Path', 'User')",
+      '$entries = @($current -split \';\' | Where-Object { $_ })',
+      "if ($entries.TrimEnd('\\') -notcontains $env:LAIR_CLI_DIR.TrimEnd('\\')) {",
+      "  [Environment]::SetEnvironmentVariable('Path', (($entries + $env:LAIR_CLI_DIR) -join ';'), 'User')",
+      '}',
+    ].join('; ')
+    : [
+      "$current = [Environment]::GetEnvironmentVariable('Path', 'User')",
+      "$entries = @($current -split ';' | Where-Object { $_ -and $_.TrimEnd('\\') -ne $env:LAIR_CLI_DIR.TrimEnd('\\') })",
+      "[Environment]::SetEnvironmentVariable('Path', ($entries -join ';'), 'User')",
+    ].join('; ');
+  await platform.execFile('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    script,
+  ], { env: { ...process.env, LAIR_CLI_DIR: directory } });
+}
+
+async function installSquirrelCli() {
+  const installRoot = squirrelInstallRoot();
+  const cli = path.join(installRoot, 'lair.cmd');
+  fs.writeFileSync(cli, [
+    '@echo off',
+    'set "ELECTRON_RUN_AS_NODE=1"',
+    `"${process.execPath}" "${path.join(__dirname, 'bin', 'lair.js')}" %*`,
+    '',
+  ].join('\r\n'), 'ascii');
+  await setWindowsUserPath(installRoot, true);
+}
+
+async function uninstallSquirrelCli() {
+  const installRoot = squirrelInstallRoot();
+  await setWindowsUserPath(installRoot, false);
+  try { fs.unlinkSync(path.join(installRoot, 'lair.cmd')); } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+}
+
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
+function installLinuxCli() {
+  if (process.platform !== 'linux' || !app.isPackaged) return;
+  const binDirectory = path.join(require('os').homedir(), '.local', 'bin');
+  fs.mkdirSync(binDirectory, { recursive: true });
+  fs.writeFileSync(path.join(binDirectory, 'lair'), [
+    '#!/bin/sh',
+    `ELECTRON_RUN_AS_NODE=1 ${shellQuote(process.execPath)} ${shellQuote(path.join(__dirname, 'bin', 'lair.js'))} "$@"`,
+    '',
+  ].join('\n'), { encoding: 'utf8', mode: 0o755 });
+}
+
+async function stopInstalledSquirrelProcesses() {
+  const installRoot = squirrelInstallRoot();
+  const platform = require('./lib/platform').createPlatform('win32');
+  const processes = await platform.processDetails();
+  const matches = processes.filter((processInfo) => (
+    processInfo.pid !== process.pid
+    && processInfo.exePath
+    && path.basename(processInfo.exePath).toLowerCase() === 'hackerslair.exe'
+    && pathIsWithin(processInfo.exePath, installRoot)
+  ));
+  await Promise.allSettled(matches.map((processInfo) => platform.terminateProcess(processInfo.pid)));
+}
+
+async function handleSquirrelCommand(command) {
+  const executableName = path.basename(process.execPath);
+  if (['--squirrel-install', '--squirrel-updated'].includes(command)) {
+    await runSquirrelUpdate(['--createShortcut', executableName]);
+    await installSquirrelCli();
+    return;
+  }
+  if (command === '--squirrel-uninstall') {
+    await stopInstalledSquirrelProcesses();
+    const result = await dialog.showMessageBox({
+      type: 'question',
+      title: "Uninstall Hacker's Lair",
+      message: "Keep Hacker's Lair configuration, logs, and backups?",
+      detail: `User data: ${app.getPath('userData')}`,
+      buttons: ['Keep data', 'Delete data'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    });
+    if (result.response === 1) {
+      fs.rmSync(app.getPath('userData'), { recursive: true, force: true });
+    }
+    await uninstallSquirrelCli();
+    await runSquirrelUpdate(['--removeShortcut', executableName]);
+  }
+}
 
 function identityPath() {
   return path.join(desktopDataDirectory(app), 'api-token');
@@ -409,7 +543,19 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(async () => {
+  if (squirrelCommand) {
+    try {
+      await handleSquirrelCommand(squirrelCommand);
+    } catch (error) {
+      console.error(error.stack || error.message);
+      process.exitCode = 1;
+    } finally {
+      app.quit();
+    }
+    return;
+  }
   if (!hasLock) return;
+  installLinuxCli();
   await createWindow();
   if (appOrigin) installDesktopControls();
   const smokeExitAfterMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_MS);
