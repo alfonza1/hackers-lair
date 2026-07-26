@@ -4,6 +4,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 
 test('UI omits N/A placeholders and ships the curated preference surface', () => {
   assert.doesNotMatch(html, /\bN\/A\b/);
@@ -58,4 +59,11 @@ test('onboarding and project management never require hand-edited JSON', () => {
     assert.match(html, new RegExp(`data-editor-field="${field}"`));
   }
   assert.match(html, /class="setup-recommendation"[^>]*>Recommended</);
+});
+
+test('project setup can cancel safely and browse outside the Electron host', () => {
+  assert.equal((html.match(/value="cancel"[^>]*formnovalidate/g) || []).length, 2);
+  assert.match(html, /postJson\('\/api\/dialog\/workspace-folders', \{\}\)/);
+  assert.match(server, /pathname === '\/api\/dialog\/workspace-folders'/);
+  assert.match(server, /platform\.chooseWorkspaceFolders\(\)/);
 });

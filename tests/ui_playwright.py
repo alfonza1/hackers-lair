@@ -141,6 +141,25 @@ def assert_empty_state(page) -> None:
     expect(empty_state.get_by_text("Recommended", exact=True)).to_be_visible()
 
 
+def assert_project_editor_controls(page, selected_folder: Path) -> None:
+    page.get_by_role("button", name="Add Project").click()
+    editor = page.locator("#projectEditor")
+    expect(editor).to_be_visible()
+    page.get_by_role("button", name="Close project editor").click()
+    expect(editor).to_be_hidden()
+
+    page.route(
+        "**/api/dialog/workspace-folders",
+        lambda route: route.fulfill(json={"folders": [str(selected_folder)]}),
+    )
+    page.get_by_role("button", name="Add Project").click()
+    editor.get_by_role("button", name="Choose Folder").click()
+    expect(editor.locator('[data-editor-field="cwd"]')).to_have_value(str(selected_folder))
+    editor.get_by_role("button", name="Cancel").click()
+    expect(editor).to_be_hidden()
+    page.unroute("**/api/dialog/workspace-folders")
+
+
 def assert_target_states(page, live_port: int, dormant_port: int) -> None:
     page.reload(wait_until="networkidle")
     live = page.locator('[data-card-kind="project"][data-name="Live Fixture"]')
@@ -230,6 +249,7 @@ def run() -> None:
             )
             page.goto(origin, wait_until="networkidle")
             assert_empty_state(page)
+            assert_project_editor_controls(page, data_directory / "chosen-folder")
 
             dormant_port = free_port()
             write_projects(

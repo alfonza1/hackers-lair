@@ -95,6 +95,7 @@ test('desktop supervision publishes backend state and reloads after recovery', (
   assert.match(desktop, /applyServerIdentity\(server, \{ reload: true \}\)/);
   assert.match(desktop, /app:backend-state/);
   assert.match(desktop, /signalSmokeDesktopReady/);
+  assert.match(desktop, /Folder picker request was rejected/);
   assert.match(preload, /getBackendState/);
   assert.match(preload, /onBackendState/);
 });

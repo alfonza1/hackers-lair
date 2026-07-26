@@ -2671,7 +2671,7 @@
         <div class="section-kicker">Target Registry</div>
         <h2 id="projectEditorTitle">Add Project</h2>
       </div>
-      <button class="utility" value="cancel" type="submit" aria-label="Close project editor">Close</button>
+      <button class="utility" value="cancel" type="submit" formnovalidate aria-label="Close project editor">Close</button>
     </div>
     <div class="dialog-body">
       <div class="editor-project-fields">
@@ -2688,7 +2688,7 @@
     </div>
     <div class="dialog-actions">
       <button class="utility remove-project" id="removeProject" type="button" hidden>Remove Project</button>
-      <button class="utility" value="cancel" type="submit">Cancel</button>
+      <button class="utility" value="cancel" type="submit" formnovalidate>Cancel</button>
       <button class="utility" id="saveProject" type="button">Save Project</button>
     </div>
   </form>
@@ -2813,6 +2813,7 @@
   };
   const editorState = { originalName: '', components: [] };
   const wizardState = { step: 0, folders: [], discovery: null, imported: null };
+  let workspacePickerPromise = null;
 
   function setConfigError(source, message) {
     if (message) state.configErrors.set(source, message);
@@ -3240,6 +3241,27 @@
       },
       body: JSON.stringify(body),
     });
+  }
+
+  async function pickWorkspaceFolders() {
+    if (workspacePickerPromise) return workspacePickerPromise;
+    workspacePickerPromise = (async () => {
+      const desktop = window.hackerLairWindow;
+      if (desktop?.chooseWorkspaceFolders) {
+        try {
+          return await desktop.chooseWorkspaceFolders();
+        } catch {
+          // Fall back to the authenticated local platform picker.
+        }
+      }
+      const result = await postJson('/api/dialog/workspace-folders', {});
+      return Array.isArray(result.folders) ? result.folders : [];
+    })();
+    try {
+      return await workspacePickerPromise;
+    } finally {
+      workspacePickerPromise = null;
+    }
   }
 
   async function openUiInBrowser(button) {
@@ -4391,12 +4413,7 @@
   }
 
   async function chooseEditorFolder(index) {
-    const desktop = window.hackerLairWindow;
-    if (!desktop?.chooseWorkspaceFolders) {
-      document.querySelector(`[data-editor-component="${index}"] [data-editor-field="cwd"]`)?.focus();
-      return;
-    }
-    const folders = await desktop.chooseWorkspaceFolders();
+    const folders = await pickWorkspaceFolders();
     if (!folders.length) return;
     const section = document.querySelector(`[data-editor-component="${index}"]`);
     section.querySelector('[data-editor-field="cwd"]').value = folders[0];
@@ -4522,12 +4539,7 @@
   }
 
   async function chooseWizardFolders() {
-    const desktop = window.hackerLairWindow;
-    if (!desktop?.chooseWorkspaceFolders) {
-      $('wizardFolderInput')?.focus();
-      return;
-    }
-    const folders = await desktop.chooseWorkspaceFolders();
+    const folders = await pickWorkspaceFolders();
     wizardState.folders = [...new Set([...wizardState.folders, ...folders])].slice(-10);
     renderWizard();
   }
@@ -4648,14 +4660,8 @@
   }
 
   async function browseScanFolders() {
-    const desktop = window.hackerLairWindow;
-    if (!desktop?.chooseWorkspaceFolders) {
-      $('scanFolder').focus();
-      toast('Paste an absolute workspace folder, then select Scan.');
-      return;
-    }
     try {
-      const folders = await desktop.chooseWorkspaceFolders();
+      const folders = await pickWorkspaceFolders();
       if (!folders.length) return;
       state.workspaceFolders = [...new Set([
         ...state.workspaceFolders,

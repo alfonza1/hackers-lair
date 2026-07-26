@@ -1402,6 +1402,23 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && pathname === '/api/dialog/workspace-folders') {
+      try {
+        const folders = (await platform.chooseWorkspaceFolders())
+          .map((folder) => path.resolve(folder))
+          .filter((folder, index, values) => (
+            values.indexOf(folder) === index
+            && fs.existsSync(folder)
+            && fs.statSync(folder).isDirectory()
+          ))
+          .slice(0, 10);
+        json(res, 200, { folders });
+      } catch (error) {
+        json(res, 501, { error: `Folder picker unavailable: ${error.message}` });
+      }
+      return;
+    }
+
     if (req.method === 'POST' && req.url === '/api/settings/preferences') {
       let input;
       try { input = JSON.parse(await readBody(req)); }

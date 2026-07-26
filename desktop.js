@@ -809,9 +809,13 @@ ipcMain.on('app:power', (event, action) => {
 });
 
 ipcMain.handle('dialog:workspace-folders', async (event) => {
-  if (!senderBelongsToApplication(event)) return [];
+  if (!senderBelongsToApplication(event)) {
+    throw new Error('Folder picker request was rejected because its origin could not be verified.');
+  }
   const owner = BrowserWindow.fromWebContents(event.sender);
-  if (!owner || owner !== mainWindow) return [];
+  if (!owner || owner !== mainWindow) {
+    throw new Error('Folder picker request did not come from the Hacker’s Lair window.');
+  }
   const result = await dialog.showOpenDialog(owner, {
     title: 'Choose development workspaces',
     buttonLabel: 'Scan folders',
