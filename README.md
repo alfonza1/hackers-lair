@@ -10,14 +10,14 @@
 
 <p align="center">
   <img alt="Windows 11" src="https://img.shields.io/badge/Windows-11-66ffb5?style=flat-square&labelColor=07110e">
-  <img alt="Node 18 or newer" src="https://img.shields.io/badge/Node-%3E%3D18-66ffb5?style=flat-square&labelColor=07110e">
+  <img alt="Node 22.12 or newer" src="https://img.shields.io/badge/Node-%3E%3D22.12-66ffb5?style=flat-square&labelColor=07110e">
   <img alt="Electron 43" src="https://img.shields.io/badge/Electron-43-5ed0ff?style=flat-square&labelColor=07110e">
   <img alt="Local only" src="https://img.shields.io/badge/network-localhost_only-ffc95c?style=flat-square&labelColor=07110e">
 </p>
 
 Hacker's Lair turns a Windows development machine into one focused process
 console. Start an entire project, inspect the ports currently listening, launch
-local scripts, and open managed web UIs in Firefox without bouncing between
+local scripts, and open managed web UIs in your default browser without bouncing between
 terminal windows, Task Manager, and browser bookmarks.
 
 The interface runs inside a custom Electron shell with its own titlebar,
@@ -29,6 +29,10 @@ window controls, and scrollbar. The control service listens only on
 ### Project targets
 
 ![Hacker's Lair Targets view showing fictional live and dormant projects](docs/screenshots/targets.png)
+
+### Agent-assisted first run
+
+![Hacker's Lair first-run view showing copyable agent configuration prompts](docs/screenshots/onboarding.png)
 
 ### Port signals
 
@@ -42,34 +46,49 @@ window controls, and scrollbar. The control service listens only on
 
 | Surface | What it controls |
 |---|---|
-| **Targets** | Starts or stops every configured component of a project as one unit, while showing component status, the checked-out Git branch, and logs. Live projects stay first; the most recently terminated project leads the dormant group. |
+| **Targets** | Starts or stops every configured component of a project as one unit, while showing component status, Git attention, and logs. Live projects stay first; the most recently terminated project leads the dormant group. |
 | **Port Signals** | Shows listening localhost ports, labels known development servers, stops processes, and relaunches processes previously stopped by the console. |
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
+| **Skills** | Optional, explicitly enabled view that scans shared agent skill metadata. It is off in public installs by default. |
+| **Discovery + Doctor** | Proposes runnable projects from a folder, then checks tools, paths, ports, config parsing, and data-directory access. |
 | **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |
-| **Desktop Core** | Runs guarded restart and shutdown sequences for the Electron host without stopping managed projects or the local control service. |
+| **Desktop Core** | Runs guarded restart and quit sequences for the Electron host without stopping managed projects or the local control service. |
 | **Signal Tape** | Keeps an operator-readable event feed for starts, stops, refreshes, and failures. |
 | **Cinematic shell** | Runs a short secure-boot handoff, ambient signal rain, and scan passes without covering the controls. |
 
-Managed project UIs are opened explicitly in **Firefox**, independent of the
-Windows default browser. Set `FIREFOX_PATH` only when Firefox is installed
-outside a standard Windows location.
+Managed project UIs open in the Windows default browser. Set `BROWSER_PATH` or
+`browserPath` in `%APPDATA%\HackersLair\settings.json` only when you want a
+specific browser executable. `FIREFOX_PATH` remains a backwards-compatible
+override.
+
+Git attention is read-only. Each target reports its total local commit count,
+working-tree changes, upstream divergence, missing upstream, detached HEAD, and
+dirty protected-branch state. Hacker's Lair does not stage, commit, reset, pull,
+or push repositories.
+
+When no targets are configured, the empty view provides
+copyable prompts for a coding agent. The service inserts the current machine's
+real AppData configuration path (and the shared skills path only after opt-in), while the prompt tells the agent
+to inspect first, preserve existing files, ask about ambiguity, validate the
+result, and verify it in the running app.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     UI["Frameless Electron shell"] --> API["Local Node control service<br/>127.0.0.1:4949"]
-    API --> PROJECTS["projects.json<br/>targets + components"]
+    API --> PROJECTS["%APPDATA%/HackersLair/projects.json<br/>targets + components"]
     API --> WINDOWS["Windows process + port tools"]
-    API --> SCRIPTS["scripts.json<br/>AutoIt discovery"]
-    API --> FIREFOX["Firefox<br/>managed project UIs"]
+    API --> SCRIPTS["%APPDATA%/HackersLair/scripts.json<br/>optional AutoIt discovery"]
+    API --> SKILLS["Opt-in skill metadata scan"]
+    API --> BROWSER["Windows default browser<br/>managed project UIs"]
 ```
 
 The Node service uses built-in modules and Windows tools such as `netstat`,
 `tasklist`, and `taskkill`. Electron is the only npm dependency.
 
 The Intel Rack's **Desktop Core** controls require two clicks within five
-seconds. **Restart** relaunches the Electron host; **Shutdown** exits it. Both
+seconds. **Restart** relaunches the Electron host; **Quit Hacker's Lair** exits it. Both
 leave managed targets and the background localhost control service running.
 
 ## Quick start
@@ -77,8 +96,7 @@ leave managed targets and the background localhost control service running.
 ### Requirements
 
 - Windows 11
-- Node.js 18 or newer
-- Firefox
+- Node.js 22.12 or newer
 - AutoIt 3 only if you want to use the Scripts surface
 
 ### Install the desktop app
@@ -95,7 +113,9 @@ and registers a silent login-time launcher for the local service. Press the
 Windows key, type `Hacker's Lair`, and launch it like any other desktop app.
 
 Re-run `install.ps1` after moving the repository. Use `uninstall.ps1` to remove
-the shortcuts and login launcher.
+the shortcuts and login launcher. Pass `-NoStartup` to install without the
+login launcher. Uninstall prompts before deleting `%APPDATA%\HackersLair`; use
+`-DeleteData` or `-KeepData` for a non-interactive choice.
 
 When upgrading from an older Hacker's Lair icon, close the desktop app, unpin
 the existing taskbar entry, run `install.ps1`, launch the refreshed Start menu
@@ -116,19 +136,23 @@ npm run server
 npm run desktop
 ```
 
-The service-only UI is also available at <http://localhost:4949>.
+The service starts at port 4949 and may use 4950–4959 if needed. The verified
+port, launch nonce, PID, and private mutation token live in
+`%APPDATA%\HackersLair\api-token`; the desktop launcher verifies the identity
+before loading the UI.
 
 ## Configure projects
 
-`projects.json` defines each target and its frontend, backend, Docker stack, or
+`%APPDATA%\HackersLair\projects.json` defines each target and its frontend, backend, Docker stack, or
 headless components. Docker stacks declare their published `ports` as the
 authoritative readiness signal, so Hacker's Lair recognizes containers started
 inside or outside the app even though Docker owns the Windows listener process.
 
 To add your own project:
 
-1. Open `projects.json` and add one object inside its top-level `projects`
-   array.
+1. Use **Discovery + Doctor → Scan folder** to review detected projects, or
+   open `%APPDATA%\HackersLair\projects.json` and add one object inside its
+   top-level `projects` array.
 2. Add one component for every command Hacker's Lair should start and stop. A
    Docker Compose project should normally be one `stack` component.
 3. Set each component's `cwd` to an existing absolute Windows folder and its
@@ -183,14 +207,16 @@ example paths with your own:
   project path is the safest default.
 - `track: "process"` supports headless components that never bind a port.
 
-The service reloads `projects.json` on every request, so configuration edits do
-not require a restart. The checked-in configuration starts empty to avoid
-publishing any contributor's local project names or filesystem paths.
+The service reloads the user configuration on every request, so edits do not
+require a restart. If JSON becomes invalid, the last known-good configuration
+stays active and the UI displays the exact parse failure. Only sanitized
+`projects.example.json`, `scripts.example.json`, and `settings.example.json`
+are tracked; personal paths are never package or repository content.
 
 Before refreshing the application, you can validate the JSON from PowerShell:
 
 ```powershell
-Get-Content -Raw .\projects.json | ConvertFrom-Json | Out-Null
+Get-Content -Raw "$env:APPDATA\HackersLair\projects.json" | ConvertFrom-Json | Out-Null
 ```
 
 No output means the JSON parsed successfully. Authoritative `ports` must be
@@ -199,7 +225,7 @@ because their distinctive `match` value still identifies the owning process.
 
 ## Configure scripts
 
-`scripts.json` points to an AutoIt executable and script directory. Every
+`%APPDATA%\HackersLair\scripts.json` points to an AutoIt executable and script directory. Every
 `.au3` file in that directory appears automatically, newest modified first.
 The checked-in values are empty so local script paths and descriptions are not
 published. Descriptions are optional and keyed by filename:
@@ -218,7 +244,7 @@ To add your own script:
 
 1. Install AutoIt 3 and confirm the location of `AutoIt3.exe`.
 2. Create a folder for your `.au3` files, or choose an existing scripts folder.
-3. Set `scriptsDir` and `autoItExe` in `scripts.json` to absolute Windows paths.
+3. Set `scriptsDir` and `autoItExe` in `%APPDATA%\HackersLair\scripts.json` to absolute Windows paths.
 4. Copy your `.au3` file into `scriptsDir`.
 5. Optionally add a `descriptions` entry whose key exactly matches the filename,
    including the `.au3` extension. Scripts without an entry still appear with a
@@ -229,7 +255,7 @@ To add your own script:
 Validate the configuration before refreshing:
 
 ```powershell
-Get-Content -Raw .\scripts.json | ConvertFrom-Json | Out-Null
+Get-Content -Raw "$env:APPDATA\HackersLair\scripts.json" | ConvertFrom-Json | Out-Null
 Test-Path "C:\Program Files (x86)\AutoIt3\AutoIt3.exe"
 Test-Path "C:\Scripts\autoit"
 ```
@@ -239,17 +265,34 @@ configured executable and folder. Start and stop detection matches the script's
 absolute path in the AutoIt process command line, so keep script filenames
 distinct within the configured folder.
 
+### Skill discovery
+
+The **Skills** surface is disabled by default because it reads outside the
+install directory. Set `"enableSkills": true` in
+`%APPDATA%\HackersLair\settings.json` to opt in. It then reads personal skill
+metadata directly from the shared workspace `.agents/skills/*/SKILL.md` folder. It re-scans while the surface is
+open, so adding, editing, or removing a personal skill does not require a
+Hacker's Lair restart.
+
+Personal skills are shown first as shared workspace capabilities. Selecting
+**Default Skills** switches to an exclusive view of bundled, system, and
+installed-plugin skills; selecting **Personal Skills** switches back. Only
+skill metadata is sent to the local UI; filesystem paths are not exposed.
+
 ## Repository map
 
 | Path | Responsibility |
 |---|---|
 | `public/index.html` | Complete Process Control interface and browser-side behavior |
 | `server.js` | Local HTTP service, process discovery, launch, stop, and log APIs |
+| `lib/skill-registry.js` | Live shared and default agent skill metadata discovery |
+| `lib/git-attention.js` | Read-only Git working-tree and upstream attention state |
+| `lib/onboarding-prompts.js` | Portable first-run prompts using live machine paths |
 | `desktop.js` | Frameless Electron window lifecycle |
 | `app-config.js` | Shared desktop name, Windows app identity, and icon-cache version |
 | `preload.js` | Restricted bridge for in-app window controls |
-| `projects.json` | Project and component launch configuration |
-| `scripts.json` | AutoIt discovery and description configuration |
+| `projects.example.json` | Sanitized seed for user-owned project configuration |
+| `scripts.example.json` / `settings.example.json` | Sanitized seeds for optional features |
 | `launcher.vbs` | Silent service bootstrap and desktop launcher |
 | `install.ps1` / `uninstall.ps1` | Windows shortcut and login registration |
 | `scripts/install-shortcuts.js` | Creates Windows shortcuts with matching Electron taskbar metadata |
@@ -262,15 +305,16 @@ Edge is installed somewhere else.
 
 ## Operational notes
 
-- Runtime logs live under `logs/` and are ignored by Git.
-- `started.json`, `project-activity.json`, and `stopped.json` retain local launch
-  and ordering state and are ignored by Git.
+- Runtime logs and all state/config files live under
+  `%APPDATA%\HackersLair` (or `PROJECT_MANAGER_DATA_DIR`) and are ignored by Git.
 - A component startup failure stays visible on its target with the error and a
   link to the full log.
 - Closing the Electron window leaves the local service running so the next
   launch is immediate.
-- Cinematic effects pause when the app is hidden and are disabled when Windows
-  reduced-motion preferences are enabled.
+- The boot sequence plays once. **Replay Intro** re-enables it; cinematic
+  effects pause when hidden and respect Windows reduced-motion preferences.
+- Every request validates the exact localhost Host header. Every mutation also
+  requires JSON and a per-launch secret injected only into the served HTML.
 
 > [!IMPORTANT]
 > Process stop actions are real Windows process operations. Keep each `match`

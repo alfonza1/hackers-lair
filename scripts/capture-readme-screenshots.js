@@ -13,10 +13,40 @@ const component = (name, role, port, running, pid) => ({
   path: `C:\\Workspaces\\${name}`, memKB: running ? 186240 : 0, cpuPercent: running ? 2.4 : null,
   uptimeSeconds: running ? 8421 : null, lastActionAt: now - 420000, livePorts: running ? [port] : [],
 });
+const gitAttention = (root, branch, overrides = {}) => {
+  const repository = {
+    root,
+    branch,
+    detached: false,
+    upstream: `origin/${branch}`,
+    ahead: 0,
+    behind: 0,
+    dirty: false,
+    changedPaths: 0,
+    commitCount: 0,
+    ...overrides,
+  };
+  const dirtyRepositories = repository.dirty ? 1 : 0;
+  const withoutUpstream = repository.upstream ? 0 : 1;
+  return {
+    repositories: [repository],
+    summary: {
+      level: dirtyRepositories || repository.ahead || repository.behind || withoutUpstream ? 'attention' : 'clean',
+      dirtyRepositories,
+      changedPaths: repository.changedPaths,
+      ahead: repository.ahead,
+      behind: repository.behind,
+      localCommits: repository.commitCount,
+      withoutUpstream,
+      protectedBranchDirty: repository.dirty && ['main', 'master'].includes(branch),
+      detached: repository.detached,
+    },
+  };
+};
 const projects = [
-  { name: 'nightwatch-relay', type: 'Vite + Node API', gitBranches: ['feature/relay-observability'], components: [component('relay-ui', 'frontend', 5173, true, 18420), component('relay-api', 'backend', 4100, true, 22108)], running: true, partial: false, errored: false, starting: false, pids: [18420, 22108], memKB: 372480, cpuPercent: 4.8, uptimeSeconds: 8421, lastActionAt: now - 420000 },
-  { name: 'atlas-worker', type: 'Python task runner', gitBranches: ['main'], components: [component('atlas-worker', 'headless', null, true, 27144)], running: true, partial: false, errored: false, starting: false, pids: [27144], memKB: 92160, cpuPercent: 1.1, uptimeSeconds: 3644, lastActionAt: now - 910000 },
-  { name: 'static-forge', type: 'Next.js workspace', gitBranches: ['release/next'], components: [component('static-forge', 'fullstack', 3000, false)], running: false, partial: false, errored: false, starting: false, pids: [], memKB: 0, cpuPercent: null, uptimeSeconds: null, lastActionAt: now - 7200000 },
+  { name: 'nightwatch-relay', type: 'Vite + Node API', gitBranches: ['feature/relay-observability'], gitAttention: gitAttention('C:\\Workspaces\\nightwatch-relay', 'feature/relay-observability', { dirty: true, changedPaths: 2, ahead: 3, commitCount: 684 }), components: [component('relay-ui', 'frontend', 5173, true, 18420), component('relay-api', 'backend', 4100, true, 22108)], running: true, partial: false, errored: false, starting: false, pids: [18420, 22108], memKB: 372480, cpuPercent: 4.8, uptimeSeconds: 8421, lastActionAt: now - 420000 },
+  { name: 'atlas-worker', type: 'Python task runner', gitBranches: ['main'], gitAttention: gitAttention('C:\\Workspaces\\atlas-worker', 'main', { commitCount: 217 }), components: [component('atlas-worker', 'headless', null, true, 27144)], running: true, partial: false, errored: false, starting: false, pids: [27144], memKB: 92160, cpuPercent: 1.1, uptimeSeconds: 3644, lastActionAt: now - 910000 },
+  { name: 'static-forge', type: 'Next.js workspace', gitBranches: ['release/next'], gitAttention: gitAttention('C:\\Workspaces\\static-forge', 'release/next', { commitCount: 93 }), components: [component('static-forge', 'fullstack', 3000, false)], running: false, partial: false, errored: false, starting: false, pids: [], memKB: 0, cpuPercent: null, uptimeSeconds: null, lastActionAt: now - 7200000 },
 ];
 const processes = [
   { pid: 18420, name: 'node.exe', label: 'Nightwatch UI', cmd: 'node vite.js', exePath: 'C:\\Program Files\\nodejs\\node.exe', cwd: 'C:\\Workspaces\\nightwatch-relay', memKB: 186240, uptimeSeconds: 8421, cpuPercent: 2.4, self: false, protected: false, system: false, ports: [{ port: 5173, addresses: ['127.0.0.1'] }] },
@@ -34,6 +64,19 @@ const fixtures = {
   '/api/projects': { projects },
   '/api/processes': { self: 9000, port: 4949, processes, stopped },
   '/api/scripts': { scripts },
+  '/api/onboarding': { configured: true, projectCount: projects.length, personalSkillCount: 3, prompts: [] },
+};
+const onboardingFixtures = {
+  '/api/projects': { projects: [] },
+  '/api/onboarding': {
+    configured: false,
+    projectCount: 0,
+    personalSkillCount: 0,
+    prompts: [
+      { id: 'complete', title: 'Configure everything', prompt: "Set up Hacker's Lair completely for this machine. Inspect before changing anything, preserve existing configuration, ask about ambiguous paths or commands, avoid secrets, validate projects.json and SKILL.md metadata, run the test suite, start the app, and verify Targets and Skills both show the new configuration." },
+      { id: 'projects', title: 'Configure targets', prompt: "Inspect my development folders read-only and configure runnable applications in C:\\Tools\\hackers-lair\\projects.json. Use absolute working directories, actual start commands and ports, and distinctive process matches. Preserve existing entries, ask before resolving ambiguity, validate the JSON, run tests, and verify every target safely." },
+    ],
+  },
 };
 
 const injection = `<style>
@@ -49,9 +92,12 @@ const injection = `<style>
     static now() { return ${now}; }
   };
   const demoFixtures = ${JSON.stringify(fixtures)};
+  const onboardingFixtures = ${JSON.stringify(onboardingFixtures)};
   window.fetch = async (input) => {
     const key = Object.keys(demoFixtures).find((route) => String(input).startsWith(route));
-    return new Response(JSON.stringify(key ? demoFixtures[key] : { error: 'Demo route unavailable' }), { status: key ? 200 : 404, headers: { 'Content-Type': 'application/json' } });
+    const onboardingPayload = location.hash === '#onboarding' ? onboardingFixtures[key] : null;
+    const payload = onboardingPayload || (key ? demoFixtures[key] : { error: 'Demo route unavailable' });
+    return new Response(JSON.stringify(payload), { status: key ? 200 : 404, headers: { 'Content-Type': 'application/json' } });
   };
   addEventListener('DOMContentLoaded', () => setTimeout(() => {
     const bootSequence = document.getElementById('bootSequence');
@@ -73,7 +119,7 @@ fs.mkdirSync(outputDir, { recursive: true });
 const edge = process.env.EDGE_PATH || path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
 if (!fs.existsSync(edge)) throw new Error('Microsoft Edge was not found. Set EDGE_PATH to a Chromium executable.');
 
-for (const [name, hash] of [['targets', ''], ['port-signals', '#processes'], ['scripts', '#scripts']]) {
+for (const [name, hash] of [['targets', ''], ['onboarding', '#onboarding'], ['port-signals', '#processes'], ['scripts', '#scripts']]) {
   const output = path.join(outputDir, `${name}.png`);
   const profile = path.join(os.tmpdir(), `hackers-lair-readme-${name}-${process.pid}`);
   fs.rmSync(output, { force: true });

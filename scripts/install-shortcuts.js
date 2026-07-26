@@ -44,6 +44,7 @@ function createShortcut(shortcutPath, shortcutIcon, extraArgument = '') {
 
 async function installShortcuts() {
   await app.whenReady();
+  const noStartup = process.argv.includes('--no-startup');
 
   const iconDirectory = path.join(app.getPath('userData'), 'icons');
   const shortcutIcon = path.join(iconDirectory, ICON_CACHE_FILENAME);
@@ -61,8 +62,8 @@ async function installShortcuts() {
   const shortcuts = [
     [path.join(startMenu, `${APP_NAME}.lnk`), ''],
     [path.join(app.getPath('desktop'), `${APP_NAME}.lnk`), ''],
-    [path.join(startup, `${APP_NAME}.lnk`), 'boot'],
   ];
+  if (!noStartup) shortcuts.push([path.join(startup, `${APP_NAME}.lnk`), 'boot']);
 
   for (const [shortcutPath, extraArgument] of shortcuts) {
     createShortcut(shortcutPath, shortcutIcon, extraArgument);

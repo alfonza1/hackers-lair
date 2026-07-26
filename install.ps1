@@ -1,6 +1,11 @@
 # Registers the Hacker's Lair desktop app in Windows Search / Start menu and
 # on the Desktop, then starts its local service silently when you log in.
 # Re-run this any time you move the folder.
+[CmdletBinding()]
+param(
+    [switch]$NoStartup
+)
+
 $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
 $name = "Hacker's Lair"
@@ -20,6 +25,12 @@ foreach ($old in @(
     (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Localhost Manager.lnk'),
     (Join-Path $startup 'Localhost Manager.lnk')
 )) { if (Test-Path $old) { Remove-Item $old -Force } }
+if ($NoStartup) {
+    $currentStartup = Join-Path $startup "Hacker's Lair.lnk"
+    if (Test-Path -LiteralPath $currentStartup) {
+        Remove-Item -LiteralPath $currentStartup -Force
+    }
+}
 
 $electron = Join-Path $dir 'node_modules\electron\dist\electron.exe'
 if (-not (Test-Path $electron)) {
@@ -30,11 +41,17 @@ if (-not (Test-Path $electron)) {
 # desktop process uses. Windows needs that shared identity to associate a pin
 # with the correct window and native icon.
 $shortcutInstaller = Join-Path $dir 'scripts\install-shortcuts.js'
-$installerProcess = Start-Process -FilePath $electron -ArgumentList $shortcutInstaller -WindowStyle Hidden -Wait -PassThru
+$shortcutArguments = @("`"$shortcutInstaller`"")
+if ($NoStartup) { $shortcutArguments += '--no-startup' }
+$installerProcess = Start-Process -FilePath $electron -ArgumentList $shortcutArguments -WindowStyle Hidden -Wait -PassThru
 if ($installerProcess.ExitCode -ne 0) {
     throw "Shortcut installation failed with exit code $($installerProcess.ExitCode)."
 }
 
 Write-Output ''
 Write-Output "Done. Press the Windows key and type `"$name`" to launch it."
-Write-Output "It will also start automatically (in the background) each time you log in."
+if ($NoStartup) {
+    Write-Output 'Login startup was skipped.'
+} else {
+    Write-Output 'It will also start automatically (in the background) each time you log in.'
+}

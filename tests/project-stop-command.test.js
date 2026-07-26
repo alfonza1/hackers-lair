@@ -34,10 +34,46 @@ async function waitFor(check, message, timeoutMs = 20_000) {
   throw new Error(`${message}${lastError ? `: ${lastError.message}` : ''}`);
 }
 
-async function postJson(url, body) {
+function stopChild(child) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timeout = setTimeout(resolve, 2_000);
+    child.once('exit', () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+    try {
+      child.kill();
+    } catch {
+      clearTimeout(timeout);
+      resolve();
+    }
+  });
+}
+
+async function removeDirectoryWithRetry(directory) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    try {
+      fs.rmSync(directory, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (error.code !== 'EPERM' || attempt === 9) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+}
+
+function apiToken(dataDirectory) {
+  return JSON.parse(fs.readFileSync(path.join(dataDirectory, 'api-token'), 'utf8')).token;
+}
+
+async function postJson(url, body, dataDirectory) {
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Lair-Token': apiToken(dataDirectory),
+    },
     body: JSON.stringify(body),
   });
   const payload = await response.json();
@@ -66,7 +102,7 @@ test('project stop runs its graceful stop command before process cleanup', async
         role: 'backend',
         cwd: tempDirectory,
         command: `"${process.execPath}" "${workerPath}" ${workerPort} ${unrelatedPort} ${match}`,
-        stopCommand: `powershell -NoProfile -NonInteractive -Command "Set-Content -LiteralPath '${stopMarker.replaceAll("'", "''")}' -Value stopped"`,
+        stopCommand: `powershell -NoProfile -NonInteractive -Command "Start-Sleep -Milliseconds 800; Set-Content -LiteralPath '${stopMarker.replaceAll("'", "''")}' -Value stopped"`,
         port: workerPort,
         track: 'process',
         match,
@@ -105,7 +141,7 @@ test('project stop runs its graceful stop command before process cleanup', async
   });
 
   await waitFor(async () => (await fetch(`${baseUrl}/api/projects`)).ok, 'server did not start');
-  const started = await postJson(`${baseUrl}/api/projects/start`, { name: 'Stop command fixture' });
+  const started = await postJson(`${baseUrl}/api/projects/start`, { name: 'Stop command fixture' }, tempDirectory);
   assert.deepEqual(started.started, ['worker']);
 
   await waitFor(async () => {
@@ -117,7 +153,18 @@ test('project stop runs its graceful stop command before process cleanup', async
       && !component.livePorts.includes(unrelatedPort);
   }, 'fixture process was not detected');
 
-  const stopped = await postJson(`${baseUrl}/api/projects/stop`, { name: 'Stop command fixture' });
+  const stopping = postJson(`${baseUrl}/api/projects/stop`, { name: 'Stop command fixture' }, tempDirectory);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const competing = await fetch(`${baseUrl}/api/projects/start`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Lair-Token': apiToken(tempDirectory),
+    },
+    body: JSON.stringify({ name: 'Stop command fixture' }),
+  });
+  assert.equal(competing.status, 409);
+  const stopped = await stopping;
 
   assert.deepEqual(stopped.commandsRun, ['worker']);
   assert.equal(fs.readFileSync(stopMarker, 'utf8').trim(), 'stopped');
@@ -180,10 +227,9 @@ test('declared ports keep a service stoppable after its tracked wrapper exits', 
     stdio: 'ignore',
     windowsHide: true,
   });
-  t.after(() => {
-    try { manager.kill(); } catch { /* already stopped */ }
-    try { worker.kill(); } catch { /* already stopped */ }
-    fs.rmSync(tempDirectory, { recursive: true, force: true });
+  t.after(async () => {
+    await Promise.all([stopChild(manager), stopChild(worker)]);
+    await removeDirectoryWithRetry(tempDirectory);
   });
 
   await waitFor(async () => {
@@ -196,10 +242,10 @@ test('declared ports keep a service stoppable after its tracked wrapper exits', 
       && !component.livePorts.includes(unrelatedPort);
   }, 'port-detected fixture was not reported running');
 
-  const start = await postJson(`${baseUrl}/api/projects/start`, { name: 'Port-detected fixture' });
+  const start = await postJson(`${baseUrl}/api/projects/start`, { name: 'Port-detected fixture' }, tempDirectory);
   assert.deepEqual(start.skipped, ['stack']);
 
-  const stopped = await postJson(`${baseUrl}/api/projects/stop`, { name: 'Port-detected fixture' });
+  const stopped = await postJson(`${baseUrl}/api/projects/stop`, { name: 'Port-detected fixture' }, tempDirectory);
   assert.deepEqual(stopped.commandsRun, ['stack']);
   assert.equal(fs.readFileSync(stopMarker, 'utf8').trim(), 'stopped');
 });
@@ -250,10 +296,9 @@ test('does not report success while configured ports remain live', async (t) => 
     stdio: 'ignore',
     windowsHide: true,
   });
-  t.after(() => {
-    try { manager.kill(); } catch { /* already stopped */ }
-    try { worker.kill(); } catch { /* already stopped */ }
-    fs.rmSync(tempDirectory, { recursive: true, force: true });
+  t.after(async () => {
+    await Promise.all([stopChild(manager), stopChild(worker)]);
+    await removeDirectoryWithRetry(tempDirectory);
   });
 
   await waitFor(async () => {
@@ -265,7 +310,10 @@ test('does not report success while configured ports remain live', async (t) => 
 
   const response = await fetch(`${baseUrl}/api/projects/stop`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Lair-Token': apiToken(tempDirectory),
+    },
     body: JSON.stringify({ name: 'Incomplete stop fixture' }),
   });
   const payload = await response.json();

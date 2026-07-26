@@ -2,18 +2,48 @@
   "name": "hackers-lair",
   "version": "2.0.0",
   "description": "Frameless Windows command console for coding projects and localhost processes.",
+  "author": "Alfonza Jones",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alfonza1/hackers-lair.git"
+  },
   "main": "desktop.js",
   "scripts": {
     "start": "cscript //nologo launcher.vbs",
     "server": "node server.js",
     "desktop": "electron desktop.js",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
     "docs:screenshots": "node scripts/capture-readme-screenshots.js",
     "test": "node --test tests/*.test.js"
   },
+  "files": [
+    "app-config.js",
+    "desktop.js",
+    "forge.config.js",
+    "icon.ico",
+    "install.ps1",
+    "launcher.vbs",
+    "lib/",
+    "LICENSE",
+    "make-icon.ps1",
+    "preload.js",
+    "projects.example.json",
+    "public/",
+    "README.md",
+    "scripts/install-shortcuts.js",
+    "scripts.example.json",
+    "server.js",
+    "settings.example.json",
+    "uninstall.ps1"
+  ],
   "devDependencies": {
+    "@electron-forge/cli": "^7.8.3",
+    "@electron-forge/maker-zip": "^7.8.3",
     "electron": "43.1.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.12.0"
   }
 }

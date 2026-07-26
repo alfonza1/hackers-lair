@@ -3,8 +3,7 @@
 ' desktop host. Pass "boot" to start only the service at Windows sign-in.
 Option Explicit
 
-Dim URL, shell, fso, scriptDir, nodeExe, electronExe, desktopScript, launchCommand, i, bootMode
-URL = "http://localhost:4949/"
+Dim shell, fso, scriptDir, nodeExe, electronExe, desktopScript, launchCommand, i, bootMode
 
 ' VBScript's And is not short-circuiting, so guard Arguments(0) explicitly.
 bootMode = False
@@ -16,7 +15,7 @@ Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
 
-If Not ServerIsUp(URL) Then
+If Not ServerIsUp() Then
     nodeExe = "C:\Program Files\nodejs\node.exe"
     If Not fso.FileExists(nodeExe) Then nodeExe = "node"
 
@@ -26,8 +25,13 @@ If Not ServerIsUp(URL) Then
 
     For i = 1 To 30
         WScript.Sleep 500
-        If ServerIsUp(URL) Then Exit For
+        If ServerIsUp() Then Exit For
     Next
+End If
+
+If Not ServerIsUp() Then
+    MsgBox "Hacker's Lair started but its local identity could not be verified.", 16, "Hacker's Lair"
+    WScript.Quit 1
 End If
 
 If bootMode Then WScript.Quit 0
@@ -48,18 +52,63 @@ shell.CurrentDirectory = scriptDir
 launchCommand = """" & electronExe & """ """ & desktopScript & """"
 shell.Run launchCommand, 1, False
 
-Function ServerIsUp(u)
-    Dim http
+Function ServerIsUp()
+    Dim http, u, expectedNonce, responseText
     ServerIsUp = False
+    If Not ReadIdentity(u, expectedNonce) Then Exit Function
     On Error Resume Next
     Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
     http.SetTimeouts 1000, 1000, 1000, 1000
-    http.Open "GET", u, False
+    http.Open "GET", u & "api/identity", False
     http.Send
     If Err.Number = 0 Then
-        If http.Status = 200 Then ServerIsUp = True
+        If http.Status = 200 Then
+            responseText = http.ResponseText
+            If InStr(1, responseText, """app"":""hackers-lair""", vbTextCompare) > 0 _
+                And InStr(1, responseText, """nonce"":""" & expectedNonce & """", vbBinaryCompare) > 0 Then
+                ServerIsUp = True
+            End If
+        End If
     End If
     On Error GoTo 0
+End Function
+
+Function ReadIdentity(ByRef u, ByRef nonce)
+    Dim dataDir, overrideDir, identityFile, stream, content, portPattern, noncePattern, matches
+    ReadIdentity = False
+    overrideDir = shell.ExpandEnvironmentStrings("%PROJECT_MANAGER_DATA_DIR%")
+    If overrideDir = "%PROJECT_MANAGER_DATA_DIR%" Or Len(Trim(overrideDir)) = 0 Then
+        dataDir = shell.ExpandEnvironmentStrings("%APPDATA%") & "\HackersLair"
+    Else
+        dataDir = overrideDir
+    End If
+    identityFile = dataDir & "\api-token"
+    If Not fso.FileExists(identityFile) Then Exit Function
+
+    On Error Resume Next
+    Set stream = fso.OpenTextFile(identityFile, 1, False)
+    content = stream.ReadAll
+    stream.Close
+    If Err.Number <> 0 Then
+        Err.Clear
+        On Error GoTo 0
+        Exit Function
+    End If
+    On Error GoTo 0
+
+    Set portPattern = New RegExp
+    portPattern.Pattern = """port""\s*:\s*(\d+)"
+    portPattern.Global = False
+    Set noncePattern = New RegExp
+    noncePattern.Pattern = """nonce""\s*:\s*""([^""]+)"""
+    noncePattern.Global = False
+    If Not portPattern.Test(content) Or Not noncePattern.Test(content) Then Exit Function
+
+    Set matches = portPattern.Execute(content)
+    u = "http://127.0.0.1:" & matches(0).SubMatches(0) & "/"
+    Set matches = noncePattern.Execute(content)
+    nonce = matches(0).SubMatches(0)
+    ReadIdentity = Len(nonce) > 0
 End Function
 
 Function AppWindowIsOpen()

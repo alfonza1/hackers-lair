@@ -6,8 +6,21 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { exec, execFile, spawn } = require('child_process');
-const { gitBranchesForProject } = require('./lib/git-branches');
+const { gitAttentionForProject, refreshGitAttention } = require('./lib/git-attention');
 const { compareProjectsForDisplay } = require('./lib/project-order');
+const { onboardingState } = require('./lib/onboarding-prompts');
+const { listSkills } = require('./lib/skill-registry');
+const { discoverProjects } = require('./lib/project-discovery');
+const { runDoctor } = require('./lib/doctor');
+const { createRuntimeConfig } = require('./lib/runtime-config');
+const {
+  allowedHost,
+  createRuntimeIdentity,
+  isJsonContentType,
+  renderApplicationHtml,
+  validToken,
+  writeRuntimeIdentity,
+} = require('./lib/runtime-identity');
 
 const PORT = Number(process.env.PORT) || 4949;
 const MAX_PORT_TRIES = 10;
@@ -17,23 +30,35 @@ const PROJECT_STOP_VERIFY_TIMEOUT_MS = Number.isFinite(configuredStopVerifyTimeo
   ? Math.max(0, configuredStopVerifyTimeout)
   : 5_000;
 const PROJECT_STOP_VERIFY_INTERVAL_MS = 200;
-const DATA_DIR = process.env.PROJECT_MANAGER_DATA_DIR || __dirname;
+const PROCESS_SNAPSHOT_TTL_MS = 3_000;
+const GIT_REFRESH_INTERVAL_MS = 10_000;
+const runtimeConfig = createRuntimeConfig(__dirname);
+const runtimeIdentity = createRuntimeIdentity();
+const DATA_DIR = runtimeConfig.dataDirectory;
+const AGENTS_HOME = process.env.AGENTS_HOME || path.resolve(__dirname, '..', '.agents');
 const STORE = path.join(DATA_DIR, 'stopped.json');
 const MAX_STOPPED = 40;
-const FIREFOX_CANDIDATES = [
-  process.env.FIREFOX_PATH,
-  process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'Mozilla Firefox', 'firefox.exe'),
-  process.env['ProgramFiles(x86)'] && path.join(process.env['ProgramFiles(x86)'], 'Mozilla Firefox', 'firefox.exe'),
-  process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Mozilla Firefox', 'firefox.exe'),
-].filter(Boolean);
+const PROJECTS_FILE = runtimeConfig.projects.file;
+const SCRIPTS_FILE = runtimeConfig.scripts.file;
+const discoveryScans = new Map();
+let doctorSnapshot = null;
 
-function findFirefox() {
-  return FIREFOX_CANDIDATES.find((candidate) => fs.existsSync(candidate)) || null;
+function loadSettings() {
+  const result = runtimeConfig.settings.read();
+  return {
+    enableSkills: result.value.enableSkills === true,
+    browserPath: String(result.value.browserPath || ''),
+    error: result.error,
+  };
 }
 
-function environmentWithFirefox() {
-  const firefox = findFirefox();
-  return firefox ? { ...process.env, BROWSER: firefox } : process.env;
+function configuredBrowserPath() {
+  return process.env.BROWSER_PATH || process.env.FIREFOX_PATH || loadSettings().browserPath || '';
+}
+
+function environmentWithBrowser() {
+  const browser = configuredBrowserPath();
+  return browser ? { ...process.env, BROWSER: browser } : process.env;
 }
 
 // Apps stopped from the UI, remembered (with their command line + working dir)
@@ -409,8 +434,6 @@ async function getListeners() {
 
 // ---- Coding projects (projects.json) ---------------------------------------
 
-const PROJECTS_FILE = process.env.PROJECTS_FILE || path.join(__dirname, 'projects.json');
-
 function loadTimestampMap(file, fallback = {}) {
   try {
     const values = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -439,12 +462,26 @@ function recordProjectActivity(name, timestamp = Date.now()) {
   saveTimestampMap(ACTIVITY_FILE, projectActivityTimes);
 }
 
-// Read fresh each call so edits to projects.json apply without a restart.
+// Read fresh each call so edits apply without a restart. Invalid JSON keeps the
+// last known-good value and exposes the parse failure through the API.
 function loadProjects() {
-  try {
-    const data = JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf8'));
-    return Array.isArray(data.projects) ? data.projects : [];
-  } catch { return []; }
+  return runtimeConfig.projects.read().value.projects;
+}
+
+function projectsConfigError() {
+  return runtimeConfig.projects.read().error;
+}
+
+async function refreshDoctor() {
+  const settings = runtimeConfig.settings.read();
+  const scripts = runtimeConfig.scripts.read();
+  const projects = runtimeConfig.projects.read();
+  doctorSnapshot = await runDoctor({
+    dataDirectory: DATA_DIR,
+    projects: projects.value.projects,
+    configErrors: [projects.error, scripts.error, settings.error],
+  });
+  return doctorSnapshot;
 }
 
 // Legacy components are matched by command line so apps that share a default
@@ -519,6 +556,7 @@ async function remainingProjectSignals(project) {
 async function waitForProjectStop(project) {
   const deadline = Date.now() + PROJECT_STOP_VERIFY_TIMEOUT_MS;
   while (true) {
+    invalidateProcessSnapshot();
     const remaining = await remainingProjectSignals(project);
     if (!remaining.length || Date.now() >= deadline) return remaining;
     await pause(PROJECT_STOP_VERIFY_INTERVAL_MS);
@@ -538,13 +576,7 @@ async function getTrackedProcesses(projects) {
         needles.push(String(c.match || c.cwd).toLowerCase());
   if (!needles.length) return [];
 
-  let rows = [];
-  try {
-    const script = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine } | Select-Object ProcessId,Name,CommandLine,ExecutablePath | ConvertTo-Json -Compress`;
-    const out = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
-    const parsed = out.trim() ? JSON.parse(out) : [];
-    rows = Array.isArray(parsed) ? parsed : [parsed];
-  } catch { return []; }
+  const rows = await getWin32ProcessSnapshot();
 
   const matched = rows.filter((r) => {
     const cmd = String(r.CommandLine || '').toLowerCase();
@@ -580,20 +612,17 @@ async function getTrackedProcesses(projects) {
   });
 }
 
-// ---- FiveM macro scripts (scripts.json) ------------------------------------
+// ---- Optional AutoIt macro scripts -----------------------------------------
 
-const SCRIPTS_FILE = path.join(__dirname, 'scripts.json');
-
-// Read fresh each call so edits to scripts.json apply without a restart.
 function loadScriptsConfig() {
-  try {
-    const data = JSON.parse(fs.readFileSync(SCRIPTS_FILE, 'utf8'));
-    return {
-      scriptsDir: typeof data.scriptsDir === 'string' ? data.scriptsDir : '',
-      autoItExe: typeof data.autoItExe === 'string' ? data.autoItExe : '',
-      descriptions: data.descriptions && typeof data.descriptions === 'object' ? data.descriptions : {},
-    };
-  } catch { return { scriptsDir: '', autoItExe: '', descriptions: {} }; }
+  const result = runtimeConfig.scripts.read();
+  const data = result.value;
+  return {
+    scriptsDir: typeof data.scriptsDir === 'string' ? data.scriptsDir : '',
+    autoItExe: typeof data.autoItExe === 'string' ? data.autoItExe : '',
+    descriptions: data.descriptions && typeof data.descriptions === 'object' ? data.descriptions : {},
+    error: result.error,
+  };
 }
 
 // Find AutoIt3.exe: prefer the configured path, then the usual install spots.
@@ -716,6 +745,7 @@ function tailLog(file, code) {
 
 function annotateProjects(projects, listeners, tracked = []) {
   return projects.map((proj) => {
+    const gitAttention = gitAttentionForProject(proj);
     const components = (proj.components || []).map((c) => {
       const hits = listenersFor(c, c.track === 'process' ? tracked : listeners);
       const expectedPorts = configuredPorts(c);
@@ -783,7 +813,8 @@ function annotateProjects(projects, listeners, tracked = []) {
     return {
       name: proj.name,
       type: proj.type || '',
-      gitBranches: gitBranchesForProject(proj),
+      gitBranches: [...new Set(gitAttention.repositories.map((repository) => repository.branch).filter(Boolean))],
+      gitAttention,
       components,
       running: runningCount > 0,
       partial: runningCount > 0 && runningCount < components.length,
@@ -817,17 +848,85 @@ function readBody(req) {
   });
 }
 
+let processSnapshot = { readAt: 0, rows: [], pending: null };
+
+async function getWin32ProcessSnapshot() {
+  if (Date.now() - processSnapshot.readAt < PROCESS_SNAPSHOT_TTL_MS) {
+    return processSnapshot.rows;
+  }
+  if (processSnapshot.pending) return processSnapshot.pending;
+
+  processSnapshot.pending = (async () => {
+    try {
+      const script = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine } | Select-Object ProcessId,Name,CommandLine,ExecutablePath | ConvertTo-Json -Compress`;
+      const out = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
+      const parsed = out.trim() ? JSON.parse(out) : [];
+      processSnapshot.rows = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      processSnapshot.rows = [];
+    }
+    processSnapshot.readAt = Date.now();
+    return processSnapshot.rows;
+  })().finally(() => { processSnapshot.pending = null; });
+  return processSnapshot.pending;
+}
+
+function invalidateProcessSnapshot() {
+  processSnapshot.readAt = 0;
+}
+
+let currentPort = PORT;
+const actionLocks = new Set();
+
+function securityHeaders() {
+  return {
+    'Cache-Control': 'no-store',
+    'Content-Security-Policy': [
+      "default-src 'self'",
+      `script-src 'nonce-${runtimeIdentity.cspNonce}'`,
+      `style-src 'nonce-${runtimeIdentity.cspNonce}'`,
+      "img-src 'self' data:",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'none'",
+      "form-action 'none'",
+      "frame-ancestors 'none'",
+    ].join('; '),
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Referrer-Policy': 'no-referrer',
+    'X-Content-Type-Options': 'nosniff',
+  };
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const pathname = new URL(req.url, 'http://localhost').pathname;
+    if (!allowedHost(req.headers.host, currentPort)) {
+      json(res, 403, { error: 'Forbidden host' });
+      return;
+    }
+    if (req.method === 'POST' && !isJsonContentType(req.headers['content-type'])) {
+      json(res, 415, { error: 'POST requests require Content-Type: application/json' });
+      return;
+    }
+    if (req.method === 'POST' && !validToken(req.headers['x-lair-token'], runtimeIdentity.token)) {
+      json(res, 403, { error: 'Missing or invalid Hacker’s Lair API token' });
+      return;
+    }
     if (req.method === 'GET' && pathname === '/icon.ico') {
       res.writeHead(200, { 'Content-Type': 'image/x-icon', 'Cache-Control': 'public, max-age=86400' });
       res.end(fs.readFileSync(path.join(__dirname, 'icon.ico')));
       return;
     }
     if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(fs.readFileSync(path.join(__dirname, 'public', 'index.html')));
+      const template = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...securityHeaders() });
+      res.end(renderApplicationHtml(template, runtimeIdentity, currentPort));
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/identity') {
+      json(res, 200, { app: runtimeIdentity.app, nonce: runtimeIdentity.nonce });
       return;
     }
 
@@ -852,26 +951,21 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const firefox = findFirefox();
-      if (!firefox) {
-        json(res, 500, {
-          error: 'Firefox was not found. Install it in the standard location or set FIREFOX_PATH.',
-        });
-        return;
-      }
-
       const url = `http://localhost:${port}/`;
       try {
-        const child = spawn(firefox, ['--new-tab', url], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: false,
-        });
+        const browser = configuredBrowserPath();
+        const child = browser
+          ? spawn(browser, [url], { detached: true, stdio: 'ignore', windowsHide: false })
+          : spawn('cmd.exe', ['/d', '/s', '/c', 'start', '', url], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true,
+          });
         child.on('error', () => {});
         child.unref();
-        json(res, 200, { ok: true, browser: 'Firefox', port, url });
+        json(res, 200, { ok: true, browser: browser || 'system default', port, url });
       } catch (err) {
-        json(res, 500, { error: `Could not open Firefox: ${err.message}` });
+        json(res, 500, { error: `Could not open the browser: ${err.message}` });
       }
       return;
     }
@@ -883,7 +977,7 @@ const server = http.createServer(async (req, res) => {
       const annotated = annotateProjects(projects, listeners, tracked);
       // Live targets always lead; recency orders targets within each group.
       annotated.sort(compareProjectsForDisplay);
-      json(res, 200, { projects: annotated });
+      json(res, 200, { projects: annotated, configError: projectsConfigError() });
       return;
     }
 
@@ -901,9 +995,16 @@ const server = http.createServer(async (req, res) => {
       let name;
       try { name = String(JSON.parse(await readBody(req)).name); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = `project:${name}`;
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: `An action for "${name}" is already in progress.` });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
 
-      const proj = loadProjects().find((p) => p.name === name);
-      if (!proj) { json(res, 404, { error: `No project named "${name}"` }); return; }
+        const proj = loadProjects().find((p) => p.name === name);
+        if (!proj) { json(res, 404, { error: `No project named "${name}"` }); return; }
 
       const listeners = await getListeners();
       const tracked = await getTrackedProcesses([proj]);
@@ -938,7 +1039,7 @@ const server = http.createServer(async (req, res) => {
             shell: true,
             windowsHide: true,
             stdio: ['ignore', outFd, errFd],
-            env: environmentWithFirefox(),
+            env: environmentWithBrowser(),
           });
           rec.pid = child.pid;
           child.on('error', (err) => { rec.status = 'errored'; rec.reason = err.message; });
@@ -965,7 +1066,10 @@ const server = http.createServer(async (req, res) => {
         saveStartedTimes();
         recordProjectActivity(name, timestamp);
       }
-      json(res, 200, { ok: true, name, started, skipped, failed });
+        json(res, 200, { ok: true, name, started, skipped, failed });
+      } finally {
+        actionLocks.delete(actionKey);
+      }
       return;
     }
 
@@ -973,9 +1077,16 @@ const server = http.createServer(async (req, res) => {
       let name;
       try { name = String(JSON.parse(await readBody(req)).name); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = `project:${name}`;
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: `An action for "${name}" is already in progress.` });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
 
-      const proj = loadProjects().find((p) => p.name === name);
-      if (!proj) { json(res, 404, { error: `No project named "${name}"` }); return; }
+        const proj = loadProjects().find((p) => p.name === name);
+        if (!proj) { json(res, 404, { error: `No project named "${name}"` }); return; }
 
       // Some managed services (notably Docker Compose stacks) need a graceful,
       // service-aware shutdown. Run an explicitly configured stop command only
@@ -1008,6 +1119,7 @@ const server = http.createServer(async (req, res) => {
 
       // Only ever kill detected project processes (never an editor/terminal
       // that merely has the path open), and never ourselves or protected ones.
+      invalidateProcessSnapshot();
       const listeners = await getListeners();
       const tracked = await getTrackedProcesses([proj]);
       const pids = new Set();
@@ -1021,6 +1133,7 @@ const server = http.createServer(async (req, res) => {
       for (const pid of pids) {
         try { await run('taskkill', ['/PID', String(pid), '/T', '/F']); killed++; } catch { /* already gone */ }
       }
+      invalidateProcessSnapshot();
       if (stopFailures.length) {
         json(res, 500, {
           error: `Graceful stop failed: ${stopFailures.join('; ')}`,
@@ -1049,18 +1162,143 @@ const server = http.createServer(async (req, res) => {
       // Forget launch state only after every configured live signal disappears.
       for (const c of proj.components || []) launches.delete(launchKey(name, c.name));
       if (wasDetectedLive) recordProjectActivity(name);
-      json(res, 200, {
-        ok: true,
-        name,
-        stopped: killed + stoppedByCommand.length,
-        processesStopped: killed,
-        commandsRun: stoppedByCommand,
-      });
+        json(res, 200, {
+          ok: true,
+          name,
+          stopped: killed + stoppedByCommand.length,
+          processesStopped: killed,
+          commandsRun: stoppedByCommand,
+        });
+      } finally {
+        actionLocks.delete(actionKey);
+      }
       return;
     }
 
     if (req.method === 'GET' && req.url === '/api/scripts') {
-      json(res, 200, { scripts: await getScripts() });
+      const config = loadScriptsConfig();
+      json(res, 200, {
+        scripts: await getScripts(),
+        configured: Boolean(config.scriptsDir),
+        configError: config.error,
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/onboarding') {
+      const settings = loadSettings();
+      json(res, 200, onboardingState({
+        projectsFile: PROJECTS_FILE,
+        agentsHome: AGENTS_HOME,
+        projects: loadProjects(),
+        skills: settings.enableSkills ? listSkills({ agentsHome: AGENTS_HOME }) : [],
+        enableSkills: settings.enableSkills,
+      }));
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/skills') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'Skills view is disabled. Enable it in settings.json.' });
+        return;
+      }
+      json(res, 200, { skills: listSkills({ agentsHome: AGENTS_HOME }) });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/settings') {
+      const settings = loadSettings();
+      json(res, 200, {
+        dataDirectory: DATA_DIR,
+        projectsFile: PROJECTS_FILE,
+        scriptsFile: SCRIPTS_FILE,
+        enableSkills: settings.enableSkills,
+        browserOverride: Boolean(configuredBrowserPath()),
+        configError: settings.error,
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/doctor') {
+      json(res, 200, await refreshDoctor());
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/discovery/scan') {
+      let folder;
+      try { folder = String(JSON.parse(await readBody(req)).folder || ''); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      let proposals;
+      try {
+        proposals = discoverProjects(folder);
+      } catch (error) {
+        json(res, 400, { error: error.message });
+        return;
+      }
+      const scanId = `${runtimeIdentity.nonce.slice(0, 12)}-${Date.now().toString(36)}`;
+      discoveryScans.set(scanId, { proposals, createdAt: Date.now() });
+      json(res, 200, { scanId, folder: path.resolve(folder), proposals });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/discovery/apply') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const scan = discoveryScans.get(String(input.scanId || ''));
+      if (!scan || Date.now() - scan.createdAt > 10 * 60_000) {
+        json(res, 410, { error: 'This discovery scan expired. Scan the folder again.' });
+        return;
+      }
+      const indexes = [...new Set((Array.isArray(input.indexes) ? input.indexes : [])
+        .map(Number)
+        .filter((index) => Number.isInteger(index) && index >= 0 && index < scan.proposals.length))];
+      if (!indexes.length) {
+        json(res, 400, { error: 'Select at least one discovered project.' });
+        return;
+      }
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
+        const config = runtimeConfig.projects.read();
+        if (config.error) {
+          json(res, 409, { error: `Fix the project configuration before importing: ${config.error}` });
+          return;
+        }
+        const existing = config.value.projects;
+        const existingNames = new Set(existing.map((project) => String(project.name).toLowerCase()));
+        const existingFolders = new Set(existing.flatMap((project) => project.components || [])
+          .map((component) => component.cwd && path.resolve(component.cwd).toLowerCase())
+          .filter(Boolean));
+        const added = [];
+        const skipped = [];
+        for (const index of indexes) {
+          const proposal = scan.proposals[index];
+          const folders = proposal.components.map((component) => path.resolve(component.cwd).toLowerCase());
+          if (existingNames.has(proposal.name.toLowerCase()) || folders.some((folder) => existingFolders.has(folder))) {
+            skipped.push(proposal.name);
+            continue;
+          }
+          existingNames.add(proposal.name.toLowerCase());
+          folders.forEach((folder) => existingFolders.add(folder));
+          added.push(proposal);
+        }
+        runtimeConfig.projects.write({
+          ...config.value,
+          projects: [...existing, ...added.map(({ discoveredFrom, confidence, note, ...project }) => project)],
+        });
+        discoveryScans.delete(String(input.scanId));
+        void refreshGitAttention(loadProjects());
+        void refreshDoctor();
+        json(res, 200, { ok: true, added: added.map((project) => project.name), skipped });
+      } finally {
+        actionLocks.delete(actionKey);
+      }
       return;
     }
 
@@ -1068,8 +1306,15 @@ const server = http.createServer(async (req, res) => {
       let file;
       try { file = String(JSON.parse(await readBody(req)).file); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = `script:${path.basename(file).toLowerCase()}`;
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: `An action for "${path.basename(file)}" is already in progress.` });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
 
-      const cfg = loadScriptsConfig();
+        const cfg = loadScriptsConfig();
       const exe = resolveAutoItExe(cfg.autoItExe);
       if (!exe) { json(res, 400, { error: 'AutoIt3.exe not found — set "autoItExe" in scripts.json' }); return; }
 
@@ -1095,6 +1340,9 @@ const server = http.createServer(async (req, res) => {
       } catch (err) {
         json(res, 500, { error: `Could not start: ${err.message}` });
       }
+      } finally {
+        actionLocks.delete(actionKey);
+      }
       return;
     }
 
@@ -1102,8 +1350,15 @@ const server = http.createServer(async (req, res) => {
       let file;
       try { file = String(JSON.parse(await readBody(req)).file); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = `script:${path.basename(file).toLowerCase()}`;
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: `An action for "${path.basename(file)}" is already in progress.` });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
 
-      const cfg = loadScriptsConfig();
+        const cfg = loadScriptsConfig();
       const scriptPath = cfg.scriptsDir ? path.join(cfg.scriptsDir, path.basename(file)) : '';
       if (!scriptPath) { json(res, 404, { error: `No script named "${file}"` }); return; }
 
@@ -1112,7 +1367,10 @@ const server = http.createServer(async (req, res) => {
       for (const pid of pidsForScript(scriptPath, procs)) {
         try { await run('taskkill', ['/PID', String(pid), '/T', '/F']); killed++; } catch { /* already gone */ }
       }
-      json(res, 200, { ok: true, file: path.basename(file), stopped: killed });
+        json(res, 200, { ok: true, file: path.basename(file), stopped: killed });
+      } finally {
+        actionLocks.delete(actionKey);
+      }
       return;
     }
 
@@ -1180,7 +1438,7 @@ const server = http.createServer(async (req, res) => {
           stdio: 'ignore',
           shell: true,
           windowsHide: true,
-          env: environmentWithFirefox(),
+          env: environmentWithBrowser(),
         };
         if (plan.cwd) opts.cwd = plan.cwd;
         const child = spawn(plan.command, opts);
@@ -1209,10 +1467,10 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-let currentPort = PORT;
 function listen(attempt) {
   currentPort = PORT + attempt;
   server.listen(currentPort, '127.0.0.1', () => {
+    writeRuntimeIdentity(runtimeConfig.identityFile, runtimeIdentity, currentPort);
     console.log(`Hacker's Lair running at http://localhost:${currentPort}`);
   });
 }
@@ -1224,4 +1482,10 @@ server.on('error', (err) => {
     process.exit(1);
   }
 });
+void refreshGitAttention(loadProjects());
+void refreshDoctor();
+const gitRefreshTimer = setInterval(() => {
+  void refreshGitAttention(loadProjects());
+}, GIT_REFRESH_INTERVAL_MS);
+gitRefreshTimer.unref();
 listen(0);

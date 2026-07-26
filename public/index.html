@@ -6,12 +6,13 @@
 <title>Hacker's Lair</title>
 <meta name="application-name" content="Hacker's Lair">
 <link rel="icon" href="/icon.ico?v=command-line-v1">
-<script>
+<script nonce="__LAIR_CSP_NONCE__">
+  window.__LAIR_BOOTSTRAP__ = __LAIR_BOOTSTRAP_PAYLOAD__;
   if (new URLSearchParams(location.search).get('desktop') === '1') {
     document.documentElement.classList.add('desktop-host');
   }
 </script>
-<style>
+<style nonce="__LAIR_CSP_NONCE__">
   :root {
     --void: #010504;
     --bg: #050b0a;
@@ -483,6 +484,7 @@
     grid-template-columns: minmax(0, 1fr) 340px;
     grid-template-areas:
       "matrix side"
+      "setup setup"
       "feed feed";
     gap: 18px;
   }
@@ -525,6 +527,7 @@
     min-width: 0;
   }
   .feed-panel { grid-area: feed; }
+  .setup-panel { grid-area: setup; }
 
   .panel-head {
     display: flex;
@@ -900,6 +903,24 @@
     overflow-wrap: anywhere;
   }
 
+  .skill-card.personal { border-color: rgba(91, 220, 255, .36); }
+
+  .skill-card.default {
+    opacity: .84;
+    border-style: dashed;
+  }
+
+  .skill-card .machine-screen { grid-template-columns: minmax(0, 1fr); }
+
+  .skill-desc {
+    max-width: 920px;
+    margin: 11px 0 2px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+
   .module-strip {
     display: grid;
     gap: 0;
@@ -1024,6 +1045,74 @@
     text-transform: uppercase;
   }
 
+  .onboarding {
+    display: grid;
+    gap: 14px;
+    max-width: 880px;
+    margin: 0 auto;
+    text-align: left;
+    text-transform: none;
+  }
+
+  .onboarding-intro {
+    display: grid;
+    gap: 5px;
+    border-left: 2px solid var(--cyan);
+    padding-left: 12px;
+  }
+
+  .onboarding-intro strong {
+    color: var(--text);
+    font-size: 14px;
+    text-transform: uppercase;
+  }
+
+  .onboarding-intro span {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .prompt-card {
+    display: grid;
+    gap: 10px;
+    border: 1px solid rgba(91, 220, 255, .2);
+    border-radius: 5px;
+    padding: 14px;
+    background: rgba(0, 0, 0, .22);
+  }
+
+  .prompt-head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .prompt-head strong {
+    color: var(--cyan);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .copy-prompt {
+    min-width: 94px;
+    border-color: rgba(102, 255, 181, .28);
+    color: var(--green);
+    background: rgba(102, 255, 181, .05);
+  }
+
+  .prompt-card pre {
+    margin: 0;
+    overflow: auto;
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font: 11px/1.6 Consolas, "Courier New", monospace;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
   .intel {
     align-self: start;
     padding-bottom: 8px;
@@ -1136,6 +1225,100 @@
     border-color: rgba(255, 96, 112, .3);
     color: var(--red);
     background: rgba(255, 96, 112, .045);
+  }
+
+  .config-banner {
+    border: 1px solid rgba(255, 96, 112, .42);
+    background: rgba(43, 8, 13, .92);
+    color: #ffd2d8;
+    font-family: var(--mono);
+    font-size: .76rem;
+    line-height: 1.55;
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    overflow-wrap: anywhere;
+    grid-column: 1 / -1;
+  }
+
+  .setup-panel {
+    grid-column: 1 / -1;
+  }
+
+  .setup-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+    gap: 18px;
+    padding: 16px;
+  }
+
+  .setup-module {
+    min-width: 0;
+  }
+
+  .setup-module + .setup-module {
+    border-left: 1px solid var(--line);
+    padding-left: 18px;
+  }
+
+  .setup-module h3 {
+    color: var(--text);
+    font-size: .82rem;
+    letter-spacing: .12em;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+  }
+
+  .setup-copy {
+    color: var(--muted);
+    font-size: .75rem;
+    line-height: 1.5;
+    margin: 0 0 12px;
+  }
+
+  .scan-controls {
+    display: flex;
+    gap: 8px;
+  }
+
+  .scan-controls input {
+    background: #030807;
+    border: 1px solid var(--line-strong);
+    color: var(--text);
+    flex: 1;
+    font: 500 .76rem var(--mono);
+    min-width: 0;
+    padding: 9px 10px;
+  }
+
+  .diagnostic-list,
+  .discovery-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .diagnostic-row,
+  .discovery-row {
+    align-items: start;
+    background: rgba(3, 8, 7, .72);
+    border-left: 2px solid var(--line-strong);
+    display: grid;
+    font: 500 .72rem/1.45 var(--mono);
+    gap: 8px;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 8px 10px;
+  }
+
+  .diagnostic-row.fail { border-color: var(--red); }
+  .diagnostic-row.warn { border-color: var(--amber); }
+  .diagnostic-row.pass { border-color: var(--green); }
+  .diagnostic-row small,
+  .discovery-row small { color: var(--muted); display: block; }
+
+  .setup-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
   }
 
   .power-command:hover:not(:disabled) {
@@ -1402,6 +1585,7 @@
       grid-template-areas:
         "matrix"
         "side"
+        "setup"
         "feed";
     }
 
@@ -1423,6 +1607,8 @@
     .view-tab { flex: 1 1 0; min-width: 0; }
     .utility { justify-self: start; }
     .feed-panel .utility { justify-self: end; }
+    .setup-grid { grid-template-columns: 1fr; }
+    .setup-module + .setup-module { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 18px; }
     .filter-row { grid-template-columns: 1fr; }
     .target-card { grid-template-columns: 1fr; }
     .machine-screen { grid-template-columns: 1fr; }
@@ -1444,6 +1630,9 @@
     .view-tabs { display: grid; grid-template-columns: 1fr; }
     .view-tab { width: 100%; padding-inline: 6px; font-size: 11px; }
     .target-list { padding: 10px 8px 12px; }
+    .empty { padding: 32px 8px; }
+    .prompt-head { align-items: stretch; flex-direction: column; }
+    .copy-prompt { width: 100%; }
     .target-card { overflow: hidden; padding: 12px; }
     .target-card { padding: 0; }
     .machine-screen { padding: 12px; }
@@ -1464,6 +1653,7 @@
     .action { width: 100%; }
     .feed-line { grid-template-columns: 1fr; gap: 0; padding: 7px 0; border-bottom: 1px solid rgba(117, 255, 199, .07); }
     .power-controls { grid-template-columns: 1fr; }
+    .scan-controls { align-items: stretch; flex-direction: column; }
     .power-sequence-core { padding: 22px 18px; }
   }
 
@@ -1525,7 +1715,7 @@
       <div>
         <div class="eyebrow">Hacker's Lair</div>
         <h1 data-text="PROCESS CONTROL">Process Control<span class="cursor" aria-hidden="true"></span></h1>
-        <p class="top-sub">Low-light command room for local targets, port signals, and scripts.</p>
+        <p class="top-sub">Low-light command room for local targets, port signals, optional scripts, and machine diagnostics.</p>
       </div>
     </div>
     <div class="node-strip" aria-label="System state">
@@ -1537,6 +1727,7 @@
   </header>
 
   <main class="console-layout">
+    <div class="config-banner" id="configBanner" role="alert" hidden></div>
     <section class="panel matrix" aria-labelledby="viewTitle">
       <div class="panel-head">
         <div>
@@ -1547,7 +1738,8 @@
           <div class="view-tabs" role="tablist" aria-label="Console view">
             <button class="view-tab active" data-view="projects" role="tab" aria-selected="true">Targets</button>
             <button class="view-tab" data-view="processes" role="tab" aria-selected="false">Port Signals</button>
-            <button class="view-tab" data-view="scripts" role="tab" aria-selected="false">Scripts</button>
+            <button class="view-tab" id="scriptsTab" data-view="scripts" role="tab" aria-selected="false">Scripts</button>
+            <button class="view-tab" id="skillsTab" data-view="skills" role="tab" aria-selected="false">Skills</button>
           </div>
           <button class="utility" id="refreshBtn" type="button">Refresh</button>
         </div>
@@ -1557,6 +1749,7 @@
           <input id="search" type="text" autocomplete="off" placeholder="filter targets by name, branch, module, path, pid, or port">
         </div>
         <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
+        <button class="utility" id="defaultSkillsToggle" type="button" aria-pressed="false" hidden>Default Skills</button>
       </div>
       <div class="target-list" id="targetList"></div>
       <div class="empty" id="emptyState" hidden>No matching targets detected.</div>
@@ -1573,6 +1766,7 @@
         <div class="intel-body">
           <div class="intel-row"><span class="intel-label" id="liveLabel">Live Targets</span><strong class="intel-value" id="liveCount">0</strong></div>
           <div class="intel-row"><span class="intel-label" id="dormantLabel">Dormant Targets</span><strong class="intel-value" id="dormantCount">0</strong></div>
+          <div class="intel-row"><span class="intel-label">Git Attention</span><strong class="intel-value" id="gitAttentionCount">0</strong></div>
           <div class="intel-row"><span class="intel-label">CPU Usage</span><strong class="intel-value" id="cpuUsage">N/A</strong><span class="bar"><span id="cpuBar"></span></span></div>
           <div class="intel-row"><span class="intel-label">Memory Usage</span><strong class="intel-value" id="memoryUsage">N/A</strong><span class="bar"><span id="memoryBar"></span></span></div>
           <div class="intel-row"><span class="intel-label">Last Command</span><strong class="intel-value" id="lastCommand">NONE</strong></div>
@@ -1590,19 +1784,49 @@
           <span class="power-scope">Host only</span>
         </div>
         <div class="power-body" id="powerDeck">
-          <p class="power-copy">Restart or shut down the Lair desktop application. Managed targets keep running.</p>
+          <p class="power-copy">Restart or quit the Lair desktop application. Managed targets keep running.</p>
           <div class="power-controls">
             <button class="power-command restart" type="button" data-power-action="restart">
               <strong>Restart</strong><span>Reload host</span>
             </button>
             <button class="power-command shutdown" type="button" data-power-action="shutdown">
-              <strong>Shutdown</strong><span>Exit console</span>
+              <strong>Quit Hacker's Lair</strong><span>Exit console</span>
             </button>
           </div>
           <p class="power-note" id="powerNote">Two-step confirmation required.</p>
         </div>
       </aside>
     </div>
+
+    <section class="panel setup-panel" aria-labelledby="setupTitle">
+      <div class="panel-head">
+        <div>
+          <div class="section-kicker">Machine Readiness</div>
+          <h2 id="setupTitle">Discovery + Doctor</h2>
+        </div>
+      </div>
+      <div class="setup-grid">
+        <div class="setup-module">
+          <h3>Scan folder</h3>
+          <p class="setup-copy">Find runnable Node, Docker Compose, Maven, and Gradle projects. Nothing is written until you review and import selected entries.</p>
+          <div class="scan-controls">
+            <input id="scanFolder" type="text" autocomplete="off" placeholder="C:\Code">
+            <button class="utility" id="scanProjects" type="button">Scan</button>
+          </div>
+          <div class="discovery-list" id="discoveryList"></div>
+          <div class="setup-actions" id="discoveryActions" hidden>
+            <button class="utility" id="importProjects" type="button">Import Selected</button>
+            <button class="utility" id="clearDiscovery" type="button">Clear</button>
+          </div>
+        </div>
+        <div class="setup-module">
+          <h3>Doctor</h3>
+          <p class="setup-copy" id="doctorSummary">Checking local tools, paths, ports, and writable configuration.</p>
+          <button class="utility" id="runDoctor" type="button">Run Check</button>
+          <div class="diagnostic-list" id="doctorList"></div>
+        </div>
+      </div>
+    </section>
 
     <section class="panel feed-panel" aria-labelledby="feedTitle">
       <div class="panel-head">
@@ -1611,6 +1835,7 @@
           <h2 id="feedTitle">Events</h2>
         </div>
         <div class="controls">
+          <button class="utility" id="replayIntro" type="button">Replay Intro</button>
           <button class="utility" id="clearFeed" type="button">Clear Feed</button>
         </div>
       </div>
@@ -1635,7 +1860,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="__LAIR_CSP_NONCE__">
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -1648,10 +1873,13 @@
   const RAIN_SPEED = .2;
   const RAIN_GLYPHS = '01<>[]{}#/\\$+-=:;';
   const POWER_CONFIRM_WINDOW_MS = 5000;
+  const BOOT_SEEN_KEY = 'hackersLair.cinematicSeen';
+  const LAIR = window.__LAIR_BOOTSTRAP__;
   const VIEW_CONFIG = {
     projects: { title: 'Targets', placeholder: 'filter targets by name, branch, module, path, pid, or port', empty: 'No matching targets detected.' },
     processes: { title: 'Port Signals', placeholder: 'filter signals by name, path, pid, or port', empty: 'No matching port signals detected.' },
     scripts: { title: 'Scripts', placeholder: 'filter scripts by name, file, or description', empty: 'No matching scripts detected.' },
+    skills: { title: 'Skills', placeholder: 'filter skills by name, source, or description', empty: 'No matching skills detected.' },
   };
 
   const state = {
@@ -1659,14 +1887,30 @@
     projects: [],
     processes: [],
     scripts: [],
+    skills: [],
+    skillsLoaded: false,
+    onboarding: null,
+    settings: null,
+    discovery: null,
+    doctor: null,
     system: null,
     showSystem: false,
+    showDefaultSkills: false,
     query: '',
     busy: new Map(),
     confirming: new Map(),
     feed: loadJson(FEED_KEY, []),
     actions: loadJson(ACTION_KEY, { byTarget: {}, last: null }),
+    configErrors: new Map(),
   };
+
+  function setConfigError(source, message) {
+    if (message) state.configErrors.set(source, message);
+    else state.configErrors.delete(source);
+    const banner = $('configBanner');
+    banner.hidden = state.configErrors.size === 0;
+    banner.textContent = [...state.configErrors.values()].join(' | ');
+  }
 
   function installSignalRain() {
     const canvas = $('signalRain');
@@ -1758,8 +2002,14 @@
   }
 
   function installCinematicMode() {
-    document.body.classList.add('cinematic-ready');
     const bootSequence = $('bootSequence');
+    const showIntro = localStorage.getItem(BOOT_SEEN_KEY) !== '1';
+    if (showIntro) {
+      document.body.classList.add('cinematic-ready');
+      localStorage.setItem(BOOT_SEEN_KEY, '1');
+    } else if (bootSequence) {
+      bootSequence.hidden = true;
+    }
     bootSequence?.addEventListener('animationend', (event) => {
       if (event.animationName === 'bootCurtain') bootSequence.hidden = true;
     });
@@ -1799,7 +2049,7 @@
     armedPowerAction = null;
     document.querySelectorAll('[data-power-action]').forEach((button) => {
       button.classList.remove('armed');
-      button.querySelector('strong').textContent = button.dataset.powerAction === 'restart' ? 'Restart' : 'Shutdown';
+      button.querySelector('strong').textContent = button.dataset.powerAction === 'restart' ? 'Restart' : "Quit Hacker's Lair";
     });
     const note = $('powerNote');
     note.classList.remove('armed');
@@ -1817,7 +2067,7 @@
     clearTimeout(powerArmTimer);
     document.querySelectorAll('[data-power-action]').forEach((button) => { button.disabled = true; });
     $('powerSequenceKicker').textContent = restarting ? 'Desktop Core / Warm Cycle' : 'Desktop Core / Final Signal';
-    $('powerSequenceTitle').textContent = restarting ? 'Restart Sequence' : 'Shutdown Sequence';
+    $('powerSequenceTitle').textContent = restarting ? 'Restart Sequence' : 'Quit Sequence';
     $('powerSequenceSubtitle').textContent = restarting
       ? 'Preparing a clean desktop host handoff.'
       : 'Closing the console. Managed targets will remain online.';
@@ -2006,22 +2256,25 @@
   async function postJson(url, body) {
     return fetchJson(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Lair-Token': LAIR.token,
+      },
       body: JSON.stringify(body),
     });
   }
 
-  async function openUiInFirefox(button) {
+  async function openUiInBrowser(button) {
     const port = Number(button.dataset.openPort);
     if (!Number.isInteger(port) || port < 1 || port > 65535) return;
     button.disabled = true;
-    pushFeed('UI_OPEN_REQUEST', `browser=firefox port=${port}`, 'info');
+    pushFeed('UI_OPEN_REQUEST', `browser=default port=${port}`, 'info');
     try {
       const result = await postJson('/api/open-ui', { port });
       pushFeed('UI_OPENED', `browser=${slug(result.browser)} port=${port}`, 'info');
-      toast(`Opening localhost:${port} in Firefox.`);
+      toast(`Opening localhost:${port} in ${result.browser}.`);
     } catch (error) {
-      pushFeed('UI_OPEN_FAILED', `browser=firefox port=${port} reason=${error.message}`, 'error');
+      pushFeed('UI_OPEN_FAILED', `browser=default port=${port} reason=${error.message}`, 'error');
       toast(error.message, true);
     } finally {
       button.disabled = false;
@@ -2088,7 +2341,7 @@
   function portLink(port, className = 'field-link') {
     const safePort = Number(port);
     if (!Number.isInteger(safePort) || safePort <= 0) return '';
-    return `<button type="button" class="${className} port-launch" data-open-port="${safePort}" title="Open localhost:${safePort} in Firefox">:${safePort}</button>`;
+    return `<button type="button" class="${className} port-launch" data-open-port="${safePort}" title="Open localhost:${safePort} in your browser">:${safePort}</button>`;
   }
 
   function portLinks(ports, className = 'field-link') {
@@ -2154,11 +2407,17 @@
     const uiPorts = projectPortsByKind(project, 'ui');
     const backendPorts = projectPortsByKind(project, 'backend');
     const gitBranches = project.gitBranches?.length ? project.gitBranches.join(', ') : 'N/A';
+    const gitSummary = project.gitAttention?.summary || {};
+    const gitRepository = project.gitAttention?.repositories?.[0];
+    const gitState = gitSummary.changedPaths ? `${gitSummary.changedPaths} CHANGED` : gitRepository ? 'CLEAN' : 'N/A';
+    const localCommits = gitRepository ? String(gitSummary.localCommits || 0) : 'N/A';
+    const gitSync = gitRepository
+      ? `UP ${gitSummary.ahead || 0} / DOWN ${gitSummary.behind || 0}${gitSummary.withoutUpstream ? ' / NO UPSTREAM' : ''}`
+      : 'N/A';
     const lastSignal = formatDateTime(lastActionFor(key, project.lastActionAt || project.lastStartedAt));
     const isBusy = state.busy.has(key);
     const initiateDisabled = isBusy || status.key === 'live' || status.key === 'booting';
     const terminateDisabled = isBusy || status.key === 'dormant';
-
     const modules = project.components.map((component) => {
       const mini = componentStatus(component);
       const modulePorts = displayPorts(component);
@@ -2200,6 +2459,9 @@
               ${fieldHtml('UI Port', portLinks(uiPorts), portTitle(uiPorts))}
               ${fieldHtml('Backend Port', portLinks(backendPorts), portTitle(backendPorts))}
               ${field('Git Branch', gitBranches)}
+              ${field('Local Commits', localCommits)}
+              ${field('Working Tree', gitState)}
+              ${field('Git Sync', gitSync)}
               ${field('Modules', String(project.components.length))}
               ${field('Path', path, 'path')}
             </div>
@@ -2306,6 +2568,35 @@
     `;
   }
 
+  function skillCard(skill) {
+    const personal = skill.kind === 'personal';
+    const status = { key: personal ? 'live' : 'dormant', label: personal ? 'PERSONAL' : 'DEFAULT' };
+    return `
+      <article class="target-card skill-card ${esc(skill.kind)}" data-card-kind="skill" data-skill-id="${esc(skill.id)}">
+        <div class="machine-bar">
+          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="machine-label">agent-skill :: ${esc(skill.name)}</span>
+          <span class="machine-node">${personal ? 'WORKSPACE' : 'DEFAULT CATALOG'}</span>
+        </div>
+        <div class="machine-screen">
+          <div class="target-main">
+            <div class="target-title">
+              <h3><span class="target-prefix">SKILL</span>${esc(skill.name)}</h3>
+              <span class="target-type">${esc(skill.origin)}</span>
+              ${statusBadge(status)}
+            </div>
+            <p class="skill-desc">${esc(skill.description)}</p>
+            <div class="target-fields">
+              ${field('Source', personal ? '.agents/skills' : skill.origin)}
+              ${field('Scope', personal ? 'Personal workspace' : 'Default catalog')}
+              ${field('Visibility', personal ? 'Shown by default' : 'Filtered by default')}
+            </div>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
   function visibleProjects() {
     const q = state.query;
     return state.projects.filter((project) => {
@@ -2381,16 +2672,68 @@
     });
   }
 
+  function visibleSkills() {
+    const q = state.query;
+    return state.skills.filter((skill) => {
+      const selectedKind = state.showDefaultSkills ? 'default' : 'personal';
+      if (skill.kind !== selectedKind) return false;
+      if (!q) return true;
+      const haystack = [
+        skill.name,
+        skill.description,
+        skill.kind,
+        skill.origin,
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+
+  function onboardingPromptsForView() {
+    if (state.query || !state.onboarding?.prompts?.length) return [];
+    if (state.view === 'projects' && state.projects.length === 0) {
+      return state.onboarding.prompts.filter((prompt) => ['complete', 'projects'].includes(prompt.id));
+    }
+    if (state.view === 'skills' && state.skillsLoaded && !state.skills.some((skill) => skill.kind === 'personal')) {
+      return state.onboarding.prompts.filter((prompt) => prompt.id === 'skills');
+    }
+    return [];
+  }
+
+  function onboardingHtml(prompts) {
+    return `
+      <div class="onboarding">
+        <div class="onboarding-intro">
+          <strong>Configuration needed</strong>
+          <span>Copy a prompt into your coding agent. It contains the live paths for this machine and guardrails that preserve existing work.</span>
+        </div>
+        ${prompts.map((prompt) => `
+          <section class="prompt-card">
+            <div class="prompt-head">
+              <strong>${esc(prompt.title)}</strong>
+              <button class="copy-prompt" type="button" data-copy-prompt="${esc(prompt.id)}">Copy prompt</button>
+            </div>
+            <pre>${esc(prompt.prompt)}</pre>
+          </section>
+        `).join('')}
+      </div>
+    `;
+  }
+
   function renderTargets() {
     const rows = state.view === 'projects' ? visibleProjects()
       : state.view === 'processes' ? visibleProcesses()
-      : visibleScripts();
+      : state.view === 'scripts' ? visibleScripts()
+      : visibleSkills();
+    const scanningSkills = state.view === 'skills' && !state.skillsLoaded;
+    const onboardingPrompts = onboardingPromptsForView();
     $('emptyState').hidden = rows.length > 0;
-    $('emptyState').textContent = VIEW_CONFIG[state.view].empty;
+    if (onboardingPrompts.length) $('emptyState').innerHTML = onboardingHtml(onboardingPrompts);
+    else $('emptyState').textContent = scanningSkills ? 'Scanning shared agent skill folder...' : VIEW_CONFIG[state.view].empty;
     $('targetList').innerHTML = rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
       : state.view === 'processes' ? processCard(row)
-      : scriptCard(row)
+      : state.view === 'scripts' ? scriptCard(row)
+      : skillCard(row)
     ).join('');
   }
 
@@ -2403,6 +2746,7 @@
     $('viewTitle').textContent = config.title;
     $('search').placeholder = config.placeholder;
     $('systemToggle').hidden = view !== 'processes';
+    $('defaultSkillsToggle').hidden = view !== 'skills';
     document.querySelectorAll('.view-tab').forEach((tab) => {
       const active = tab.dataset.view === view;
       tab.classList.toggle('active', active);
@@ -2412,7 +2756,8 @@
     updateIntel();
     if (view === 'projects') loadProjects(true);
     else if (view === 'processes') Promise.all([loadProjects(true), loadProcesses(true)]);
-    else loadScripts(true);
+    else if (view === 'scripts') loadScripts(true);
+    else loadSkills(true);
   }
 
   function updateClock() {
@@ -2435,6 +2780,9 @@
     } else if (state.view === 'scripts') {
       rows = state.scripts;
       live = rows.filter((row) => row.running).length;
+    } else if (state.view === 'skills') {
+      rows = state.skills;
+      live = rows.filter((row) => row.kind === 'personal').length;
     } else {
       rows = state.processes.filter((process) => !isConfiguredProjectProcess(process) && (state.showSystem || !process.system));
       live = rows.filter((row) => !row.stopped).length;
@@ -2445,8 +2793,11 @@
     const memoryUsed = state.system?.memory?.usedPercent;
     const cpu = state.system?.cpuPercent;
 
+    $('liveLabel').textContent = state.view === 'skills' ? 'Personal Skills' : 'Live Targets';
+    $('dormantLabel').textContent = state.view === 'skills' ? 'Default Skills' : 'Dormant Targets';
     $('liveCount').textContent = String(live);
     $('dormantCount').textContent = String(dormant);
+    $('gitAttentionCount').textContent = String(state.projects.filter((project) => project.gitAttention?.summary?.level !== 'clean').length);
     $('cpuUsage').textContent = formatCpu(cpu);
     $('cpuBar').style.width = `${Math.max(0, Math.min(Number(cpu) || 0, 100))}%`;
     $('memoryUsage').textContent = formatCpu(memoryUsed);
@@ -2470,6 +2821,7 @@
     try {
       const data = await fetchJson('/api/projects');
       state.projects = data.projects || [];
+      setConfigError('projects', data.configError);
       if (!quiet) pushFeed('TARGET_REGISTRY_SYNCED', `count=${state.projects.length}`, 'info');
       renderTargets();
       updateIntel();
@@ -2497,12 +2849,143 @@
     try {
       const data = await fetchJson('/api/scripts');
       state.scripts = data.scripts || [];
+      $('scriptsTab').hidden = !data.configured;
+      setConfigError('scripts', data.configError);
+      if (!data.configured && state.view === 'scripts') setView('projects');
       if (!quiet) pushFeed('SCRIPT_REGISTRY_SYNCED', `count=${state.scripts.length}`, 'info');
       renderTargets();
       updateIntel();
     } catch (error) {
       toast('Signal lost: script registry unavailable', true);
       pushFeed('SCRIPT_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    }
+  }
+
+  async function loadOnboarding() {
+    try {
+      state.onboarding = await fetchJson('/api/onboarding');
+      renderTargets();
+    } catch {
+      state.onboarding = null;
+      pushFeed('ONBOARDING_SCAN_FAILED', 'reason=configuration_state_unavailable', 'warn');
+    }
+  }
+
+  async function loadSkills(quiet = false) {
+    try {
+      const data = await fetchJson('/api/skills');
+      state.skills = data.skills || [];
+      state.skillsLoaded = true;
+      if (!quiet) {
+        const personal = state.skills.filter((skill) => skill.kind === 'personal').length;
+        pushFeed('SKILL_REGISTRY_SYNCED', `personal=${personal} total=${state.skills.length}`, 'info');
+      }
+      renderTargets();
+      updateIntel();
+    } catch (error) {
+      state.skillsLoaded = true;
+      renderTargets();
+      toast('Signal lost: skill registry unavailable', true);
+      pushFeed('SKILL_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    }
+  }
+
+  async function loadSettings() {
+    try {
+      const data = await fetchJson('/api/settings');
+      state.settings = data;
+      $('skillsTab').hidden = !data.enableSkills;
+      setConfigError('settings', data.configError);
+      if (!data.enableSkills && state.view === 'skills') setView('projects');
+    } catch (error) {
+      setConfigError('settings', `Settings unavailable: ${error.message}`);
+    }
+  }
+
+  function renderDoctor() {
+    const report = state.doctor;
+    if (!report) return;
+    $('doctorSummary').textContent = report.status === 'pass'
+      ? 'Machine ready. All required checks passed.'
+      : `${report.failures} failure(s), ${report.warnings} warning(s). Review the signals below.`;
+    $('doctorList').innerHTML = report.checks.map((item) => `
+      <div class="diagnostic-row ${esc(item.level)}">
+        <strong>${item.level === 'pass' ? 'OK' : item.level.toUpperCase()}</strong>
+        <span>${esc(item.label)}<small>${esc(item.detail)}</small></span>
+      </div>
+    `).join('');
+  }
+
+  async function loadDoctor() {
+    const button = $('runDoctor');
+    button.disabled = true;
+    try {
+      state.doctor = await fetchJson('/api/doctor');
+      renderDoctor();
+      pushFeed('DOCTOR_COMPLETE', `status=${state.doctor.status} failures=${state.doctor.failures} warnings=${state.doctor.warnings}`, state.doctor.failures ? 'error' : state.doctor.warnings ? 'warn' : 'info');
+    } catch (error) {
+      $('doctorSummary').textContent = `Doctor unavailable: ${error.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function renderDiscovery() {
+    const proposals = state.discovery?.proposals || [];
+    $('discoveryList').innerHTML = proposals.map((proposal, index) => `
+      <label class="discovery-row">
+        <input type="checkbox" data-discovery-index="${index}" checked>
+        <span><strong>${esc(proposal.name)}</strong> · ${esc(proposal.type)}
+          <small>${esc(proposal.note)}</small>
+          <small>${esc(proposal.discoveredFrom)}</small>
+        </span>
+      </label>
+    `).join('');
+    $('discoveryActions').hidden = proposals.length === 0;
+    if (state.discovery && proposals.length === 0) {
+      $('discoveryList').innerHTML = '<div class="diagnostic-row warn"><strong>NONE</strong><span>No supported runnable projects were found in this folder.</span></div>';
+    }
+  }
+
+  async function scanProjects() {
+    const button = $('scanProjects');
+    const folder = $('scanFolder').value.trim();
+    if (!folder) {
+      toast('Enter an absolute folder to scan.', true);
+      return;
+    }
+    button.disabled = true;
+    try {
+      state.discovery = await postJson('/api/discovery/scan', { folder });
+      renderDiscovery();
+      pushFeed('DISCOVERY_COMPLETE', `proposals=${state.discovery.proposals.length}`, 'info');
+    } catch (error) {
+      toast(error.message, true);
+      pushFeed('DISCOVERY_FAILED', `reason=${error.message}`, 'error');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function importDiscoveredProjects() {
+    const indexes = [...document.querySelectorAll('[data-discovery-index]:checked')]
+      .map((input) => Number(input.dataset.discoveryIndex));
+    const button = $('importProjects');
+    button.disabled = true;
+    try {
+      const result = await postJson('/api/discovery/apply', {
+        scanId: state.discovery?.scanId,
+        indexes,
+      });
+      toast(`Imported ${result.added.length} project${result.added.length === 1 ? '' : 's'}.`);
+      pushFeed('DISCOVERY_IMPORTED', `added=${result.added.length} skipped=${result.skipped.length}`, 'info');
+      state.discovery = null;
+      renderDiscovery();
+      await Promise.all([loadProjects(true), loadDoctor()]);
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      button.disabled = false;
     }
   }
 
@@ -2813,7 +3296,7 @@
   $('targetList').addEventListener('click', async (event) => {
     const portButton = event.target.closest('[data-open-port]');
     if (portButton) {
-      await openUiInFirefox(portButton);
+      await openUiInBrowser(portButton);
       return;
     }
     const button = event.target.closest('button[data-action]');
@@ -2854,9 +3337,11 @@
     pushFeed('MANUAL_SCAN', `view=${state.view}`, 'info');
     await Promise.all([
       loadSystem(),
+      loadOnboarding(),
       state.view === 'projects' ? loadProjects(true)
         : state.view === 'processes' ? Promise.all([loadProjects(true), loadProcesses(true)])
-        : loadScripts(true),
+        : state.view === 'scripts' ? loadScripts(true)
+        : loadSkills(true),
     ]);
   });
 
@@ -2868,11 +3353,51 @@
     updateIntel();
   });
 
+  $('defaultSkillsToggle').addEventListener('click', () => {
+    state.showDefaultSkills = !state.showDefaultSkills;
+    $('defaultSkillsToggle').classList.toggle('toggled', state.showDefaultSkills);
+    $('defaultSkillsToggle').setAttribute('aria-pressed', String(state.showDefaultSkills));
+    $('defaultSkillsToggle').textContent = state.showDefaultSkills ? 'Personal Skills' : 'Default Skills';
+    renderTargets();
+  });
+
+  $('emptyState').addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-copy-prompt]');
+    if (!button) return;
+    const prompt = state.onboarding?.prompts?.find((item) => item.id === button.dataset.copyPrompt);
+    if (!prompt) return;
+    try {
+      await navigator.clipboard.writeText(prompt.prompt);
+      button.textContent = 'Copied';
+      pushFeed('SETUP_PROMPT_COPIED', `scope=${slug(prompt.id)}`, 'info');
+      setTimeout(() => { button.textContent = 'Copy prompt'; }, 1600);
+    } catch {
+      toast('Clipboard unavailable. Select the prompt text manually.', true);
+    }
+  });
+
   $('clearFeed').addEventListener('click', () => {
     state.feed = [];
     saveFeed();
     renderFeed();
     pushFeed('FEED_RESET', 'operator=local', 'info');
+  });
+
+  $('scanProjects').addEventListener('click', scanProjects);
+  $('scanFolder').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') scanProjects();
+  });
+  $('importProjects').addEventListener('click', importDiscoveredProjects);
+  $('clearDiscovery').addEventListener('click', () => {
+    state.discovery = null;
+    $('discoveryList').innerHTML = '';
+    $('discoveryActions').hidden = true;
+  });
+  $('runDoctor').addEventListener('click', loadDoctor);
+
+  $('replayIntro').addEventListener('click', () => {
+    localStorage.removeItem(BOOT_SEEN_KEY);
+    location.reload();
   });
 
   async function boot() {
@@ -2883,12 +3408,13 @@
       pushFeed('CONSOLE_BOOT', 'mode=process_control node=local', 'info');
       pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
     }
-    await Promise.all([loadSystem(), loadProjects()]);
+    await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor()]);
     setInterval(() => {
       if (document.hidden) return;
       loadSystem();
       if (state.view === 'projects') loadProjects(true);
       else if (state.view === 'scripts') loadScripts(true);
+      else if (state.view === 'skills') loadSkills(true);
       else {
         loadProjects(true);
         loadProcesses(true);

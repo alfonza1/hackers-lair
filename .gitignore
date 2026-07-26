@@ -1,7 +1,12 @@
 node_modules/
+out/
+.tmp-*-test-*/
 npm-debug.log*
 logs/
 started.json
 project-activity.json
 stopped.json
 *.log
+projects.json
+scripts.json
+settings.json
