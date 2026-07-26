@@ -143,6 +143,25 @@ Record the VM image, release tag, and result in the release notes.
 7. Extract the tarball on a third clean snapshot and run both `HackersLair`
    and the bundled `lair` companion.
 
+### Squirrel update lifecycle
+
+This needs two public GitHub Releases, so it cannot be completed against a
+single source checkout.
+
+1. Install the older release through its Squirrel setup executable and confirm
+   Doctor reports the `squirrel` channel.
+2. Publish the newer release with its Squirrel `RELEASES` file and full nupkg,
+   then launch the older app. The immediate GitHub update check should
+   download it and show the non-blocking version banner with working release
+   notes.
+3. Start a harmless dummy target. Confirm **Restart to Apply** reports that
+   managed targets must stop and does not restart the desktop.
+4. Stop the target, apply the update, and confirm the app restarts on the
+   newer version with the same user configuration.
+5. Repeat from the Scoop and PowerShell portable channels. Confirm neither
+   starts the internal updater; each shows its own passive upgrade command and
+   Doctor reports the matching channel.
+
 ### Owner-controlled distribution channels
 
 1. Create the public `alfonza1/hackers-lair-scoop` repository, add a
