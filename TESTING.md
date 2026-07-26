@@ -49,6 +49,32 @@ uses the same manifest generator against the final installer bytes.
 
 Published beta verification on 2026-07-26:
 
+- branded release run `30224766735` published `v2.1.0-beta.2` from
+  `hackerslairhq/desktop`; all Windows and Linux build jobs, checksum and
+  manifest generation, GitHub Release creation, and provenance attestation
+  passed;
+- all eight released binary/package assets are present in `checksums.txt`, each
+  checksum matches its release asset, and each digest has a GitHub build
+  provenance attestation. `gh attestation verify checksums.txt -R
+  hackerslairhq/desktop` also passed;
+- the live production PowerShell installer resolved `v2.1.0-beta.2`, verified
+  the portable ZIP's SHA256 before extraction, and installed the packaged
+  `2.1.0-beta.2` executable, `lair` CLI, and `powershell` channel marker into a
+  disposable per-user directory. The validation directory was removed after
+  the check;
+- Scoop bucket update run `30224947740` passed, and the published
+  `hackerslairhq/scoop` manifest points to the branded beta.2 release with the
+  exact checksum from `checksums.txt`;
+- Pages run `30224759879` deployed the branded site successfully. The live
+  install page contains no legacy personal-owner URL, leads with the working
+  checksum-verifying PowerShell channel, and labels Winget as pending community
+  approval;
+- `update.electronjs.org` returns the beta.2 Squirrel feed from the branded
+  repository. The legacy repository route redirects successfully so installed
+  beta.1 clients can still discover the update.
+
+The original beta.1 verification remains below as historical evidence:
+
 - main CI run `30195397941` passed Windows and Ubuntu tests, the Windows
   package/install smoke, and Linux ZIP/DEB/RPM creation plus lifecycle smoke;
 - release run `30195506471` published the Windows installer/ZIP, Linux
