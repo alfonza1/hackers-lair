@@ -47,6 +47,18 @@ function Add-UserPath([string]$Directory) {
     }
 }
 
+function Get-Sha256Hex([string]$File) {
+    $stream = [System.IO.File]::OpenRead($File)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha256.ComputeHash($stream)
+        return ([System.BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
 if (-not $env:LOCALAPPDATA) {
     throw 'LOCALAPPDATA is unavailable. Hacker''s Lair installs per user on Windows.'
 }
@@ -87,7 +99,7 @@ try {
         throw "$ChecksumName does not contain a SHA256 entry for $AssetName."
     }
     $expectedHash = ([Regex]::Match($checksumLine, '^[A-Fa-f0-9]{64}')).Value.ToLowerInvariant()
-    $actualHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actualHash = Get-Sha256Hex $archivePath
     if ($actualHash -ne $expectedHash) {
         throw "SHA256 mismatch for $AssetName. Nothing was installed or unblocked."
     }
