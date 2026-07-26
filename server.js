@@ -15,6 +15,10 @@ const { formatDoctorReport, runDoctor } = require('./lib/doctor');
 const { redactValue } = require('./lib/redaction');
 const { instantiateTemplate, PROJECT_TEMPLATES } = require('./lib/project-templates');
 const {
+  removeProjectFromConfig,
+  updateProjectConfig,
+} = require('./lib/project-config');
+const {
   detectedUrlsFromLog,
   isZombieComponent,
   splitTargetUrls,
@@ -1070,6 +1074,82 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && req.url === '/api/projects/configure') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
+        const current = runtimeConfig.projects.read();
+        if (current.error) {
+          json(res, 409, { error: `Fix the current configuration first: ${current.error}` });
+          return;
+        }
+        let next;
+        try {
+          next = updateProjectConfig(current.value, {
+            originalName: input.originalName,
+            project: input.project,
+          });
+          runtimeConfig.projects.validate(next);
+        } catch (error) {
+          json(res, 400, { error: error.message });
+          return;
+        }
+        runtimeConfig.projects.write(next);
+        void refreshGitAttention(next.projects);
+        void refreshDoctor();
+        const saved = next.projects.find((project) => (
+          project.name.toLowerCase() === String(input.project?.name || '').trim().toLowerCase()
+        ));
+        json(res, 200, { ok: true, project: saved });
+      } finally {
+        actionLocks.delete(actionKey);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/projects/remove') {
+      let name;
+      try { name = String(JSON.parse(await readBody(req)).name || ''); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
+        const current = runtimeConfig.projects.read();
+        if (current.error) {
+          json(res, 409, { error: `Fix the current configuration first: ${current.error}` });
+          return;
+        }
+        const project = current.value.projects.find((item) => item.name === name);
+        if (!project) {
+          json(res, 404, { error: `No project named "${name}"` });
+          return;
+        }
+        if ((await remainingProjectSignals(project)).length) {
+          json(res, 409, { error: 'Stop every component before removing this project.' });
+          return;
+        }
+        const next = removeProjectFromConfig(current.value, name);
+        runtimeConfig.projects.write(next);
+        json(res, 200, { ok: true, name });
+        void refreshGitAttention(next.projects);
+        void refreshDoctor();
+      } finally {
+        actionLocks.delete(actionKey);
+      }
+      return;
+    }
+
     if (req.method === 'GET' && req.url.startsWith('/api/projects/log')) {
       const q = new URL(req.url, 'http://localhost').searchParams;
       const rec = launches.get(launchKey(q.get('name') || '', q.get('component') || ''));
@@ -1388,6 +1468,37 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && req.url === '/api/settings/workspaces') {
+      let workspaceFolders;
+      try {
+        workspaceFolders = JSON.parse(await readBody(req)).workspaceFolders;
+      } catch {
+        json(res, 400, { error: 'Invalid JSON body' });
+        return;
+      }
+      if (
+        !Array.isArray(workspaceFolders)
+        || workspaceFolders.length > 10
+        || workspaceFolders.some((folder) => (
+          typeof folder !== 'string'
+          || !path.isAbsolute(folder)
+          || !fs.existsSync(folder)
+        ))
+      ) {
+        json(res, 400, { error: 'Workspace folders must be existing absolute paths (maximum 10).' });
+        return;
+      }
+      const current = runtimeConfig.settings.read();
+      if (current.error) {
+        json(res, 409, { error: `Fix settings.json before saving workspaces: ${current.error}` });
+        return;
+      }
+      const uniqueFolders = [...new Set(workspaceFolders.map((folder) => path.resolve(folder)))];
+      runtimeConfig.settings.write({ ...current.value, workspaceFolders: uniqueFolders });
+      json(res, 200, { ok: true, workspaceFolders: uniqueFolders });
+      return;
+    }
+
     if (req.method === 'POST' && req.url === '/api/open-url') {
       let url;
       try { url = new URL(String(JSON.parse(await readBody(req)).url || '')); }
@@ -1606,19 +1717,38 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && req.url === '/api/discovery/scan') {
-      let folder;
-      try { folder = String(JSON.parse(await readBody(req)).folder || ''); }
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const requestedFolders = Array.isArray(input.folders)
+        ? input.folders
+        : [input.folder];
+      const folders = [...new Set(requestedFolders
+        .map((folder) => String(folder || '').trim())
+        .filter(Boolean)
+        .map((folder) => path.resolve(folder)))];
+      if (!folders.length || folders.length > 10) {
+        json(res, 400, { error: 'Choose between one and ten workspace folders.' });
+        return;
+      }
       let proposals;
       try {
-        proposals = discoverProjects(folder);
+        const discovered = folders.flatMap((folder) => discoverProjects(folder));
+        const seen = new Set();
+        proposals = discovered.filter((project) => {
+          const cwd = project.components?.[0]?.cwd || '';
+          const key = `${project.name.toLowerCase()}\0${path.resolve(cwd).toLowerCase()}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
       } catch (error) {
         json(res, 400, { error: error.message });
         return;
       }
       const scanId = `${runtimeIdentity.nonce.slice(0, 12)}-${Date.now().toString(36)}`;
-      discoveryScans.set(scanId, { proposals, createdAt: Date.now() });
-      json(res, 200, { scanId, folder: path.resolve(folder), proposals });
+      discoveryScans.set(scanId, { folders, proposals, createdAt: Date.now() });
+      json(res, 200, { scanId, folder: folders[0], folders, proposals });
       return;
     }
 
@@ -1672,6 +1802,13 @@ const server = http.createServer(async (req, res) => {
           ...config.value,
           projects: [...existing, ...added.map(({ discoveredFrom, confidence, note, ...project }) => project)],
         });
+        const settings = runtimeConfig.settings.read();
+        if (!settings.error) {
+          runtimeConfig.settings.write({
+            ...settings.value,
+            workspaceFolders: scan.folders,
+          });
+        }
         discoveryScans.delete(String(input.scanId));
         void refreshGitAttention(loadProjects());
         void refreshDoctor();

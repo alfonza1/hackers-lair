@@ -194,6 +194,59 @@ test('protects localhost mutations and verifies the bound service identity', asy
   });
   assert.equal(applyResponse.status, 200);
   assert.equal(JSON.parse(fs.readFileSync(path.join(dataDirectory, 'projects.json'))).projects[0].name, 'free-tool');
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(path.join(dataDirectory, 'settings.json'))).workspaceFolders,
+    [path.resolve(scanRoot)],
+  );
+
+  const configuredProject = {
+    name: 'editor-project',
+    type: 'Node',
+    components: [{
+      name: 'web',
+      role: 'frontend',
+      cwd: scanProject,
+      command: 'npm run dev',
+      match: scanProject,
+      port: 4190,
+    }],
+  };
+  const createProject = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/projects/configure',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ project: configuredProject }),
+  });
+  assert.equal(createProject.status, 200);
+  const updateProject = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/projects/configure',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      originalName: configuredProject.name,
+      project: {
+        ...configuredProject,
+        name: 'editor-project-renamed',
+        components: [{ ...configuredProject.components[0], port: 4191 }],
+      },
+    }),
+  });
+  assert.equal(updateProject.status, 200);
+  const removeProject = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/projects/remove',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ name: 'editor-project-renamed' }),
+  });
+  assert.equal(removeProject.status, 200);
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(dataDirectory, 'projects.json'))).projects
+      .some((project) => project.name === 'editor-project-renamed'),
+    false,
+  );
 
   const schemaResponse = await request({ port, pathname: '/api/schema/projects' });
   assert.equal(schemaResponse.status, 200);

@@ -2216,12 +2216,137 @@
   }
   .schema-field-list code { color: var(--green); }
 
+  .lair-dialog {
+    width: min(920px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    padding: 0;
+    overflow: auto;
+    border: 1px solid var(--line-bright);
+    border-radius: 5px;
+    color: var(--text);
+    background: var(--panel);
+    box-shadow: 0 24px 80px rgba(var(--shadow-rgb), .7), 0 0 36px rgba(var(--accent-rgb), .08);
+  }
+
+  .lair-dialog::backdrop { background: rgba(var(--shadow-rgb), .78); }
+
+  .dialog-head,
+  .dialog-actions {
+    position: sticky;
+    z-index: 2;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+
+  .dialog-head { top: 0; }
+  .dialog-head h2 { margin-top: 4px; }
+  .dialog-body { padding: 18px; }
+  .dialog-actions {
+    bottom: 0;
+    justify-content: flex-end;
+    border-top: 1px solid var(--line);
+    border-bottom: 0;
+  }
+
+  .editor-project-fields,
+  .component-fields {
+    display: grid;
+    gap: 12px;
+  }
+
+  .editor-project-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .component-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .editor-field {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .editor-field.wide { grid-column: 1 / -1; }
+  .editor-field.checkbox-field { display: flex; align-items: center; }
+
+  .editor-field input,
+  .editor-field select {
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    color: var(--text);
+    background: var(--panel-2);
+    font: 11px var(--mono);
+    text-transform: none;
+  }
+
+  .editor-field input:focus-visible,
+  .editor-field select:focus-visible {
+    border-color: var(--cyan);
+    outline: 2px solid rgba(var(--secondary-rgb), .18);
+  }
+
+  .component-editor {
+    margin-top: 16px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    background: var(--void);
+  }
+
+  .component-editor-head {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .component-editor-head strong { color: var(--cyan); text-transform: uppercase; }
+  .editor-error { min-height: 18px; margin-top: 12px; color: var(--red); font-size: 11px; }
+  .remove-project { margin-right: auto; border-color: rgba(var(--danger-rgb), .45); color: var(--red); }
+
+  .wizard-progress {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    margin-bottom: 20px;
+  }
+
+  .wizard-progress span { height: 3px; background: var(--line); }
+  .wizard-progress span.active { background: var(--green); box-shadow: 0 0 8px rgba(var(--accent-rgb), .35); }
+  .wizard-step h3 { margin-bottom: 8px; font-size: 18px; text-transform: uppercase; }
+  .wizard-step > p { max-width: 68ch; color: var(--muted); font-size: 11px; line-height: 1.7; }
+  .wizard-folder-list { display: grid; gap: 7px; margin-top: 14px; }
+  .wizard-folder {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    color: var(--text);
+    background: var(--void);
+    font-size: 10px;
+  }
+  .wizard-review { display: grid; gap: 8px; margin-top: 14px; }
+  .wizard-review .discovery-row { border: 1px solid var(--line); }
+  .dialog-actions [hidden] { display: none; }
+
   @media (max-width: 900px) {
     .template-controls { grid-template-columns: 1fr 1fr; }
     .template-controls .utility { grid-column: 1 / -1; }
     .command-result { grid-template-columns: 70px 1fr; }
     .command-result small { display: none; }
     .schema-field-list { grid-template-columns: 1fr; }
+    .component-fields,
+    .editor-project-fields { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -2329,6 +2454,7 @@
             <button class="view-tab" id="scriptsTab" data-view="scripts" role="tab" aria-selected="false">Scripts</button>
             <button class="view-tab" id="skillsTab" data-view="skills" role="tab" aria-selected="false">Skills</button>
           </div>
+          <button class="utility" id="addProject" type="button">Add Project</button>
           <button class="utility command-trigger" id="commandTrigger" type="button" title="Command palette (Ctrl+K)">Ctrl+K</button>
           <button class="utility" id="refreshBtn" type="button">Refresh</button>
         </div>
@@ -2397,7 +2523,7 @@
       <div class="setup-grid">
         <div class="setup-module">
           <h3>Scan folder</h3>
-          <p class="setup-copy">Find runnable Node, Docker Compose, Maven, and Gradle projects. Nothing is written until you review and import selected entries.</p>
+          <p class="setup-copy">Find runnable Node, Docker Compose, Maven, Gradle, and Python projects. Nothing is written until you review and import selected entries.</p>
           <div class="scan-controls">
             <input id="scanFolder" type="text" autocomplete="off" placeholder="C:\Code">
             <button class="utility" id="browseScanFolders" type="button">Browse</button>
@@ -2465,6 +2591,57 @@
   </main>
 </div>
 </div>
+<dialog class="lair-dialog" id="projectEditor" aria-labelledby="projectEditorTitle">
+  <form method="dialog">
+    <div class="dialog-head">
+      <div>
+        <div class="section-kicker">Target Registry</div>
+        <h2 id="projectEditorTitle">Add Project</h2>
+      </div>
+      <button class="utility" value="cancel" type="submit" aria-label="Close project editor">Close</button>
+    </div>
+    <div class="dialog-body">
+      <div class="editor-project-fields">
+        <label class="editor-field">Project name
+          <input id="editorProjectName" type="text" maxlength="80" autocomplete="off" required>
+        </label>
+        <label class="editor-field">Project type
+          <input id="editorProjectType" type="text" maxlength="80" autocomplete="off" placeholder="Vite, FastAPI, Compose…">
+        </label>
+      </div>
+      <div id="componentEditorList"></div>
+      <button class="utility" id="addEditorComponent" type="button">Add Component</button>
+      <p class="editor-error" id="projectEditorError" role="alert"></p>
+    </div>
+    <div class="dialog-actions">
+      <button class="utility remove-project" id="removeProject" type="button" hidden>Remove Project</button>
+      <button class="utility" value="cancel" type="submit">Cancel</button>
+      <button class="utility" id="saveProject" type="button">Save Project</button>
+    </div>
+  </form>
+</dialog>
+<dialog class="lair-dialog" id="setupWizard" aria-labelledby="setupWizardTitle">
+  <form method="dialog">
+    <div class="dialog-head">
+      <div>
+        <div class="section-kicker">First-Run Setup</div>
+        <h2 id="setupWizardTitle">Set Up With Wizard</h2>
+      </div>
+      <button class="utility" value="cancel" type="submit">Skip For Now</button>
+    </div>
+    <div class="dialog-body">
+      <div class="wizard-progress" id="wizardProgress" aria-label="Setup progress">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="wizard-step" id="wizardStep"></div>
+      <p class="editor-error" id="wizardError" role="alert"></p>
+    </div>
+    <div class="dialog-actions">
+      <button class="utility" id="wizardBack" type="button">Back</button>
+      <button class="utility" id="wizardNext" type="button">Continue</button>
+    </div>
+  </form>
+</dialog>
 <div class="command-palette" id="commandPalette" role="dialog" aria-modal="true" aria-labelledby="commandTitle" hidden>
   <div class="command-core">
     <div class="command-head">
@@ -2558,6 +2735,8 @@
     actions: loadJson(ACTION_KEY, { byTarget: {}, last: null }),
     configErrors: new Map(),
   };
+  const editorState = { originalName: '', components: [] };
+  const wizardState = { step: 0, folders: [], discovery: null, imported: null };
 
   function setConfigError(source, message) {
     if (message) state.configErrors.set(source, message);
@@ -3207,6 +3386,7 @@
               ${project.type ? `<span class="target-type">${esc(project.type)}</span>` : ''}
               ${statusBadge(status)}
               <button class="card-toggle" type="button" data-toggle-details aria-expanded="${expanded}">${expanded ? 'Collapse' : 'Details'}</button>
+              <button class="card-toggle" type="button" data-edit-project="${esc(project.name)}">Edit</button>
             </div>
             <div class="compact-summary">
               ${configuredPortStrip}
@@ -3704,6 +3884,11 @@
     try {
       const data = await fetchJson('/api/settings');
       state.settings = data;
+      state.workspaceFolders = [...new Set([
+        ...state.workspaceFolders,
+        ...(data.workspaceFolders || []),
+      ])].slice(-10);
+      localStorage.setItem(WORKSPACE_FOLDERS_KEY, JSON.stringify(state.workspaceFolders));
       const uiPreferences = normalizeUiPreferences(data.uiPreferences);
       localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(uiPreferences));
       applyUiPreferences(uiPreferences);
@@ -3791,6 +3976,357 @@
     }
   }
 
+  function blankEditorComponent() {
+    return {
+      name: '',
+      role: 'service',
+      cwd: '',
+      command: '',
+      stopCommand: '',
+      match: '',
+      ports: [],
+      track: '',
+      detectByPort: false,
+      autoRestart: false,
+    };
+  }
+
+  function editorComponentMarkup(component, index) {
+    const ports = configuredPorts(component).join(', ');
+    const knownRoles = ['frontend', 'backend', 'fullstack', 'service', 'worker', 'headless'];
+    const roles = component.role && !knownRoles.includes(component.role)
+      ? [...knownRoles, component.role]
+      : knownRoles;
+    return `
+      <section class="component-editor" data-editor-component="${index}">
+        <div class="component-editor-head">
+          <strong>Component ${index + 1}</strong>
+          <button class="utility" type="button" data-remove-editor-component="${index}" ${editorState.components.length === 1 ? 'disabled' : ''}>Remove</button>
+        </div>
+        <div class="component-fields">
+          <label class="editor-field">Name
+            <input data-editor-field="name" type="text" value="${esc(component.name || '')}" autocomplete="off" required>
+          </label>
+          <label class="editor-field">Role
+            <select data-editor-field="role">
+              ${roles.map((role) => `<option value="${esc(role)}" ${component.role === role ? 'selected' : ''}>${esc(role)}</option>`).join('')}
+            </select>
+          </label>
+          <label class="editor-field wide">Folder
+            <input data-editor-field="cwd" type="text" value="${esc(component.cwd || '')}" autocomplete="off" required>
+          </label>
+          <button class="utility" type="button" data-browse-editor-component="${index}">Choose Folder</button>
+          <label class="editor-field wide">Start command
+            <input data-editor-field="command" type="text" value="${esc(component.command || '')}" autocomplete="off" required>
+          </label>
+          <label class="editor-field wide">Stop command (optional)
+            <input data-editor-field="stopCommand" type="text" value="${esc(component.stopCommand || '')}" autocomplete="off">
+          </label>
+          <label class="editor-field wide">Distinctive process match
+            <input data-editor-field="match" type="text" value="${esc(component.match || component.cwd || '')}" autocomplete="off">
+          </label>
+          <label class="editor-field">Ports
+            <input data-editor-field="ports" type="text" value="${esc(ports)}" inputmode="numeric" placeholder="5173, 4100">
+          </label>
+          <label class="editor-field">Tracking
+            <select data-editor-field="track">
+              <option value="" ${component.track !== 'process' ? 'selected' : ''}>Ports / command match</option>
+              <option value="process" ${component.track === 'process' ? 'selected' : ''}>Headless process</option>
+            </select>
+          </label>
+          <label class="editor-field checkbox-field"><input data-editor-field="detectByPort" type="checkbox" ${component.detectByPort ? 'checked' : ''}> Require configured ports</label>
+          <label class="editor-field checkbox-field"><input data-editor-field="autoRestart" type="checkbox" ${component.autoRestart ? 'checked' : ''}> Auto-restart crashes</label>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderProjectEditorComponents() {
+    $('componentEditorList').innerHTML = editorState.components
+      .map(editorComponentMarkup)
+      .join('');
+  }
+
+  function syncEditorComponentsFromForm() {
+    editorState.components = [...document.querySelectorAll('[data-editor-component]')].map((section) => {
+      const previous = editorState.components[Number(section.dataset.editorComponent)] || {};
+      const value = (field) => section.querySelector(`[data-editor-field="${field}"]`);
+      const portTokens = value('ports').value.split(/[,\s]+/).filter(Boolean);
+      const ports = portTokens.map(Number);
+      return {
+        name: value('name').value.trim(),
+        role: value('role').value,
+        cwd: value('cwd').value.trim(),
+        command: value('command').value.trim(),
+        stopCommand: value('stopCommand').value.trim(),
+        match: value('match').value.trim(),
+        ports,
+        invalidPorts: portTokens.some((token, index) => (
+          !Number.isInteger(ports[index])
+        )),
+        track: value('track').value,
+        detectByPort: value('detectByPort').checked,
+        autoRestart: value('autoRestart').checked,
+        maxRestarts: previous.maxRestarts,
+        zombieAfterHours: previous.zombieAfterHours,
+      };
+    });
+  }
+
+  function openProjectEditor(project = null) {
+    editorState.originalName = project?.name || '';
+    editorState.components = project?.components?.length
+      ? project.components.map((component) => ({
+        name: component.name || '',
+        role: component.role || 'service',
+        cwd: component.cwd || '',
+        command: component.command || '',
+        stopCommand: component.stopCommand || '',
+        match: component.match || component.cwd || '',
+        ports: configuredPorts(component),
+        track: component.track || '',
+        detectByPort: component.detectByPort === true,
+        autoRestart: component.autoRestart === true,
+        maxRestarts: component.maxRestarts,
+        zombieAfterHours: component.zombieAfterHours,
+      }))
+      : [blankEditorComponent()];
+    $('projectEditorTitle').textContent = project ? `Edit ${project.name}` : 'Add Project';
+    $('editorProjectName').value = project?.name || '';
+    $('editorProjectType').value = project?.type || '';
+    $('removeProject').hidden = !project;
+    $('projectEditorError').textContent = '';
+    renderProjectEditorComponents();
+    $('projectEditor').showModal();
+    setTimeout(() => $('editorProjectName').focus(), 0);
+  }
+
+  function editorProjectPayload() {
+    syncEditorComponentsFromForm();
+    const project = {
+      name: $('editorProjectName').value.trim(),
+      type: $('editorProjectType').value.trim(),
+      components: editorState.components.map((component) => {
+        const ports = component.ports.filter((port) => Number.isInteger(port));
+        return {
+          name: component.name,
+          role: component.role,
+          cwd: component.cwd,
+          command: component.command,
+          stopCommand: component.stopCommand,
+          match: component.match || component.cwd,
+          ...(ports.length === 1 ? { port: ports[0] } : {}),
+          ...(ports.length > 1 ? { ports } : {}),
+          ...(component.track === 'process' ? { track: 'process' } : {}),
+          ...(component.detectByPort ? { detectByPort: true } : {}),
+          ...(component.autoRestart ? { autoRestart: true } : {}),
+          ...(Number.isInteger(Number(component.maxRestarts))
+            ? { maxRestarts: Number(component.maxRestarts) }
+            : {}),
+          ...(Number.isFinite(Number(component.zombieAfterHours))
+            ? { zombieAfterHours: Number(component.zombieAfterHours) }
+            : {}),
+        };
+      }),
+    };
+    if (!project.name) throw new Error('Project name is required.');
+    if (!project.components.length) throw new Error('Add at least one component.');
+    const seenPorts = new Set();
+    for (const [componentIndex, component] of project.components.entries()) {
+      if (!component.name || !component.cwd || !component.command) {
+        throw new Error('Each component needs a name, folder, and start command.');
+      }
+      const sourceComponent = editorState.components[componentIndex];
+      if (sourceComponent?.invalidPorts) throw new Error(`${component.name}: ports must be whole numbers.`);
+      for (const port of configuredPorts(component)) {
+        if (port < 1 || port > 65535) throw new Error(`Port ${port} is outside 1–65535.`);
+        if (seenPorts.has(port)) throw new Error(`Port ${port} is duplicated in this project.`);
+        seenPorts.add(port);
+      }
+    }
+    return project;
+  }
+
+  async function saveProjectEditor() {
+    const button = $('saveProject');
+    button.disabled = true;
+    $('projectEditorError').textContent = '';
+    try {
+      const result = await postJson('/api/projects/configure', {
+        originalName: editorState.originalName,
+        project: editorProjectPayload(),
+      });
+      $('projectEditor').close();
+      toast(`${result.project.name} saved.`);
+      pushFeed('TARGET_CONFIG_SAVED', `target=${slug(result.project.name)}`, 'info');
+      await Promise.all([loadProjects(true), loadOnboarding(), loadDoctor(), loadOfflineTools()]);
+    } catch (error) {
+      $('projectEditorError').textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function removeEditedProject() {
+    if (!editorState.originalName) return;
+    if (!confirm(`Remove ${editorState.originalName}? A backup will be kept, but the target must already be stopped.`)) return;
+    const button = $('removeProject');
+    button.disabled = true;
+    try {
+      await postJson('/api/projects/remove', { name: editorState.originalName });
+      $('projectEditor').close();
+      toast(`${editorState.originalName} removed.`);
+      pushFeed('TARGET_CONFIG_REMOVED', `target=${slug(editorState.originalName)}`, 'warn');
+      await Promise.all([loadProjects(true), loadOnboarding(), loadDoctor(), loadOfflineTools()]);
+    } catch (error) {
+      $('projectEditorError').textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function chooseEditorFolder(index) {
+    const desktop = window.hackerLairWindow;
+    if (!desktop?.chooseWorkspaceFolders) {
+      document.querySelector(`[data-editor-component="${index}"] [data-editor-field="cwd"]`)?.focus();
+      return;
+    }
+    const folders = await desktop.chooseWorkspaceFolders();
+    if (!folders.length) return;
+    const section = document.querySelector(`[data-editor-component="${index}"]`);
+    section.querySelector('[data-editor-field="cwd"]').value = folders[0];
+    const match = section.querySelector('[data-editor-field="match"]');
+    if (!match.value) match.value = folders[0];
+  }
+
+  function renderWizard() {
+    $('wizardNext').disabled = false;
+    [...$('wizardProgress').children].forEach((segment, index) => {
+      segment.classList.toggle('active', index <= wizardState.step);
+    });
+    $('wizardError').textContent = '';
+    $('wizardBack').hidden = wizardState.step === 0 || wizardState.step === 3;
+    const nextLabels = ['Begin Setup', 'Scan Folders', 'Add Selected', 'Close'];
+    $('wizardNext').textContent = nextLabels[wizardState.step];
+    if (wizardState.step === 0) {
+      $('wizardStep').innerHTML = `
+        <h3>Welcome to Hacker's Lair</h3>
+        <p>Choose one or more development folders. The scan is read-only and previews runnable Node, Compose, Maven, Gradle, and Python targets before anything is saved.</p>
+      `;
+    } else if (wizardState.step === 1) {
+      $('wizardStep').innerHTML = `
+        <h3>Choose workspace folders</h3>
+        <p>Native folder selection can add several workspaces at once. Browser users can paste an absolute path below.</p>
+        <div class="scan-controls">
+          <input id="wizardFolderInput" type="text" autocomplete="off" placeholder="${navigator.platform.startsWith('Win') ? 'C:\\Code' : '/home/dev/code'}">
+          <button class="utility" type="button" data-wizard-add-folder>Add Path</button>
+          <button class="utility" type="button" data-wizard-browse>Choose Folders</button>
+        </div>
+        <div class="wizard-folder-list">
+          ${wizardState.folders.map((folder, index) => `<div class="wizard-folder"><span>${esc(folder)}</span><button class="utility" type="button" data-wizard-remove-folder="${index}">Remove</button></div>`).join('') || '<span class="discovery-placeholder">No folders selected yet.</span>'}
+        </div>
+      `;
+    } else if (wizardState.step === 2) {
+      const proposals = wizardState.discovery?.proposals || [];
+      $('wizardStep').innerHTML = `
+        <h3>Review detected projects</h3>
+        <p>Select only the targets you want to manage. Commands and ports remain visible before the config write.</p>
+        <div class="wizard-review">
+          ${proposals.map((proposal, index) => `<label class="discovery-row">
+            <input type="checkbox" data-wizard-proposal="${index}" checked>
+            <span><strong>${esc(proposal.name)}</strong> · ${esc(proposal.type)}
+              <small>${esc(proposal.note)}</small>
+              <small>${esc(proposal.components.map((component) => `${component.command} @ ${component.cwd}`).join(' | '))}</small>
+            </span>
+          </label>`).join('') || '<div class="diagnostic-row warn"><strong>NONE</strong><span>No supported projects were found. You can close the wizard and use Add Project.</span></div>'}
+        </div>
+      `;
+      $('wizardNext').disabled = proposals.length === 0;
+    } else {
+      $('wizardNext').disabled = false;
+      $('wizardStep').innerHTML = `
+        <h3>Setup complete</h3>
+        <p>${esc((wizardState.imported?.added || []).length)} target(s) added. Hacker's Lair is already using the new config—no restart is required.</p>
+      `;
+    }
+  }
+
+  function openSetupWizard() {
+    wizardState.step = 0;
+    wizardState.folders = [...new Set([
+      ...state.workspaceFolders,
+      ...(state.settings?.workspaceFolders || []),
+    ])].slice(-10);
+    wizardState.discovery = null;
+    wizardState.imported = null;
+    renderWizard();
+    $('setupWizard').showModal();
+  }
+
+  async function advanceWizard() {
+    $('wizardError').textContent = '';
+    if (wizardState.step === 0) {
+      wizardState.step = 1;
+      renderWizard();
+      return;
+    }
+    if (wizardState.step === 1) {
+      if (!wizardState.folders.length) {
+        $('wizardError').textContent = 'Choose at least one workspace folder.';
+        return;
+      }
+      $('wizardNext').disabled = true;
+      $('wizardNext').textContent = 'Scanning…';
+      try {
+        wizardState.discovery = await postJson('/api/discovery/scan', { folders: wizardState.folders });
+        wizardState.folders = wizardState.discovery.folders || wizardState.folders;
+        state.workspaceFolders = wizardState.folders;
+        localStorage.setItem(WORKSPACE_FOLDERS_KEY, JSON.stringify(state.workspaceFolders));
+        wizardState.step = 2;
+        renderWizard();
+      } catch (error) {
+        $('wizardError').textContent = error.message;
+        $('wizardNext').disabled = false;
+        $('wizardNext').textContent = 'Scan Folders';
+      }
+      return;
+    }
+    if (wizardState.step === 2) {
+      const indexes = [...document.querySelectorAll('[data-wizard-proposal]:checked')]
+        .map((input) => Number(input.dataset.wizardProposal));
+      if (!indexes.length) {
+        $('wizardError').textContent = 'Select at least one project.';
+        return;
+      }
+      $('wizardNext').disabled = true;
+      try {
+        wizardState.imported = await postJson('/api/discovery/apply', {
+          scanId: wizardState.discovery.scanId,
+          indexes,
+        });
+        wizardState.step = 3;
+        await Promise.all([loadProjects(true), loadSettings(), loadOnboarding(), loadDoctor()]);
+        renderWizard();
+      } catch (error) {
+        $('wizardError').textContent = error.message;
+        $('wizardNext').disabled = false;
+      }
+      return;
+    }
+    $('setupWizard').close();
+  }
+
+  async function chooseWizardFolders() {
+    const desktop = window.hackerLairWindow;
+    if (!desktop?.chooseWorkspaceFolders) {
+      $('wizardFolderInput')?.focus();
+      return;
+    }
+    const folders = await desktop.chooseWorkspaceFolders();
+    wizardState.folders = [...new Set([...wizardState.folders, ...folders])].slice(-10);
+    renderWizard();
+  }
+
   async function applyProjectTemplate() {
     const button = $('applyTemplate');
     button.disabled = true;
@@ -3869,6 +4405,7 @@
         <span><strong>${esc(proposal.name)}</strong> · ${esc(proposal.type)}
           <small>${esc(proposal.note)}</small>
           <small>${esc(proposal.discoveredFrom)}</small>
+          <small>${esc(proposal.components.map((component) => `${component.command} @ ${component.cwd}${configuredPorts(component).length ? ` · ports ${configuredPorts(component).join(', ')}` : ''}`).join(' | '))}</small>
         </span>
       </label>
     `).join('') : '<div class="discovery-placeholder">Scan results appear here for review. Nothing is added until you select targets and confirm the import.</div>';
@@ -3921,7 +4458,10 @@
       ])].slice(-10);
       localStorage.setItem(WORKSPACE_FOLDERS_KEY, JSON.stringify(state.workspaceFolders));
       $('scanFolder').value = folders[0];
-      await scanProjects();
+      state.discovery = await postJson('/api/discovery/scan', { folders });
+      renderDiscovery();
+      await loadOnboarding();
+      pushFeed('DISCOVERY_COMPLETE', `proposals=${state.discovery.proposals.length}`, 'info');
     } catch (error) {
       toast(`Folder picker unavailable: ${error.message}`, true);
     }
@@ -4299,11 +4839,6 @@
   let commandSelection = 0;
   let visibleCommands = [];
 
-  function focusSetupControl(id) {
-    document.querySelector('.setup-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => $(id)?.focus(), 250);
-  }
-
   function setPreferencesOpen(open) {
     $('preferencesPopover').hidden = !open;
     $('preferencesTrigger').setAttribute('aria-expanded', String(open));
@@ -4314,8 +4849,8 @@
     const commands = [
       { verb: 'DOCTOR', label: 'Run machine readiness checks', hint: 'diagnostics', run: loadDoctor },
       { verb: 'COPY', label: 'Copy redacted Doctor report', hint: 'support', run: copyDoctorReport },
-      { verb: 'ADD', label: 'Add project', hint: 'project editor', run: () => focusSetupControl('templateName') },
-      { verb: 'SCAN', label: 'Scan folder', hint: 'project discovery', run: () => focusSetupControl('scanFolder') },
+      { verb: 'ADD', label: 'Add project', hint: 'schema-backed editor', run: () => openProjectEditor() },
+      { verb: 'SCAN', label: 'Scan folder', hint: 'project discovery', run: openSetupWizard },
       { verb: 'SETTINGS', label: 'Open UI preferences', hint: 'theme density motion font', run: () => setPreferencesOpen(true) },
       { verb: 'CONFIG', label: 'Export redacted config', hint: 'backup', run: exportRedactedConfig },
       { verb: 'CONFIG', label: 'Restore previous config', hint: 'recovery', run: restorePreviousConfig },
@@ -4344,8 +4879,25 @@
       hint: fontScale === state.uiPreferences.fontScale ? 'selected' : 'UI scale',
       run: () => saveUiPreferences({ ...state.uiPreferences, fontScale }),
     }));
+    if (!$('launchAtLoginField').hidden) {
+      commands.push({
+        verb: 'STARTUP',
+        label: $('launchAtLogin').checked ? 'Disable launch at login' : 'Enable launch at login',
+        hint: 'desktop setting',
+        run: async () => {
+          const setting = await window.hackerLairWindow.setLaunchAtLogin(!$('launchAtLogin').checked);
+          $('launchAtLogin').checked = Boolean(setting.enabled);
+        },
+      });
+    }
     state.projects.forEach((project) => {
       const status = projectStatus(project);
+      commands.push({
+        verb: 'EDIT',
+        label: project.name,
+        hint: 'project configuration',
+        run: () => openProjectEditor(project),
+      });
       if (!['live', 'booting'].includes(status.key)) {
         commands.push({
           verb: 'START',
@@ -4419,6 +4971,12 @@
   }
 
   $('targetList').addEventListener('click', async (event) => {
+    const editButton = event.target.closest('[data-edit-project]');
+    if (editButton) {
+      const project = state.projects.find((item) => item.name === editButton.dataset.editProject);
+      if (project) openProjectEditor(project);
+      return;
+    }
     const detailButton = event.target.closest('[data-toggle-details]');
     if (detailButton) {
       const card = detailButton.closest('.target-card');
@@ -4526,12 +5084,7 @@
   $('emptyState').addEventListener('click', async (event) => {
     const wizardButton = event.target.closest('[data-onboarding-wizard]');
     if (wizardButton) {
-      const preferredFolder = state.workspaceFolders.at(-1)
-        || state.settings?.workspaceFolders?.[0]
-        || '';
-      if (!$('scanFolder').value && preferredFolder) $('scanFolder').value = preferredFolder;
-      document.querySelector('.setup-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setTimeout(() => $('scanFolder').focus(), 350);
+      openSetupWizard();
       pushFeed('SETUP_WIZARD_OPENED', 'source=empty_state', 'info');
       return;
     }
@@ -4556,6 +5109,56 @@
     pushFeed('FEED_RESET', 'operator=local', 'info');
   });
 
+  $('addProject').addEventListener('click', () => openProjectEditor());
+  $('saveProject').addEventListener('click', saveProjectEditor);
+  $('removeProject').addEventListener('click', removeEditedProject);
+  $('addEditorComponent').addEventListener('click', () => {
+    syncEditorComponentsFromForm();
+    editorState.components.push(blankEditorComponent());
+    renderProjectEditorComponents();
+  });
+  $('componentEditorList').addEventListener('click', async (event) => {
+    const removeButton = event.target.closest('[data-remove-editor-component]');
+    if (removeButton) {
+      syncEditorComponentsFromForm();
+      editorState.components.splice(Number(removeButton.dataset.removeEditorComponent), 1);
+      renderProjectEditorComponents();
+      return;
+    }
+    const browseButton = event.target.closest('[data-browse-editor-component]');
+    if (browseButton) {
+      try {
+        await chooseEditorFolder(Number(browseButton.dataset.browseEditorComponent));
+      } catch (error) {
+        $('projectEditorError').textContent = error.message;
+      }
+    }
+  });
+  $('wizardNext').addEventListener('click', advanceWizard);
+  $('wizardBack').addEventListener('click', () => {
+    wizardState.step = Math.max(0, wizardState.step - 1);
+    renderWizard();
+  });
+  $('wizardStep').addEventListener('click', async (event) => {
+    if (event.target.closest('[data-wizard-browse]')) {
+      try { await chooseWizardFolders(); }
+      catch (error) { $('wizardError').textContent = error.message; }
+      return;
+    }
+    if (event.target.closest('[data-wizard-add-folder]')) {
+      const folder = $('wizardFolderInput')?.value.trim();
+      if (folder) {
+        wizardState.folders = [...new Set([...wizardState.folders, folder])].slice(-10);
+        renderWizard();
+      }
+      return;
+    }
+    const removeFolder = event.target.closest('[data-wizard-remove-folder]');
+    if (removeFolder) {
+      wizardState.folders.splice(Number(removeFolder.dataset.wizardRemoveFolder), 1);
+      renderWizard();
+    }
+  });
   $('scanProjects').addEventListener('click', scanProjects);
   $('browseScanFolders').addEventListener('click', browseScanFolders);
   $('scanFolder').addEventListener('keydown', (event) => {

@@ -30,3 +30,18 @@ test('command palette includes setup and every preference family', () => {
   }
   assert.match(html, /component\.hasLog/);
 });
+
+test('onboarding and project management never require hand-edited JSON', () => {
+  for (const marker of [
+    'id="setupWizard"',
+    'id="projectEditor"',
+    'id="addProject"',
+    '/api/projects/configure',
+    '/api/projects/remove',
+    'chooseWorkspaceFolders',
+    'data-wizard-proposal',
+    'data-edit-project',
+  ]) {
+    assert.match(html, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+});

@@ -34,3 +34,16 @@ test('discovers Node and Docker projects without writing configuration', (t) => 
   assert.deepEqual(proposals.find((proposal) => proposal.name === 'worker-stack').components[0].ports, [8080]);
   assert.equal(fs.existsSync(path.join(root, 'projects.json')), false);
 });
+
+test('discovers Python web entry points with portable commands', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-python-discovery-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const api = path.join(root, 'sample-api');
+  fs.mkdirSync(api);
+  fs.writeFileSync(path.join(api, 'main.py'), 'from fastapi import FastAPI\napp = FastAPI()\n');
+
+  const [proposal] = discoverProjects(root);
+  assert.equal(proposal.type, 'fastapi');
+  assert.equal(proposal.components[0].port, 8000);
+  assert.match(proposal.components[0].command, /uvicorn main:app/);
+});
