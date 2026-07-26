@@ -27,7 +27,9 @@
     "smoke:package": "node scripts/smoke-packaged-lifecycle.js",
     "smoke:install": "node scripts/smoke-windows-installer.js",
     "docs:screenshots": "node scripts/capture-readme-screenshots.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:coverage": "node --experimental-test-coverage --test tests/*.test.js",
+    "test:ui": "python tests/ui_playwright.py"
   },
   "files": [
     "app-config.js",

@@ -15,6 +15,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
   packaged recovery smoke coverage.
 - Bounded component logs, runtime failure logs, storage reporting, and an
   in-app clear action.
+- Headless Playwright coverage for empty, live, dormant, palette, theme, and
+  minimum-window states.
 
 ### Changed
 
@@ -23,6 +25,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
   dependencies.
 - Desktop shutdown requests a graceful service flush before the forced-stop
   fallback.
+- CI and release jobs now print built-in Node test coverage and run the same UI
+  smoke before publishing packages.
 
 ## [2.1.0-beta.1] - 2026-07-26
 

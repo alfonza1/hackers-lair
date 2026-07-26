@@ -10,14 +10,17 @@ Run on Windows:
 
 ```powershell
 npm ci
-npm test
+npm run test:coverage
+python -m pip install -r requirements-test.txt
+python -m playwright install --only-shell chromium
+npm run test:ui
 npm run package
 npm run smoke:package
 npm run smoke:install
 npm run make
 ```
 
-- `npm test` covers API authorization, Host and content-type protection,
+- `test:coverage` covers API authorization, Host and content-type protection,
   identity handshakes, config backups and last-known-good behavior, project
   editing/discovery, truthful URLs, preferences, both platform parsers,
   onboarding prompts, static-site contracts, and release manifest generation.
@@ -28,6 +31,10 @@ npm run make
   installer into a unique directory below `%LOCALAPPDATA%\Programs`, verifies
   SHA256-before-unblock behavior, runs the packaged `lair` CLI without Node,
   and exercises the verified uninstaller.
+- `test:ui` drives the served page in headless Chromium at 1440x900 and
+  900x620. It covers equal-path onboarding, live/dormant cards, truthful port
+  chips, state-filtered palette commands, theme persistence, console errors,
+  and minimum-window overflow.
 
 CI runs `npm test` on `windows-latest` and `ubuntu-latest`; Windows also runs
 both packaged smoke tests. Tagged builds run Forge on both operating systems,

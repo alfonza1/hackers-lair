@@ -21,8 +21,18 @@ test('GitHub Actions are pinned and release artifacts receive provenance', () =>
   assert.match(release, /actions\/attest-build-provenance@[0-9a-f]{40}/);
   assert.match(release, /subject-path:\s*release-assets\/\*/);
   assert.match(release, /npm audit --omit=dev --audit-level=high/g);
+  assert.match(release, /npm run test:coverage/g);
+  assert.match(release, /npm run test:ui/);
   assert.match(release, /RELEASES/);
   assert.match(release, /\*-full\.nupkg/);
+});
+
+test('CI reports coverage and runs the browser UI smoke', () => {
+  const ci = fs.readFileSync(path.join(workflowDirectory, 'ci.yml'), 'utf8');
+  assert.match(ci, /name:\s*UI smoke \/ Playwright/);
+  assert.match(ci, /npm run test:coverage/);
+  assert.match(ci, /npm run test:ui/);
+  assert.match(ci, /playwright install --with-deps --only-shell chromium/);
 });
 
 test('Dependabot covers npm and workflow dependencies every week', () => {

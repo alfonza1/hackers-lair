@@ -153,9 +153,11 @@ npm run make
 
 Forge produces the Squirrel installer and portable ZIP on Windows, plus DEB,
 RPM, and ZIP packages on Linux. The release workflow adds the Linux tarball.
-CI tests both operating systems; tagged builds create the GitHub Release,
-checksums, and package-channel manifests. Pushes to `main` deploy the
-pure-static `site/` directory to GitHub Pages.
+CI reports built-in Node coverage on both operating systems, runs a headless
+Playwright UI smoke, and exercises packaged lifecycle recovery. Tagged builds
+repeat those gates before creating the GitHub Release, checksums, provenance,
+and package-channel manifests. Pushes to `main` deploy the pure-static `site/`
+directory to GitHub Pages.
 
 See [TESTING.md](TESTING.md) for clean-VM acceptance steps and
 [distribution/WINGET.md](distribution/WINGET.md) for the one manual community
