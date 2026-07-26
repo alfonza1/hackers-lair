@@ -7,7 +7,12 @@
 <meta name="application-name" content="Hacker's Lair">
 <link rel="icon" href="/icon.ico?v=command-line-v1">
 <script nonce="__LAIR_CSP_NONCE__">
-  window.__LAIR_BOOTSTRAP__ = __LAIR_BOOTSTRAP_PAYLOAD__;
+  window.__LAIR_BOOTSTRAP__ = Object.freeze({
+    get token() {
+      throw new Error("This tab was served by an outdated Hacker's Lair process. Close this tab and reopen Hacker's Lair from the desktop app.");
+    },
+  });
+  /*__LAIR_BOOTSTRAP_PAYLOAD__*/
   try {
     const preferences = JSON.parse(localStorage.getItem('hackersLair.uiPreferences') || '{}');
     const root = document.documentElement;

@@ -150,7 +150,10 @@ const injection = `<style>
 
 const source = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8')
   .replaceAll('__LAIR_CSP_NONCE__', 'docs')
-  .replace('__LAIR_BOOTSTRAP_PAYLOAD__', '{"token":"docs","nonce":"docs","port":4949}');
+  .replace(
+    '/*__LAIR_BOOTSTRAP_PAYLOAD__*/',
+    'window.__LAIR_BOOTSTRAP__ = Object.freeze({"token":"docs","nonce":"docs","port":4949});',
+  );
 const iconUrl = pathToFileURL(path.join(root, 'icon.ico')).href;
 const applicationScriptIndex = source.lastIndexOf('<script nonce="docs">');
 if (applicationScriptIndex < 0) throw new Error('Application script marker was not found.');
