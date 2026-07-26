@@ -1,23 +1,27 @@
 {
   "name": "hackers-lair",
-  "version": "2.1.0",
-  "description": "Frameless Windows command console for coding projects and localhost processes.",
+  "productName": "Hacker's Lair",
+  "version": "2.1.0-beta.1",
+  "description": "Local-first desktop console for coding projects, processes, ports, and logs.",
   "author": "Alfonza Jones",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/alfonza1/hackers-lair.git"
   },
+  "homepage": "https://alfonza1.github.io/hackers-lair/",
   "main": "desktop.js",
   "bin": {
     "lair": "bin/lair.js"
   },
   "scripts": {
-    "start": "cscript //nologo launcher.vbs",
+    "start": "electron-forge start",
     "server": "node server.js",
-    "desktop": "electron desktop.js",
+    "desktop": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
+    "smoke:package": "node scripts/smoke-packaged-lifecycle.js",
+    "smoke:install": "node scripts/smoke-windows-installer.js",
     "docs:screenshots": "node scripts/capture-readme-screenshots.js",
     "test": "node --test tests/*.test.js"
   },
@@ -27,16 +31,13 @@
     "desktop.js",
     "forge.config.js",
     "icon.ico",
-    "install.ps1",
-    "launcher.vbs",
+    "icon.png",
     "lib/",
     "LICENSE",
-    "make-icon.ps1",
     "preload.js",
     "projects.example.json",
     "public/",
     "README.md",
-    "scripts/install-shortcuts.js",
     "scripts.example.json",
     "schemas/",
     "server.js",
@@ -44,8 +45,11 @@
     "uninstall.ps1"
   ],
   "devDependencies": {
-    "@electron-forge/cli": "^7.8.3",
-    "@electron-forge/maker-zip": "^7.8.3",
+    "@electron-forge/cli": "^7.11.2",
+    "@electron-forge/maker-deb": "^7.11.2",
+    "@electron-forge/maker-rpm": "^7.11.2",
+    "@electron-forge/maker-squirrel": "^7.11.2",
+    "@electron-forge/maker-zip": "^7.11.2",
     "electron": "43.1.0"
   },
   "engines": {

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Troubleshooting — Hacker's Lair Docs</title>
+  <meta name="description" content="Fix Hacker's Lair port conflicts, missing target detection, config parse errors, firewall prompts, and data-path problems.">
+  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/docs/troubleshooting.html">
+  <meta property="og:type" content="article"><meta property="og:title" content="Troubleshooting — Hacker's Lair"><meta property="og:description" content="Doctor checks, logs, data paths, config errors, and local port diagnostics."><meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png"><meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="../assets/icon.png" type="image/png"><link rel="stylesheet" href="../assets/site.css"><script src="../assets/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="../" aria-label="Hacker's Lair home"><img src="../assets/command-line-mark.png" alt="">Hacker's <span>Lair</span></a><nav class="site-nav" aria-label="Primary navigation"><a href="../">Home</a><a href="../getting-started/">Getting started</a><a href="./" aria-current="page">Docs</a><a class="nav-install" href="./#windows">Install</a></nav></div></header>
+  <main class="docs-shell" id="main">
+    <aside class="docs-sidebar" aria-label="Documentation navigation"><h2>Docs registry</h2><nav><a href="./">Installation</a><a href="../getting-started/">Getting started</a><a href="./configuration.html">Configuration</a><a href="./detection.html">Detection</a><a href="./troubleshooting.html" aria-current="page">Troubleshooting</a><a href="./faq.html">FAQ</a><a href="./uninstall.html">Uninstall</a></nav></aside>
+    <article class="docs-content">
+      <div class="eyebrow">Guide 05 // troubleshooting</div>
+      <h1>Read the signal before changing the machine.</h1>
+      <p class="lede">Start with Doctor. Its report checks tools, data-directory access, config validation, folders, and local port state, and can be copied with usernames and absolute paths redacted.</p>
+      <pre class="command-block"><code>lair doctor</code></pre>
+
+      <h2 id="port">Port 4949 is in use</h2>
+      <p>The control service tries <code>4949</code>, then <code>4950</code> through <code>4959</code>. Port drift is expected and safe: the desktop host and CLI read the actual bound port, nonce, PID, and token from the runtime identity file and verify <code>/api/identity</code> before connecting.</p>
+      <p>If all ten ports are occupied, open the Port Signals view in an existing Hacker's Lair instance or identify the owners with:</p>
+      <h3>Windows</h3>
+      <pre class="command-block"><code>Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -ge 4949 -and $_.LocalPort -le 4959 } | Select-Object LocalPort,OwningProcess</code></pre>
+      <h3>Linux</h3>
+      <pre class="command-block"><code>ss -ltnp | grep -E ':(4949|495[0-9])\b'</code></pre>
+      <p>Do not kill an unknown process. Confirm its command line first.</p>
+
+      <h2 id="not-detected">A project starts but is not detected</h2>
+      <ol>
+        <li>Confirm the configured port is actually listening, not only printed in a startup message.</li>
+        <li>Make <code>match</code> more distinctive—prefer the absolute project folder over a generic executable name.</li>
+        <li>For Docker, declare every required published listener in <code>ports</code> and add a <code>stopCommand</code>.</li>
+        <li>For workers with no listener, set <code>track</code> to <code>process</code>.</li>
+        <li>Open the component log and inspect the exact start command, working directory, and error output.</li>
+      </ol>
+      <p>Configured ports appear as muted <strong>Ports</strong> chips. They become bright <strong>Detected</strong> chips only while live, so a muted chip is not itself an error.</p>
+
+      <h2 id="parse-error">A config parse error banner appears</h2>
+      <p>The app keeps the last known-good config in memory and shows the file and parse position. Open the listed file, fix the JSON syntax, and refresh. Doctor and the in-app schema summary report validation errors separately from JSON syntax errors.</p>
+      <p>Restore the previous known-good write from Settings or the CLI:</p>
+      <pre class="command-block"><code>lair backups
+lair restore &lt;backup-file-name&gt;</code></pre>
+      <p>The ten newest versions are retained in the data directory's <code>backups</code> folder.</p>
+
+      <h2 id="firewall">A firewall prompt appears</h2>
+      <p>The Hacker's Lair control API binds to <code>127.0.0.1</code>, validates the Host header, and does not need inbound network access. A firewall dialog may belong to a managed dev server configured to listen on all interfaces. Read the executable and network scope in the prompt; do not approve access merely because Hacker's Lair launched the command.</p>
+
+      <h2 id="logs">Logs and user data</h2>
+      <div class="docs-table-wrap"><table><thead><tr><th>Platform</th><th>Data directory</th><th>Component logs</th></tr></thead><tbody>
+        <tr><td>Windows packaged app</td><td><code>%APPDATA%\HackersLair</code></td><td><code>%APPDATA%\HackersLair\logs</code></td></tr>
+        <tr><td>Linux packaged app</td><td><code>~/.config/HackersLair</code></td><td><code>~/.config/HackersLair/logs</code></td></tr>
+      </tbody></table></div>
+      <p><code>PROJECT_MANAGER_DATA_DIR</code> changes both paths for development and diagnostic runs. The directory also holds configs, backups, activity history, preferences, and the rotating <code>api-token</code> identity file.</p>
+
+      <h2 id="desktop">The desktop opens but the service does not</h2>
+      <p>Quit the desktop app completely, including its tray icon, then relaunch it. The Electron host owns the server lifecycle and refuses to load a process that only happens to answer on a candidate port. If the issue continues, copy the Doctor report and include the release version, operating system, installation channel, and visible error.</p>
+
+      <h2 id="support">Copy a safe support report</h2>
+      <p>Select <strong>Copy report</strong> in Doctor or run:</p>
+      <pre class="command-block"><code>lair doctor</code></pre>
+      <p>Review the result before posting. The formatter redacts usernames and absolute machine paths, but project names and tool versions remain because they are useful diagnostic signals.</p>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.1</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a></div></footer>
+</body>
+</html>

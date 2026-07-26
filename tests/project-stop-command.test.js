@@ -67,6 +67,53 @@ function apiToken(dataDirectory) {
   return JSON.parse(fs.readFileSync(path.join(dataDirectory, 'api-token'), 'utf8')).token;
 }
 
+function quotedCommandArgument(value) {
+  return `"${String(value).replaceAll('"', '\\"')}"`;
+}
+
+function stopFixtureCommand(directory, marker, {
+  value,
+  pid = 0,
+  delayMs = 0,
+}) {
+  const helper = path.join(directory, `stop-helper-${value}.js`);
+  fs.writeFileSync(helper, [
+    "const fs = require('node:fs');",
+    'const [marker, value, pidText, delayText] = process.argv.slice(2);',
+    'setTimeout(() => {',
+    '  fs.writeFileSync(marker, value);',
+    '  const pid = Number(pidText);',
+    "  if (pid > 0) try { process.kill(pid, 'SIGTERM'); } catch { /* already stopped */ }",
+    '}, Number(delayText) || 0);',
+  ].join('\n'));
+  return [
+    quotedCommandArgument(process.execPath),
+    quotedCommandArgument(helper),
+    quotedCommandArgument(marker),
+    quotedCommandArgument(value),
+    String(pid),
+    String(delayMs),
+  ].join(' ');
+}
+
+function terminateMatchingProcesses(match) {
+  if (process.platform !== 'win32') {
+    spawnSync('pkill', ['-TERM', '-f', match]);
+    return;
+  }
+  const cleanupCommand = [
+    'Get-CimInstance Win32_Process',
+    `Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*${match}*' }`,
+    'ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }',
+  ].join(' | ');
+  spawnSync('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    cleanupCommand,
+  ], { windowsHide: true });
+}
+
 async function postJson(url, body, dataDirectory) {
   const response = await fetch(url, {
     method: 'POST',
@@ -102,7 +149,10 @@ test('project stop runs its graceful stop command before process cleanup', async
         role: 'backend',
         cwd: tempDirectory,
         command: `"${process.execPath}" "${workerPath}" ${workerPort} ${unrelatedPort} ${match}`,
-        stopCommand: `powershell -NoProfile -NonInteractive -Command "Start-Sleep -Milliseconds 800; Set-Content -LiteralPath '${stopMarker.replaceAll("'", "''")}' -Value stopped"`,
+        stopCommand: stopFixtureCommand(tempDirectory, stopMarker, {
+          value: 'stopped',
+          delayMs: 800,
+        }),
         port: workerPort,
         track: 'process',
         match,
@@ -126,17 +176,7 @@ test('project stop runs its graceful stop command before process cleanup', async
   });
   t.after(() => {
     try { manager.kill(); } catch { /* already stopped */ }
-    const cleanupCommand = [
-      'Get-CimInstance Win32_Process',
-      `Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*${match}*' }`,
-      'ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }',
-    ].join(' | ');
-    spawnSync('powershell', [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      cleanupCommand,
-    ], { windowsHide: true });
+    terminateMatchingProcesses(match);
     fs.rmSync(tempDirectory, { recursive: true, force: true });
   });
 
@@ -203,7 +243,10 @@ test('declared ports keep a service stoppable after its tracked wrapper exits', 
         role: 'fullstack',
         cwd: tempDirectory,
         command: 'this-command-must-not-run',
-        stopCommand: `powershell -NoProfile -NonInteractive -Command "Set-Content -LiteralPath '${stopMarker.replaceAll("'", "''")}' -Value stopped; Stop-Process -Id ${worker.pid} -Force"`,
+        stopCommand: stopFixtureCommand(tempDirectory, stopMarker, {
+          value: 'stopped',
+          pid: worker.pid,
+        }),
         ports: workerPorts,
         uiPorts: [workerPorts[0]],
         backendPorts: [workerPorts[1]],
@@ -250,6 +293,59 @@ test('declared ports keep a service stoppable after its tracked wrapper exits', 
   assert.equal(fs.readFileSync(stopMarker, 'utf8').trim(), 'stopped');
 });
 
+test('an app-launched detached component can run its stop command without ports', async (t) => {
+  const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'project-manager-detached-stop-'));
+  const configPath = path.join(tempDirectory, 'projects.json');
+  const stopMarker = path.join(tempDirectory, 'detached-stop.txt');
+  const launcher = path.join(tempDirectory, 'launcher.js');
+  fs.writeFileSync(launcher, "process.stdout.write('detached service started\\n');");
+  fs.writeFileSync(configPath, JSON.stringify({
+    projects: [{
+      name: 'Detached fixture',
+      type: 'docker',
+      components: [{
+        name: 'stack',
+        role: 'fullstack',
+        cwd: tempDirectory,
+        command: `${quotedCommandArgument(process.execPath)} ${quotedCommandArgument(launcher)}`,
+        stopCommand: stopFixtureCommand(tempDirectory, stopMarker, { value: 'stopped' }),
+        track: 'process',
+        match: 'detached-service-without-a-host-process',
+      }],
+    }],
+  }));
+
+  const port = await freePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const manager = spawn(process.execPath, [path.join(ROOT, 'server.js')], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      PROJECTS_FILE: configPath,
+      PROJECT_MANAGER_DATA_DIR: tempDirectory,
+    },
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  t.after(async () => {
+    await stopChild(manager);
+    await removeDirectoryWithRetry(tempDirectory);
+  });
+
+  await waitFor(async () => (await fetch(`${baseUrl}/api/projects`)).ok, 'server did not start');
+  const started = await postJson(`${baseUrl}/api/projects/start`, { name: 'Detached fixture' }, tempDirectory);
+  assert.deepEqual(started.started, ['stack']);
+  await waitFor(async () => {
+    const payload = await fetch(`${baseUrl}/api/projects`).then((response) => response.json());
+    return payload.projects[0].errored;
+  }, 'detached launcher exit was not observed');
+
+  const stopped = await postJson(`${baseUrl}/api/projects/stop`, { name: 'Detached fixture' }, tempDirectory);
+  assert.deepEqual(stopped.commandsRun, ['stack']);
+  assert.equal(fs.readFileSync(stopMarker, 'utf8').trim(), 'stopped');
+});
+
 test('does not report success while configured ports remain live', async (t) => {
   const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'project-manager-stop-verify-'));
   const configPath = path.join(tempDirectory, 'projects.json');
@@ -274,7 +370,9 @@ test('does not report success while configured ports remain live', async (t) => 
         role: 'fullstack',
         cwd: tempDirectory,
         command: 'this-command-must-not-run',
-        stopCommand: `powershell -NoProfile -NonInteractive -Command "Set-Content -LiteralPath '${stopMarker.replaceAll("'", "''")}' -Value attempted"`,
+        stopCommand: stopFixtureCommand(tempDirectory, stopMarker, {
+          value: 'attempted',
+        }),
         ports: [workerPort],
         track: 'process',
         match: 'wrapper-that-does-not-exist',

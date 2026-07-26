@@ -3,10 +3,19 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const dataDirectory = process.env.PROJECT_MANAGER_DATA_DIR
-  || (process.env.APPDATA
-    ? path.join(process.env.APPDATA, 'HackersLair')
-    : path.join(os.homedir(), 'AppData', 'Roaming', 'HackersLair'));
+function defaultDataDirectory({
+  environment = process.env,
+  platform = process.platform,
+  homeDirectory = os.homedir(),
+} = {}) {
+  if (environment.PROJECT_MANAGER_DATA_DIR) return environment.PROJECT_MANAGER_DATA_DIR;
+  if (platform === 'win32') {
+    return path.join(environment.APPDATA || path.join(homeDirectory, 'AppData', 'Roaming'), 'HackersLair');
+  }
+  return path.join(environment.XDG_CONFIG_HOME || path.join(homeDirectory, '.config'), 'HackersLair');
+}
+
+const dataDirectory = defaultDataDirectory();
 const identityFile = path.join(dataDirectory, 'api-token');
 
 function usage() {
@@ -83,6 +92,19 @@ function findProject(projects, query) {
   return matches[0];
 }
 
+function projectOpenUrl(project) {
+  const components = Array.isArray(project?.components) ? project.components : [];
+  const detectedUrl = components.flatMap((component) => component.detectedUrls || [])[0];
+  if (detectedUrl) return detectedUrl;
+  const configuredPort = components.flatMap((component) => [
+    ...(component.uiPorts || []),
+    ...(component.ports || []),
+    component.port,
+    ...(component.backendPorts || []),
+  ]).map(Number).find((port) => Number.isInteger(port) && port > 0 && port <= 65535);
+  return configuredPort ? `http://localhost:${configuredPort}/` : '';
+}
+
 async function main() {
   const [command = 'help', ...args] = process.argv.slice(2);
   if (['help', '--help', '-h'].includes(command)) {
@@ -135,9 +157,8 @@ async function main() {
     return;
   }
   if (command === 'open') {
-    const url = project.components.flatMap((component) => component.detectedUrls || [])[0]
-      || `http://localhost:${project.components.flatMap((component) => component.uiPorts || component.ports || [])[0]}/`;
-    if (!url || url.includes('undefined')) throw new Error(`${project.name} has no detected UI URL.`);
+    const url = projectOpenUrl(project);
+    if (!url) throw new Error(`${project.name} has no detected or configured UI URL.`);
     await request('/api/open-url', { url });
     console.log(`Opened ${url}`);
     return;
@@ -151,4 +172,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { findProject };
+module.exports = { defaultDataDirectory, findProject, projectOpenUrl };

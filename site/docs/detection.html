@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How Detection Works — Hacker's Lair Docs</title>
+  <meta name="description" content="How Hacker's Lair combines ports, command-line matching, launch records, readiness, and protected-process rules.">
+  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/docs/detection.html">
+  <meta property="og:type" content="article"><meta property="og:title" content="How Detection Works — Hacker's Lair"><meta property="og:description" content="Ports, process matches, readiness states, and stop verification."><meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png"><meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="../assets/icon.png" type="image/png"><link rel="stylesheet" href="../assets/site.css"><script src="../assets/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="../" aria-label="Hacker's Lair home"><img src="../assets/command-line-mark.png" alt="">Hacker's <span>Lair</span></a><nav class="site-nav" aria-label="Primary navigation"><a href="../">Home</a><a href="../getting-started/">Getting started</a><a href="./" aria-current="page">Docs</a><a class="nav-install" href="./#windows">Install</a></nav></div></header>
+  <main class="docs-shell" id="main">
+    <aside class="docs-sidebar" aria-label="Documentation navigation"><h2>Docs registry</h2><nav><a href="./">Installation</a><a href="../getting-started/">Getting started</a><a href="./configuration.html">Configuration</a><a href="./detection.html" aria-current="page">Detection</a><a href="./troubleshooting.html">Troubleshooting</a><a href="./faq.html">FAQ</a><a href="./uninstall.html">Uninstall</a></nav></aside>
+    <article class="docs-content">
+      <div class="eyebrow">Guide 04 // detection</div>
+      <h1>How Hacker's Lair knows what is live.</h1>
+      <p class="lede">A process ID from launch time is useful but not sufficient. Wrappers exit, Docker owns listeners, and projects can start outside the app. Hacker's Lair combines several local signals and labels uncertainty instead of inventing telemetry.</p>
+
+      <h2 id="signals">Detection signals</h2>
+      <h3>Command-line matching</h3>
+      <p>The <code>match</code> value is searched in the local process command line. Use a distinctive absolute project path or command token. A weak token such as <code>server.js</code> can match unrelated work and should be avoided.</p>
+      <h3>Port evidence</h3>
+      <p><code>port</code>, <code>ports</code>, <code>uiPorts</code>, and <code>backendPorts</code> declare expected listeners. A <code>ports</code> array is authoritative: every declared port must be listening before that component is ready. This is the preferred mode for Docker Compose, where the listener may belong to Docker rather than the launched shell.</p>
+      <h3>Launch records</h3>
+      <p>When the app starts a component, it remembers the child process and log file. This enables crash reporting, capped auto-restart, exact logs, detected localhost URLs, and copy-command reproduction. It does not replace listener and command-line checks.</p>
+      <h3>Headless tracking</h3>
+      <p><code>track: "process"</code> marks workers and other long-running programs that never bind a port. Their process evidence determines status.</p>
+
+      <h2 id="status">Status model</h2>
+      <div class="docs-table-wrap"><table><thead><tr><th>API status</th><th>UI state</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td><code>stopped</code></td><td>Dormant</td><td>No configured live signal remains. The card stays compact and does not show dead telemetry.</td></tr>
+        <tr><td><code>starting</code></td><td>Starting</td><td>A launch is in progress but readiness evidence is not complete.</td></tr>
+        <tr><td><code>running</code></td><td>Live</td><td>The component has sufficient process or listener evidence for its configured detection mode.</td></tr>
+        <tr><td><code>errored</code></td><td>Errored</td><td>The last launch or stop failed, a component exited unexpectedly, or the expected readiness signal did not appear.</td></tr>
+      </tbody></table></div>
+      <p>A target with several components can be partially live. The expanded card identifies component-level state instead of collapsing that situation into a false all-clear.</p>
+
+      <h2 id="ports">Detected versus configured ports</h2>
+      <ul>
+        <li><strong>Detected</strong> chips are bright and clickable. They come from a localhost URL announced in logs or a configured port that is currently in the live listener snapshot.</li>
+        <li><strong>Ports</strong> chips are muted configuration hints. A dormant project can show these but never claims they were detected.</li>
+        <li>If a target is live only through a listener and no matched process is available, the card shows <strong>port-detected</strong> instead of a fake or missing PID.</li>
+      </ul>
+
+      <h2 id="stop">Stop and verification</h2>
+      <ol>
+        <li>Run <code>stopCommand</code> in the component working directory when configured.</li>
+        <li>Terminate the remembered and command-line-matched process tree through the platform layer.</li>
+        <li>Poll configured processes and ports for up to five seconds.</li>
+        <li>If any signal survives, keep the target live and report that termination was incomplete.</li>
+      </ol>
+      <p>This is why a Docker component should declare both a graceful <code>docker compose down</code> command and its published readiness ports.</p>
+
+      <h2 id="protected">Protected processes</h2>
+      <p>Hacker's Lair marks its own control process and operating-system processes as protected. The Port Signals view does not offer destructive actions against those entries. All termination stays local and explicit; the app does not stop an arbitrary listener merely because a new target wants its port.</p>
+
+      <h2 id="platforms">Platform implementation</h2>
+      <div class="docs-table-wrap"><table><thead><tr><th>Signal</th><th>Windows</th><th>Linux</th></tr></thead><tbody>
+        <tr><td>Listeners / connections</td><td>Win32 process and network snapshots</td><td><code>ss</code>, with <code>lsof</code> fallback</td></tr>
+        <tr><td>Process metadata</td><td>Win32 process snapshot</td><td><code>ps</code> and <code>/proc</code></td></tr>
+        <tr><td>Termination</td><td>Verified process-tree termination</td><td>POSIX signals with verification</td></tr>
+      </tbody></table></div>
+      <p>Snapshots are cached briefly so one UI poll does not repeat full machine enumeration. Git attention scans run asynchronously in the background and project requests read the cache.</p>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.1</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a></div></footer>
+</body>
+</html>

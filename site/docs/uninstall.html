@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Uninstall — Hacker's Lair Docs</title>
+  <meta name="description" content="Remove Hacker's Lair cleanly from Windows or Linux and choose whether to retain local config, logs, and backups.">
+  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/docs/uninstall.html">
+  <meta property="og:type" content="article"><meta property="og:title" content="Uninstall — Hacker's Lair"><meta property="og:description" content="Channel-specific removal and optional user-data cleanup."><meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png"><meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="../assets/icon.png" type="image/png"><link rel="stylesheet" href="../assets/site.css"><script src="../assets/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="../" aria-label="Hacker's Lair home"><img src="../assets/command-line-mark.png" alt="">Hacker's <span>Lair</span></a><nav class="site-nav" aria-label="Primary navigation"><a href="../">Home</a><a href="../getting-started/">Getting started</a><a href="./" aria-current="page">Docs</a><a class="nav-install" href="./#windows">Install</a></nav></div></header>
+  <main class="docs-shell" id="main">
+    <aside class="docs-sidebar" aria-label="Documentation navigation"><h2>Docs registry</h2><nav><a href="./">Installation</a><a href="../getting-started/">Getting started</a><a href="./configuration.html">Configuration</a><a href="./detection.html">Detection</a><a href="./troubleshooting.html">Troubleshooting</a><a href="./faq.html">FAQ</a><a href="./uninstall.html" aria-current="page">Uninstall</a></nav></aside>
+    <article class="docs-content">
+      <div class="eyebrow">Guide 07 // uninstall</div>
+      <h1>Remove the app. Choose what happens to your data.</h1>
+      <p class="lede">Quit Hacker's Lair from the tray before removal. Uninstalling the app does not delete project source folders or terminate unrelated dev processes.</p>
+
+      <h2 id="windows">Windows</h2>
+      <h3>Winget</h3>
+      <pre class="command-block"><code>winget uninstall --id Alfonza1.HackersLair --exact</code></pre>
+      <p>The Squirrel uninstaller removes the installed application and shortcuts. User config remains available for a later reinstall unless you remove it separately.</p>
+
+      <h3>PowerShell channel</h3>
+      <pre class="command-block"><code>irm https://alfonza1.github.io/hackers-lair/uninstall.ps1 | iex</code></pre>
+      <p>The script verifies and stops only the running Hacker's Lair executable whose path belongs to the per-user installation. It then asks whether to retain or delete <code>%APPDATA%\HackersLair</code>. For a non-interactive local script run, use <code>-KeepData</code> or <code>-DeleteData</code>.</p>
+
+      <h3>Scoop</h3>
+      <pre class="command-block"><code>scoop uninstall hackerslair</code></pre>
+      <p>Scoop removes the package and shim. Remove the bucket only if you no longer use it:</p>
+      <pre class="command-block"><code>scoop bucket rm hackerslair</code></pre>
+
+      <h3>Optional Windows user-data cleanup</h3>
+      <pre class="command-block"><code>Remove-Item -LiteralPath (Join-Path $env:APPDATA 'HackersLair') -Recurse -Force</code></pre>
+      <div class="docs-callout"><strong>Permanent action:</strong> the user-data directory contains project config, preferences, logs, and backups. Inspect or export it before removal.</div>
+
+      <h2 id="linux">Linux</h2>
+      <h3>Debian / Ubuntu</h3>
+      <pre class="command-block"><code>sudo apt remove hackers-lair</code></pre>
+      <h3>Fedora / RHEL</h3>
+      <pre class="command-block"><code>sudo rpm -e hackers-lair</code></pre>
+      <h3>Distro-neutral tarball</h3>
+      <pre class="command-block"><code>rm -rf -- "$HOME/.local/opt/hackers-lair"</code></pre>
+      <p>If you created a desktop entry manually, remove that specific file from <code>~/.local/share/applications</code>.</p>
+      <h3>Managed CLI companion</h3>
+      <pre class="command-block"><code>if grep -Fq "# Hacker's Lair managed CLI" "$HOME/.local/bin/lair" 2&gt;/dev/null; then
+  rm -f -- "$HOME/.local/bin/lair"
+fi</code></pre>
+      <p>The ownership-marker check preserves an unrelated command that happens to use the same <code>lair</code> name.</p>
+
+      <h3>Optional Linux user-data cleanup</h3>
+      <pre class="command-block"><code>rm -rf -- "${XDG_CONFIG_HOME:-$HOME/.config}/HackersLair"</code></pre>
+      <p>That removal is permanent. Keep the directory when you expect to reinstall or want to preserve config backups.</p>
+
+      <h2 id="verify">Verify the control service stopped</h2>
+      <p>After the desktop host exits, its managed private server should also exit. The following commands should show no Hacker's Lair listener:</p>
+      <h3>Windows</h3>
+      <pre class="command-block"><code>Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -ge 4949 -and $_.LocalPort -le 4959 }</code></pre>
+      <h3>Linux</h3>
+      <pre class="command-block"><code>ss -ltnp | grep -E ':(4949|495[0-9])\b' || true</code></pre>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.1</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a></div></footer>
+</body>
+</html>

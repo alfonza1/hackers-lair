@@ -1,11 +1,11 @@
 // Hacker's Lair — lists processes listening on local ports and can stop them.
-// No dependencies; Windows-only (uses netstat + tasklist + taskkill).
+// Runtime OS operations live behind lib/platform so the request layer stays portable.
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { exec, execFile, spawn } = require('child_process');
+const { exec, spawn } = require('child_process');
 const { gitAttentionForProject, refreshGitAttention } = require('./lib/git-attention');
 const { compareProjectsForDisplay } = require('./lib/project-order');
 const { onboardingState } = require('./lib/onboarding-prompts');
@@ -14,8 +14,18 @@ const { discoverProjects } = require('./lib/project-discovery');
 const { formatDoctorReport, runDoctor } = require('./lib/doctor');
 const { redactValue } = require('./lib/redaction');
 const { instantiateTemplate, PROJECT_TEMPLATES } = require('./lib/project-templates');
-const { detectedUrlsFromLog, isZombieComponent } = require('./lib/runtime-intelligence');
+const {
+  removeProjectFromConfig,
+  updateProjectConfig,
+} = require('./lib/project-config');
+const {
+  detectedUrlsFromLog,
+  isZombieComponent,
+  splitTargetUrls,
+} = require('./lib/runtime-intelligence');
 const { createRuntimeConfig } = require('./lib/runtime-config');
+const { normalizeUiPreferences, validateUiPreferences } = require('./lib/ui-preferences');
+const { createPlatform } = require('./lib/platform');
 const {
   allowedHost,
   createRuntimeIdentity,
@@ -38,6 +48,7 @@ const GIT_REFRESH_INTERVAL_MS = 10_000;
 const MAX_BODY_BYTES = 1024 * 1024;
 const runtimeConfig = createRuntimeConfig(__dirname);
 const runtimeIdentity = createRuntimeIdentity();
+const platform = createPlatform();
 const DATA_DIR = runtimeConfig.dataDirectory;
 const AGENTS_HOME = process.env.AGENTS_HOME || path.resolve(__dirname, '..', '.agents');
 const STORE = path.join(DATA_DIR, 'stopped.json');
@@ -53,6 +64,10 @@ function loadSettings() {
     enableSkills: result.value.enableSkills === true,
     browserPath: String(result.value.browserPath || ''),
     zombieAfterHours: Number(result.value.zombieAfterHours) || 8,
+    workspaceFolders: Array.isArray(result.value.workspaceFolders)
+      ? result.value.workspaceFolders
+      : [],
+    uiPreferences: normalizeUiPreferences(result.value.uiPreferences),
     error: result.error,
   };
 }
@@ -83,20 +98,6 @@ function reconcileStopped(live) {
 }
 
 // Never allow killing these — taking them down can break Windows itself.
-const PROTECTED_PIDS = new Set([0, 4, process.pid]);
-const PROTECTED_NAMES = new Set([
-  'system', 'system idle process', 'idle', 'registry', 'memory compression',
-  'smss.exe', 'csrss.exe', 'wininit.exe', 'winlogon.exe',
-  'services.exe', 'lsass.exe', 'svchost.exe',
-]);
-
-// Shown under the "system" filter (hidden by default in the UI) but killable if not protected.
-const SYSTEM_NAMES = new Set([
-  ...PROTECTED_NAMES,
-  'spoolsv.exe', 'dns.exe', 'mdnsresponder.exe', 'dashost.exe',
-  'wslrelay.exe', 'vmcompute.exe', 'com.docker.backend.exe',
-]);
-
 // Pretty names for dev tools found in node_modules paths.
 const PACKAGE_LABELS = {
   'vite': 'Vite', 'react-scripts': 'React (CRA)', 'next': 'Next.js', 'remix': 'Remix',
@@ -186,7 +187,7 @@ function deriveCwd(cmd, exePath) {
     if (m) return m[1]; // the project folder that owns node_modules
   }
   for (const arg of splitArgs(cmd).slice(1)) {
-    if (/\.(mjs|cjs|jsx?|tsx?|py)$/i.test(arg) && /^[a-zA-Z]:[\\/]/.test(arg)) {
+    if (/\.(mjs|cjs|jsx?|tsx?|py)$/i.test(arg) && path.isAbsolute(arg)) {
       return path.dirname(arg); // absolute script path -> its directory
     }
   }
@@ -207,12 +208,8 @@ async function getCommandLines(pids) {
   const missing = pids.filter((pid) => !cmdCache.has(pid));
   if (missing.length) {
     try {
-      const filter = missing.map((pid) => `ProcessId=${pid}`).join(' OR ');
-      const script = `Get-CimInstance Win32_Process -Filter "${filter}" | Select-Object ProcessId,CommandLine,ExecutablePath | ConvertTo-Json -Compress`;
-      const out = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
-      const parsed = out.trim() ? JSON.parse(out) : [];
-      for (const row of Array.isArray(parsed) ? parsed : [parsed]) {
-        cmdCache.set(row.ProcessId, { cmd: row.CommandLine || '', exePath: row.ExecutablePath || '' });
+      for (const row of await platform.processDetails(missing)) {
+        cmdCache.set(row.pid, { cmd: row.cmd || '', exePath: row.exePath || '' });
       }
     } catch { /* access denied or CIM hiccup — fall back to exe names */ }
     for (const pid of missing) if (!cmdCache.has(pid)) cmdCache.set(pid, { cmd: '', exePath: '' });
@@ -231,20 +228,15 @@ async function getProcessMetrics(pids) {
   if (!pids.length) return metrics;
 
   try {
-    const filter = pids.map((pid) => `ProcessId=${pid}`).join(' OR ');
-    const script = `$rows = Get-CimInstance Win32_Process -Filter "${filter}" | Select-Object ProcessId,@{Name='CreationDateUtc';Expression={ if ($_.CreationDate) { $_.CreationDate.ToUniversalTime().ToString('o') } else { $null } }},KernelModeTime,UserModeTime,WorkingSetSize; $rows | ConvertTo-Json -Compress`;
-    const out = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
-    const rows = out.trim() ? JSON.parse(out) : [];
+    const rows = await platform.processDetails(pids);
     const now = Date.now();
     const cpuCount = Math.max(os.cpus().length, 1);
 
-    for (const row of Array.isArray(rows) ? rows : [rows]) {
-      const pid = Number(row.ProcessId);
+    for (const row of rows) {
+      const pid = Number(row.pid);
       if (!Number.isInteger(pid)) continue;
 
-      const kernel = Number(row.KernelModeTime) || 0;
-      const user = Number(row.UserModeTime) || 0;
-      const cpuTimeSeconds = (kernel + user) / 10000000;
+      const cpuTimeSeconds = Number(row.cpuTimeSeconds) || 0;
       const previous = cpuSamples.get(pid);
       let cpuPercent = null;
       if (previous && cpuTimeSeconds >= previous.cpuTimeSeconds) {
@@ -255,14 +247,15 @@ async function getProcessMetrics(pids) {
       }
       cpuSamples.set(pid, { cpuTimeSeconds, sampledAt: now });
 
-      const startedAt = row.CreationDateUtc ? Date.parse(row.CreationDateUtc) : NaN;
-      const workingSetKB = Math.round((Number(row.WorkingSetSize) || 0) / 1024);
+      const startedAt = Number(row.startedAt);
       metrics.set(pid, {
         startedAt: Number.isFinite(startedAt) ? startedAt : null,
-        uptimeSeconds: Number.isFinite(startedAt) ? Math.max(0, Math.floor((now - startedAt) / 1000)) : null,
+        uptimeSeconds: Number.isFinite(Number(row.uptimeSeconds))
+          ? Number(row.uptimeSeconds)
+          : Number.isFinite(startedAt) ? Math.max(0, Math.floor((now - startedAt) / 1000)) : null,
         cpuPercent: Number.isFinite(cpuPercent) ? cpuPercent : null,
         cpuTimeSeconds,
-        workingSetKB,
+        workingSetKB: Number(row.workingSetKB) || 0,
       });
     }
   } catch {
@@ -296,21 +289,13 @@ async function getSystemStats() {
   };
 
   try {
-    // Win32_Processor.LoadPercentage reads a stale/zero snapshot on many boxes,
-    // and the perf-counter classes (Get-Counter, Win32_PerfFormattedData_*) are
-    // absent or locale-broken on some Windows installs. So measure CPU the way
-    // Task Manager does: sample every process's total CPU time twice over a short
-    // window and sum the *positive* per-pid deltas (a process that exits mid-
-    // window just drops out — no negative spike). Locale-independent, no counters.
-    const script = `$os = Get-CimInstance Win32_OperatingSystem; $cores = [int]$env:NUMBER_OF_PROCESSORS; if ($cores -lt 1) { $cores = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors }; $s1 = @{}; foreach ($p in Get-Process) { try { $s1[$p.Id] = $p.TotalProcessorTime.TotalSeconds } catch {} }; $sw = [Diagnostics.Stopwatch]::StartNew(); Start-Sleep -Milliseconds 350; $sw.Stop(); $busy = 0.0; foreach ($p in Get-Process) { try { if ($s1.ContainsKey($p.Id)) { $d = $p.TotalProcessorTime.TotalSeconds - $s1[$p.Id]; if ($d -gt 0) { $busy += $d } } } catch {} }; $cpu = [math]::Round($busy / $sw.Elapsed.TotalSeconds / $cores * 100, 1); if ($cpu -gt 100) { $cpu = 100 }; [pscustomobject]@{ CpuPercent = $cpu; TotalMemoryKB = [int64]$os.TotalVisibleMemorySize; FreeMemoryKB = [int64]$os.FreePhysicalMemory } | ConvertTo-Json -Compress`;
-    const out = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
-    const row = out.trim() ? JSON.parse(out) : null;
+    const row = await platform.systemStats();
     if (row) {
-      const totalKB = Number(row.TotalMemoryKB) || fallbackMemory.totalKB;
-      const freeKB = Number(row.FreeMemoryKB) || fallbackMemory.freeKB;
+      const totalKB = Number(row.totalMemoryKB) || fallbackMemory.totalKB;
+      const freeKB = Number(row.freeMemoryKB) || fallbackMemory.freeKB;
       data = {
         ...data,
-        cpuPercent: Number.isFinite(Number(row.CpuPercent)) ? Number(row.CpuPercent) : null,
+        cpuPercent: Number.isFinite(Number(row.cpuPercent)) ? Number(row.cpuPercent) : null,
         memory: {
           totalKB,
           freeKB,
@@ -327,12 +312,7 @@ async function getSystemStats() {
 }
 
 function run(cmd, args) {
-  return new Promise((resolve, reject) => {
-    execFile(cmd, args, { maxBuffer: 8 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
-      if (err) reject(new Error(stderr.trim() || err.message));
-      else resolve(stdout);
-    });
-  });
+  return platform.execFile(cmd, args);
 }
 
 function runConfiguredCommand(command, cwd) {
@@ -349,75 +329,25 @@ function runConfiguredCommand(command, cwd) {
   });
 }
 
-function parseTasklist(csv) {
-  const byPid = new Map();
-  for (const raw of csv.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line.startsWith('"')) continue;
-    const cols = line.replace(/^"|"$/g, '').split('","');
-    if (cols.length < 5) continue;
-    const pid = Number(cols[1]);
-    if (!Number.isInteger(pid)) continue;
-    byPid.set(pid, {
-      name: cols[0],
-      memKB: Number(cols[4].replace(/[^\d]/g, '')) || 0,
-    });
-  }
-  return byPid;
-}
-
 async function getListeners() {
-  const [netstatOut, tasklistOut] = await Promise.all([
-    run('netstat', ['-ano']),
-    run('tasklist', ['/FO', 'CSV', '/NH']),
-  ]);
-  const procInfo = parseTasklist(tasklistOut);
-  const connectionsByPort = new Map();
-
-  // pid -> Map(port -> Set(addresses))
-  const byPid = new Map();
-  for (const raw of netstatOut.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line.startsWith('TCP')) continue;
-    const parts = line.split(/\s+/);
-    if (parts.length < 5) continue;
-    const local = parts[1];
-    const sep = local.lastIndexOf(':');
-    if (sep === -1) continue;
-    const address = local.slice(0, sep);
-    const port = Number(local.slice(sep + 1));
-    const pid = Number(parts[4]);
-    if (!Number.isInteger(port) || !Number.isInteger(pid)) continue;
-    if (parts[3] === 'ESTABLISHED') {
-      connectionsByPort.set(port, (connectionsByPort.get(port) || 0) + 1);
-      continue;
-    }
-    if (parts[3] !== 'LISTENING') continue;
-
-    if (!byPid.has(pid)) byPid.set(pid, new Map());
-    const ports = byPid.get(pid);
-    if (!ports.has(port)) ports.set(port, new Set());
-    ports.get(port).add(address);
-  }
+  const snapshot = await platform.networkSnapshot();
+  const listenerPids = snapshot.listeners.map((listener) => listener.pid);
 
   // Command lines only matter for identifying user apps — skip system ones.
-  const userPids = [...byPid.keys()].filter((pid) => {
-    const info = procInfo.get(pid);
-    return info && !SYSTEM_NAMES.has(info.name.toLowerCase()) && !PROTECTED_PIDS.has(pid);
-  });
+  const userPids = snapshot.listeners
+    .filter((listener) => !platform.isSystemProcess(listener.pid, listener.name, process.pid))
+    .map((listener) => listener.pid);
   const [cmds, metrics] = await Promise.all([
     getCommandLines(userPids),
-    getProcessMetrics([...byPid.keys()]),
+    getProcessMetrics(listenerPids),
   ]);
 
-  const result = [];
-  for (const [pid, ports] of byPid) {
-    const info = procInfo.get(pid) || { name: `PID ${pid}`, memKB: 0 };
-    const lowerName = info.name.toLowerCase();
-    const isProtected = PROTECTED_PIDS.has(pid) || PROTECTED_NAMES.has(lowerName);
+  const result = snapshot.listeners.map((info) => {
+    const { pid } = info;
+    const isProtected = platform.isProtectedProcess(pid, info.name, process.pid);
     const { cmd, exePath } = cmds.get(pid) || { cmd: '', exePath: '' };
     const metric = metrics.get(pid) || {};
-    result.push({
+    return {
       pid,
       name: info.name,
       label: pid === process.pid ? "Hacker's Lair" : friendlyLabel(cmd),
@@ -431,16 +361,10 @@ async function getListeners() {
       cpuTimeSeconds: metric.cpuTimeSeconds ?? null,
       self: pid === process.pid,
       protected: isProtected,
-      system: !((pid === process.pid)) && (isProtected || SYSTEM_NAMES.has(lowerName)),
-      ports: [...ports.entries()]
-        .sort((a, b) => a[0] - b[0])
-        .map(([port, addrs]) => ({
-          port,
-          addresses: [...addrs],
-          establishedConnections: connectionsByPort.get(port) || 0,
-        })),
-    });
-  }
+      system: platform.isSystemProcess(pid, info.name, process.pid),
+      ports: info.ports.slice().sort((left, right) => left.port - right.port),
+    };
+  });
 
   // User processes first, then by lowest port.
   result.sort((a, b) => (a.system - b.system) || (a.ports[0].port - b.ports[0].port));
@@ -593,26 +517,25 @@ async function getTrackedProcesses(projects) {
         needles.push(String(c.match || c.cwd).toLowerCase());
   if (!needles.length) return [];
 
-  const rows = await getWin32ProcessSnapshot();
+  const rows = await getProcessSnapshot();
 
   const matched = rows.filter((r) => {
-    const cmd = String(r.CommandLine || '').toLowerCase();
+    const cmd = String(r.cmd || '').toLowerCase();
     return needles.some((n) => cmd.includes(n));
   });
   if (!matched.length) return [];
 
-  const pids = matched.map((r) => Number(r.ProcessId)).filter(Number.isInteger);
+  const pids = matched.map((r) => Number(r.pid)).filter(Number.isInteger);
   const metrics = await getProcessMetrics(pids);
 
   return matched.map((r) => {
-    const pid = Number(r.ProcessId);
-    const cmd = String(r.CommandLine || '');
-    const exePath = String(r.ExecutablePath || '');
-    const lowerName = String(r.Name || '').toLowerCase();
+    const pid = Number(r.pid);
+    const cmd = String(r.cmd || '');
+    const exePath = String(r.exePath || '');
     const m = metrics.get(pid) || {};
     return {
       pid,
-      name: r.Name || `PID ${pid}`,
+      name: r.name || `PID ${pid}`,
       label: friendlyLabel(cmd),
       cmd,
       exePath,
@@ -623,7 +546,7 @@ async function getTrackedProcesses(projects) {
       cpuPercent: m.cpuPercent ?? null,
       cpuTimeSeconds: m.cpuTimeSeconds ?? null,
       self: pid === process.pid,
-      protected: PROTECTED_PIDS.has(pid) || PROTECTED_NAMES.has(lowerName),
+      protected: platform.isProtectedProcess(pid, r.name, process.pid),
       ports: [],
     };
   });
@@ -644,15 +567,7 @@ function loadScriptsConfig() {
 
 // Find AutoIt3.exe: prefer the configured path, then the usual install spots.
 function resolveAutoItExe(configured) {
-  const candidates = [
-    configured,
-    'C:\\Program Files\\AutoIt3\\AutoIt3.exe',
-    'C:\\Program Files (x86)\\AutoIt3\\AutoIt3.exe',
-  ].filter(Boolean);
-  for (const candidate of candidates) {
-    try { if (fs.existsSync(candidate)) return candidate; } catch { /* keep looking */ }
-  }
-  return null;
+  return platform.resolveScriptRuntime(configured);
 }
 
 // Every .au3 in the folder, newest-modified first (the UI's "new to old").
@@ -674,22 +589,12 @@ function listScriptFiles(dir) {
 // CIM call. A script is "on" when some process's command line contains its path.
 async function getScriptProcesses() {
   try {
-    const query = `Get-CimInstance Win32_Process -Filter "Name LIKE 'AutoIt%'" | Select-Object ProcessId,CommandLine,@{Name='CreationDateUtc';Expression={ if ($_.CreationDate) { $_.CreationDate.ToUniversalTime().ToString('o') } else { $null } }},WorkingSetSize | ConvertTo-Json -Compress`;
-    const out = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', query]);
-    const parsed = out.trim() ? JSON.parse(out) : [];
-    const now = Date.now();
-    return (Array.isArray(parsed) ? parsed : [parsed])
-      .map((row) => {
-        const pid = Number(row.ProcessId);
-        const startedAt = row.CreationDateUtc ? Date.parse(row.CreationDateUtc) : NaN;
-        return {
-          pid,
-          cmd: String(row.CommandLine || ''),
-          uptimeSeconds: Number.isFinite(startedAt) ? Math.max(0, Math.floor((now - startedAt) / 1000)) : null,
-          workingSetKB: Math.round((Number(row.WorkingSetSize) || 0) / 1024),
-        };
-      })
-      .filter((p) => Number.isInteger(p.pid));
+    return (await platform.scriptProcesses()).map((row) => ({
+      pid: row.pid,
+      cmd: row.cmd,
+      uptimeSeconds: row.uptimeSeconds,
+      workingSetKB: row.workingSetKB,
+    }));
   } catch { return []; }
 }
 
@@ -762,26 +667,9 @@ function tailLog(file, code) {
   } catch { return `Exited with code ${code}.`; }
 }
 
-function spawnDetachedExecutable(executable, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, {
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-      ...options,
-    });
-    child.once('error', reject);
-    child.once('spawn', () => {
-      child.unref();
-      resolve(child);
-    });
-  });
-}
-
 async function openBrowserUrl(url) {
   const browser = configuredBrowserPath();
-  if (browser) await spawnDetachedExecutable(browser, [url], { windowsHide: false });
-  else await spawnDetachedExecutable('explorer.exe', [url]);
+  await platform.openUrl(url, browser);
   return browser || 'system default';
 }
 
@@ -955,7 +843,18 @@ function annotateProjects(projects, listeners, tracked = []) {
         establishedConnections,
         thresholdHours: zombieAfterHours,
       });
-      const detectedUrls = detectedUrlsFromLog(rec?.logFile);
+      const componentLivePorts = [...new Set(
+        [
+          ...hits.flatMap((listener) => listener.ports.map((port) => port.port)),
+          ...liveReadinessPorts,
+        ],
+      )].sort((a, b) => a - b);
+      const targetUrls = splitTargetUrls({
+        active: running || status === 'starting',
+        configuredPorts: expectedPorts,
+        livePorts: componentLivePorts,
+        logUrls: detectedUrlsFromLog(rec?.logFile),
+      });
       const portConflicts = status === 'errored' && /EADDRINUSE|address already in use/i.test(error)
         ? expectedPorts.flatMap((port) => listeners
           .filter((listener) => listener.ports.some((entry) => entry.port === port))
@@ -991,19 +890,16 @@ function annotateProjects(projects, listeners, tracked = []) {
         establishedConnections,
         zombie,
         zombieAfterHours,
-        detectedUrls,
+        detectedUrls: targetUrls.detectedUrls,
+        configuredPorts: targetUrls.configuredPorts,
+        hasLog: Boolean(rec?.logFile && fs.existsSync(rec.logFile)),
         portConflicts,
         autoRestart: c.autoRestart === true,
         restartAttempt: rec?.restartCount || 0,
         nextRestartAt: rec?.nextRestartAt || null,
         crashEvent: rec?.crashEvent || null,
         lastActionAt: (rec && rec.startedAt) || startedTimes[proj.name] || 0,
-        livePorts: [...new Set(
-          [
-            ...hits.flatMap((listener) => listener.ports.map((port) => port.port)),
-            ...liveReadinessPorts,
-          ],
-        )].sort((a, b) => a - b),
+        livePorts: componentLivePorts,
       };
     });
     const runningCount = components.filter((c) => c.running).length;
@@ -1057,7 +953,7 @@ function readBody(req) {
 
 let processSnapshot = { readAt: 0, rows: [], pending: null };
 
-async function getWin32ProcessSnapshot() {
+async function getProcessSnapshot() {
   if (Date.now() - processSnapshot.readAt < PROCESS_SNAPSHOT_TTL_MS) {
     return processSnapshot.rows;
   }
@@ -1065,10 +961,8 @@ async function getWin32ProcessSnapshot() {
 
   processSnapshot.pending = (async () => {
     try {
-      const script = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine } | Select-Object ProcessId,Name,CommandLine,ExecutablePath | ConvertTo-Json -Compress`;
-      const out = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
-      const parsed = out.trim() ? JSON.parse(out) : [];
-      processSnapshot.rows = Array.isArray(parsed) ? parsed : [parsed];
+      processSnapshot.rows = (await platform.processDetails())
+        .filter((row) => row.cmd);
     } catch {
       processSnapshot.rows = [];
     }
@@ -1107,7 +1001,8 @@ function securityHeaders() {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const pathname = new URL(req.url, 'http://localhost').pathname;
+    const requestUrl = new URL(req.url, 'http://localhost');
+    const { pathname } = requestUrl;
     if (!allowedHost(req.headers.host, currentPort)) {
       json(res, 403, { error: 'Forbidden host' });
       return;
@@ -1176,6 +1071,82 @@ const server = http.createServer(async (req, res) => {
       // Live targets always lead; recency orders targets within each group.
       annotated.sort(compareProjectsForDisplay);
       json(res, 200, { projects: annotated, configError: projectsConfigError() });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/projects/configure') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
+        const current = runtimeConfig.projects.read();
+        if (current.error) {
+          json(res, 409, { error: `Fix the current configuration first: ${current.error}` });
+          return;
+        }
+        let next;
+        try {
+          next = updateProjectConfig(current.value, {
+            originalName: input.originalName,
+            project: input.project,
+          });
+          runtimeConfig.projects.validate(next);
+        } catch (error) {
+          json(res, 400, { error: error.message });
+          return;
+        }
+        runtimeConfig.projects.write(next);
+        void refreshGitAttention(next.projects);
+        void refreshDoctor();
+        const saved = next.projects.find((project) => (
+          project.name.toLowerCase() === String(input.project?.name || '').trim().toLowerCase()
+        ));
+        json(res, 200, { ok: true, project: saved });
+      } finally {
+        actionLocks.delete(actionKey);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/projects/remove') {
+      let name;
+      try { name = String(JSON.parse(await readBody(req)).name || ''); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
+        const current = runtimeConfig.projects.read();
+        if (current.error) {
+          json(res, 409, { error: `Fix the current configuration first: ${current.error}` });
+          return;
+        }
+        const project = current.value.projects.find((item) => item.name === name);
+        if (!project) {
+          json(res, 404, { error: `No project named "${name}"` });
+          return;
+        }
+        if ((await remainingProjectSignals(project)).length) {
+          json(res, 409, { error: 'Stop every component before removing this project.' });
+          return;
+        }
+        const next = removeProjectFromConfig(current.value, name);
+        runtimeConfig.projects.write(next);
+        json(res, 200, { ok: true, name });
+        void refreshGitAttention(next.projects);
+        void refreshDoctor();
+      } finally {
+        actionLocks.delete(actionKey);
+      }
       return;
     }
 
@@ -1327,10 +1298,11 @@ const server = http.createServer(async (req, res) => {
         const proj = loadProjects().find((p) => p.name === name);
         if (!proj) { json(res, 404, { error: `No project named "${name}"` }); return; }
 
-      // Some managed services (notably Docker Compose stacks) need a graceful,
-      // service-aware shutdown. Run an explicitly configured stop command only
-      // for components currently detected as live, then clean up any remaining
-      // wrapper/listener processes below.
+      // Some managed services (notably detached Docker Compose stacks) need a
+      // service-aware shutdown after their launcher has exited. A launch record
+      // proves the user started that component here, so its explicit stop
+      // command is safe to run even when it has no detectable host process or
+      // configured port.
       const listenersBeforeStop = await getListeners();
       const trackedBeforeStop = await getTrackedProcesses([proj]);
       const wasDetectedLive = (proj.components || []).some((c) => {
@@ -1343,7 +1315,8 @@ const server = http.createServer(async (req, res) => {
         if (!c.stopCommand) continue;
         const pool = c.track === 'process' ? trackedBeforeStop : listenersBeforeStop;
         const detectedByPort = anyConfiguredPortDetected(c, listenersBeforeStop);
-        if (!listenersFor(c, pool).length && !detectedByPort) continue;
+        const launchedHere = launches.has(launchKey(name, c.name));
+        if (!listenersFor(c, pool).length && !detectedByPort && !launchedHere) continue;
         if (!c.cwd || !fs.existsSync(c.cwd)) {
           stopFailures.push(`${c.name}: missing folder ${c.cwd || '(no cwd)'}`);
           continue;
@@ -1370,7 +1343,7 @@ const server = http.createServer(async (req, res) => {
       }
       let killed = 0;
       for (const pid of pids) {
-        try { await run('taskkill', ['/PID', String(pid), '/T', '/F']); killed++; } catch { /* already gone */ }
+        try { await platform.terminateProcess(pid); killed++; } catch { /* already gone */ }
       }
       invalidateProcessSnapshot();
       if (stopFailures.length) {
@@ -1400,7 +1373,7 @@ const server = http.createServer(async (req, res) => {
 
       // Forget launch state only after every configured live signal disappears.
       for (const c of proj.components || []) launches.delete(launchKey(name, c.name));
-      if (wasDetectedLive) recordProjectActivity(name);
+      if (wasDetectedLive || stoppedByCommand.length) recordProjectActivity(name);
         json(res, 200, {
           ok: true,
           name,
@@ -1417,21 +1390,32 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/api/scripts') {
       const config = loadScriptsConfig();
       json(res, 200, {
-        scripts: await getScripts(),
-        configured: Boolean(config.scriptsDir),
+        scripts: platform.supportsScripts ? await getScripts() : [],
+        configured: platform.supportsScripts && Boolean(config.scriptsDir),
         configError: config.error,
       });
       return;
     }
 
-    if (req.method === 'GET' && req.url === '/api/onboarding') {
+    if (req.method === 'GET' && pathname === '/api/onboarding') {
       const settings = loadSettings();
+      const selectedWorkspaceFolders = requestUrl.searchParams
+        .getAll('workspaceFolder')
+        .map((folder) => folder.trim())
+        .filter((folder) => folder.length <= 1024)
+        .slice(0, 10);
       json(res, 200, onboardingState({
         projectsFile: PROJECTS_FILE,
+        projectsSchemaFile: runtimeConfig.projectsSchemaFile,
+        projectsSchemaUrl: `http://localhost:${currentPort}/api/schema/projects`,
         agentsHome: AGENTS_HOME,
         projects: loadProjects(),
         skills: settings.enableSkills ? listSkills({ agentsHome: AGENTS_HOME }) : [],
         enableSkills: settings.enableSkills,
+        workspaceFolders: [
+          ...settings.workspaceFolders,
+          ...selectedWorkspaceFolders,
+        ],
       }));
       return;
     }
@@ -1453,10 +1437,67 @@ const server = http.createServer(async (req, res) => {
         projectsFile: PROJECTS_FILE,
         scriptsFile: SCRIPTS_FILE,
         enableSkills: settings.enableSkills,
+        workspaceFolders: settings.workspaceFolders,
+        uiPreferences: settings.uiPreferences,
         browserOverride: Boolean(configuredBrowserPath()),
         configError: settings.error,
         backups: runtimeConfig.projects.listBackups().map(({ path: _path, ...backup }) => backup),
       });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/settings/preferences') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      try {
+        validateUiPreferences(input);
+      } catch (error) {
+        json(res, 400, { error: error.message });
+        return;
+      }
+      const current = runtimeConfig.settings.read();
+      if (current.error) {
+        json(res, 409, { error: `Fix settings.json before saving preferences: ${current.error}` });
+        return;
+      }
+      const uiPreferences = normalizeUiPreferences(input);
+      runtimeConfig.settings.write({
+        ...current.value,
+        uiPreferences,
+      });
+      json(res, 200, { ok: true, uiPreferences });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/settings/workspaces') {
+      let workspaceFolders;
+      try {
+        workspaceFolders = JSON.parse(await readBody(req)).workspaceFolders;
+      } catch {
+        json(res, 400, { error: 'Invalid JSON body' });
+        return;
+      }
+      if (
+        !Array.isArray(workspaceFolders)
+        || workspaceFolders.length > 10
+        || workspaceFolders.some((folder) => (
+          typeof folder !== 'string'
+          || !path.isAbsolute(folder)
+          || !fs.existsSync(folder)
+        ))
+      ) {
+        json(res, 400, { error: 'Workspace folders must be existing absolute paths (maximum 10).' });
+        return;
+      }
+      const current = runtimeConfig.settings.read();
+      if (current.error) {
+        json(res, 409, { error: `Fix settings.json before saving workspaces: ${current.error}` });
+        return;
+      }
+      const uniqueFolders = [...new Set(workspaceFolders.map((folder) => path.resolve(folder)))];
+      runtimeConfig.settings.write({ ...current.value, workspaceFolders: uniqueFolders });
+      json(res, 200, { ok: true, workspaceFolders: uniqueFolders });
       return;
     }
 
@@ -1500,7 +1541,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       try {
-        await run('taskkill', ['/PID', String(owner.pid), '/T', '/F']);
+        await platform.terminateProcess(owner.pid);
         invalidateProcessSnapshot();
         json(res, 200, {
           ok: true,
@@ -1536,31 +1577,19 @@ const server = http.createServer(async (req, res) => {
           return;
         }
         try {
-          await spawnDetachedExecutable('notepad.exe', [logFile], { windowsHide: false });
+          await platform.openTarget('logs', { logFile, cwd: component.cwd });
           json(res, 200, { ok: true, action, logFile });
         } catch (error) {
           json(res, 500, { error: `Could not open logs: ${error.message}` });
         }
         return;
       }
-      const launchPlans = {
-        explorer: ['explorer.exe', [component.cwd]],
-        terminal: ['cmd.exe', []],
-        vscode: ['code.cmd', [component.cwd]],
-      };
-      const plan = launchPlans[action];
-      if (!plan) {
+      if (!['explorer', 'terminal', 'vscode'].includes(action)) {
         json(res, 400, { error: 'Unknown open-in action.' });
         return;
       }
       try {
-        const args = action === 'terminal'
-          ? ['/d', '/k', `cd /d "${component.cwd}"`]
-          : plan[1];
-        await spawnDetachedExecutable(plan[0], args, {
-          cwd: component.cwd,
-          windowsHide: false,
-        });
+        await platform.openTarget(action, { cwd: component.cwd });
         json(res, 200, { ok: true, action, cwd: component.cwd });
       } catch (error) {
         json(res, 500, { error: `Could not open ${action}: ${error.message}` });
@@ -1595,33 +1624,40 @@ const server = http.createServer(async (req, res) => {
       let input;
       try { input = JSON.parse(await readBody(req)); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
-      let project;
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
+        return;
+      }
+      actionLocks.add(actionKey);
       try {
-        project = instantiateTemplate(input);
-      } catch (error) {
-        json(res, 400, { error: error.message });
-        return;
+        let project;
+        try {
+          project = instantiateTemplate(input);
+        } catch (error) {
+          json(res, 400, { error: error.message });
+          return;
+        }
+        const current = runtimeConfig.projects.read();
+        if (current.error) {
+          json(res, 409, { error: `Fix the current configuration first: ${current.error}` });
+          return;
+        }
+        let next;
+        try {
+          next = updateProjectConfig(current.value, { project });
+          runtimeConfig.projects.validate(next);
+        } catch (error) {
+          json(res, /already|configured by/i.test(error.message) ? 409 : 400, { error: error.message });
+          return;
+        }
+        runtimeConfig.projects.write(next);
+        void refreshGitAttention(next.projects);
+        void refreshDoctor();
+        json(res, 200, { ok: true, project: next.projects.at(-1) });
+      } finally {
+        actionLocks.delete(actionKey);
       }
-      if (!fs.existsSync(project.components[0].cwd)) {
-        json(res, 400, { error: 'Project folder does not exist.' });
-        return;
-      }
-      const current = runtimeConfig.projects.read();
-      if (current.error) {
-        json(res, 409, { error: `Fix the current configuration first: ${current.error}` });
-        return;
-      }
-      if (current.value.projects.some((item) => item.name.toLowerCase() === project.name.toLowerCase())) {
-        json(res, 409, { error: `A project named "${project.name}" already exists.` });
-        return;
-      }
-      runtimeConfig.projects.write({
-        ...current.value,
-        projects: [...current.value.projects, project],
-      });
-      void refreshGitAttention(loadProjects());
-      void refreshDoctor();
-      json(res, 200, { ok: true, project });
       return;
     }
 
@@ -1653,24 +1689,34 @@ const server = http.createServer(async (req, res) => {
         json(res, 400, { error: `Imported configuration is invalid: ${error.message}` });
         return;
       }
-      const current = runtimeConfig.projects.read();
-      if (current.error) {
-        json(res, 409, { error: `Fix the current configuration before importing: ${current.error}` });
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
         return;
       }
-      let next = imported;
-      if (input.mode === 'merge') {
-        const existingNames = new Set(current.value.projects.map((project) => project.name.toLowerCase()));
-        const additions = imported.projects.filter((project) => !existingNames.has(project.name.toLowerCase()));
-        next = {
-          ...current.value,
-          projects: [...current.value.projects, ...additions],
-        };
+      actionLocks.add(actionKey);
+      try {
+        const current = runtimeConfig.projects.read();
+        if (current.error) {
+          json(res, 409, { error: `Fix the current configuration before importing: ${current.error}` });
+          return;
+        }
+        let next = imported;
+        if (input.mode === 'merge') {
+          const existingNames = new Set(current.value.projects.map((project) => project.name.toLowerCase()));
+          const additions = imported.projects.filter((project) => !existingNames.has(project.name.toLowerCase()));
+          next = {
+            ...current.value,
+            projects: [...current.value.projects, ...additions],
+          };
+        }
+        runtimeConfig.projects.write({ ...next, $schema: './projects.schema.json' });
+        void refreshGitAttention(loadProjects());
+        void refreshDoctor();
+        json(res, 200, { ok: true, projects: next.projects.length });
+      } finally {
+        actionLocks.delete(actionKey);
       }
-      runtimeConfig.projects.write({ ...next, $schema: './projects.schema.json' });
-      void refreshGitAttention(loadProjects());
-      void refreshDoctor();
-      json(res, 200, { ok: true, projects: next.projects.length });
       return;
     }
 
@@ -1678,6 +1724,12 @@ const server = http.createServer(async (req, res) => {
       let name;
       try { name = String(JSON.parse(await readBody(req)).name || ''); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
+        return;
+      }
+      actionLocks.add(actionKey);
       try {
         const restored = runtimeConfig.projects.restore(name);
         void refreshGitAttention(loadProjects());
@@ -1685,24 +1737,45 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, { ok: true, projects: restored.projects.length });
       } catch (error) {
         json(res, 400, { error: error.message });
+      } finally {
+        actionLocks.delete(actionKey);
       }
       return;
     }
 
     if (req.method === 'POST' && req.url === '/api/discovery/scan') {
-      let folder;
-      try { folder = String(JSON.parse(await readBody(req)).folder || ''); }
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const requestedFolders = Array.isArray(input.folders)
+        ? input.folders
+        : [input.folder];
+      const folders = [...new Set(requestedFolders
+        .map((folder) => String(folder || '').trim())
+        .filter(Boolean)
+        .map((folder) => path.resolve(folder)))];
+      if (!folders.length || folders.length > 10) {
+        json(res, 400, { error: 'Choose between one and ten workspace folders.' });
+        return;
+      }
       let proposals;
       try {
-        proposals = discoverProjects(folder);
+        const discovered = folders.flatMap((folder) => discoverProjects(folder));
+        const seen = new Set();
+        proposals = discovered.filter((project) => {
+          const cwd = project.components?.[0]?.cwd || '';
+          const key = `${project.name.toLowerCase()}\0${path.resolve(cwd).toLowerCase()}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
       } catch (error) {
         json(res, 400, { error: error.message });
         return;
       }
       const scanId = `${runtimeIdentity.nonce.slice(0, 12)}-${Date.now().toString(36)}`;
-      discoveryScans.set(scanId, { proposals, createdAt: Date.now() });
-      json(res, 200, { scanId, folder: path.resolve(folder), proposals });
+      discoveryScans.set(scanId, { folders, proposals, createdAt: Date.now() });
+      json(res, 200, { scanId, folder: folders[0], folders, proposals });
       return;
     }
 
@@ -1756,6 +1829,13 @@ const server = http.createServer(async (req, res) => {
           ...config.value,
           projects: [...existing, ...added.map(({ discoveredFrom, confidence, note, ...project }) => project)],
         });
+        const settings = runtimeConfig.settings.read();
+        if (!settings.error) {
+          runtimeConfig.settings.write({
+            ...settings.value,
+            workspaceFolders: scan.folders,
+          });
+        }
         discoveryScans.delete(String(input.scanId));
         void refreshGitAttention(loadProjects());
         void refreshDoctor();
@@ -1767,6 +1847,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && req.url === '/api/scripts/start') {
+      if (!platform.supportsScripts) {
+        json(res, 404, { error: 'The Scripts view is available on Windows only.' });
+        return;
+      }
       let file;
       try { file = String(JSON.parse(await readBody(req)).file); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
@@ -1795,11 +1879,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       try {
-        // Detached so the macro outlives the manager; args passed as an array so
-        // the spaces in the AutoIt path and script path need no shell quoting.
-        const child = spawn(exe, [scriptPath], { cwd: cfg.scriptsDir, detached: true, stdio: 'ignore', windowsHide: true });
-        child.on('error', () => {}); // don't crash the server if launch fails
-        child.unref();
+        await platform.startScript(exe, scriptPath, cfg.scriptsDir);
         json(res, 200, { ok: true, file: path.basename(file), started: true });
       } catch (err) {
         json(res, 500, { error: `Could not start: ${err.message}` });
@@ -1811,6 +1891,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && req.url === '/api/scripts/stop') {
+      if (!platform.supportsScripts) {
+        json(res, 404, { error: 'The Scripts view is available on Windows only.' });
+        return;
+      }
       let file;
       try { file = String(JSON.parse(await readBody(req)).file); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
@@ -1829,7 +1913,7 @@ const server = http.createServer(async (req, res) => {
       const procs = await getScriptProcesses();
       let killed = 0;
       for (const pid of pidsForScript(scriptPath, procs)) {
-        try { await run('taskkill', ['/PID', String(pid), '/T', '/F']); killed++; } catch { /* already gone */ }
+        try { await platform.terminateProcess(pid); killed++; } catch { /* already gone */ }
       }
         json(res, 200, { ok: true, file: path.basename(file), stopped: killed });
       } finally {
@@ -1863,7 +1947,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       try {
-        await run('taskkill', ['/PID', String(pid), '/T', '/F']);
+        await platform.terminateProcess(pid);
         // Remember it so it can be restarted from the list.
         const entry = {
           id: `${Date.now()}-${pid}`,
@@ -1880,7 +1964,7 @@ const server = http.createServer(async (req, res) => {
         saveStopped();
         json(res, 200, { ok: true, name: target.label || target.name, pid, canRestart: !!entry.cmd });
       } catch (err) {
-        json(res, 500, { error: `taskkill failed: ${err.message}` });
+        json(res, 500, { error: `Process termination failed: ${err.message}` });
       }
       return;
     }
@@ -1952,4 +2036,18 @@ const gitRefreshTimer = setInterval(() => {
   void refreshGitAttention(loadProjects());
 }, GIT_REFRESH_INTERVAL_MS);
 gitRefreshTimer.unref();
+
+let shuttingDown = false;
+function shutDownServer(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  clearInterval(gitRefreshTimer);
+  server.close(() => process.exit(0));
+  const forcedExit = setTimeout(() => process.exit(1), 3_000);
+  forcedExit.unref?.();
+  console.log(`Hacker's Lair local service stopping (${signal}).`);
+}
+process.once('SIGTERM', () => shutDownServer('SIGTERM'));
+process.once('SIGINT', () => shutDownServer('SIGINT'));
+
 listen(0);

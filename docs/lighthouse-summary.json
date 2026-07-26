@@ -1,0 +1,19 @@
+{
+  "recordedAt": "2026-07-26",
+  "lighthouseVersion": "13.4.1",
+  "mode": "mobile",
+  "pages": {
+    "http://127.0.0.1:8765/": {
+      "performance": 100,
+      "accessibility": 100,
+      "bestPractices": 100,
+      "seo": 100
+    },
+    "http://127.0.0.1:8765/docs/": {
+      "performance": 100,
+      "accessibility": 100,
+      "bestPractices": 100,
+      "seo": 100
+    }
+  }
+}

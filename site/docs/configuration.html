@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configuration Reference — Hacker's Lair Docs</title>
+  <meta name="description" content="Complete Hacker's Lair project and component schema with working Vite, Next.js, Compose, Java, Python, and headless examples.">
+  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/docs/configuration.html">
+  <meta property="og:type" content="article"><meta property="og:title" content="Configuration Reference — Hacker's Lair"><meta property="og:description" content="Every project field, detection mode, and working example."><meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="../assets/icon.png" type="image/png"><link rel="stylesheet" href="../assets/site.css"><script src="../assets/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="../" aria-label="Hacker's Lair home"><img src="../assets/command-line-mark.png" alt="">Hacker's <span>Lair</span></a><nav class="site-nav" aria-label="Primary navigation"><a href="../">Home</a><a href="../getting-started/">Getting started</a><a href="./" aria-current="page">Docs</a><a class="nav-install" href="./#windows">Install</a></nav></div></header>
+  <main class="docs-shell" id="main">
+    <aside class="docs-sidebar" aria-label="Documentation navigation"><h2>Docs registry</h2><nav><a href="./">Installation</a><a href="../getting-started/">Getting started</a><a href="./configuration.html" aria-current="page">Configuration</a><a href="./detection.html">Detection</a><a href="./troubleshooting.html">Troubleshooting</a><a href="./faq.html">FAQ</a><a href="./uninstall.html">Uninstall</a></nav></aside>
+    <article class="docs-content">
+      <div class="eyebrow">Guide 03 // configuration</div>
+      <h1>Project configuration reference.</h1>
+      <p class="lede">The wizard and project editor are the normal interface. This reference exists for automation and power users; the bundled JSON Schema powers editor autocomplete and server validation from the same source.</p>
+
+      <h2 id="location">Location and hot reload</h2>
+      <div class="docs-table-wrap"><table><thead><tr><th>Platform</th><th>Default file</th></tr></thead><tbody>
+        <tr><td>Windows</td><td><code>%APPDATA%\HackersLair\projects.json</code></td></tr>
+        <tr><td>Linux</td><td><code>$XDG_CONFIG_HOME/HackersLair/projects.json</code>, or <code>~/.config/HackersLair/projects.json</code></td></tr>
+      </tbody></table></div>
+      <p><code>PROJECT_MANAGER_DATA_DIR</code> overrides the entire data directory. <code>PROJECT_MANAGER_PROJECTS_FILE</code> overrides only the project file. The app copies <code>projects.schema.json</code> beside the config and reads changes on refresh without a restart.</p>
+      <pre class="command-block"><code>{
+  "$schema": "./projects.schema.json",
+  "projects": []
+}</code></pre>
+
+      <h2 id="project-fields">Project fields</h2>
+      <div class="docs-table-wrap"><table><thead><tr><th>Field</th><th>Required</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td><code>name</code></td><td>Yes</td><td>Unique display name used by the UI and <code>lair</code> CLI.</td></tr>
+        <tr><td><code>type</code></td><td>No</td><td>Short badge such as Vite, Next.js, Docker Compose, or FastAPI.</td></tr>
+        <tr><td><code>components</code></td><td>Yes</td><td>One or more launch/detection units controlled as a target.</td></tr>
+      </tbody></table></div>
+
+      <h2 id="component-fields">Component fields</h2>
+      <div class="docs-table-wrap"><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td><code>name</code></td><td>Unique component label inside its project.</td></tr>
+        <tr><td><code>role</code></td><td>Display role such as <code>frontend</code>, <code>backend</code>, <code>worker</code>, or <code>fullstack</code>.</td></tr>
+        <tr><td><code>cwd</code></td><td>Existing absolute working directory for launch, stop, Git, and open-in actions.</td></tr>
+        <tr><td><code>command</code></td><td>Exact shell command used to launch the component.</td></tr>
+        <tr><td><code>stopCommand</code></td><td>Optional graceful command run in <code>cwd</code> before process cleanup; timeout is 60 seconds.</td></tr>
+        <tr><td><code>match</code></td><td>Distinctive command-line substring used to detect and stop the intended process. An absolute project path is a strong default.</td></tr>
+        <tr><td><code>port</code></td><td>Legacy single readiness/display port.</td></tr>
+        <tr><td><code>ports</code></td><td>Authoritative listener set. Every declared port must be live for the component to be ready.</td></tr>
+        <tr><td><code>uiPorts</code></td><td>Configured ports classified as user interfaces.</td></tr>
+        <tr><td><code>backendPorts</code></td><td>Configured ports classified as APIs or backend services.</td></tr>
+        <tr><td><code>detectByPort</code></td><td>Require configured port evidence for legacy single-port entries.</td></tr>
+        <tr><td><code>track</code></td><td>Set to <code>"process"</code> for a headless process that never opens a listener.</td></tr>
+        <tr><td><code>autoRestart</code></td><td>Opt into capped exponential-backoff restart after an unexpected exit.</td></tr>
+        <tr><td><code>maxRestarts</code></td><td>Retry cap from 1 through 10; default is 3.</td></tr>
+        <tr><td><code>zombieAfterHours</code></td><td>Per-component idle warning threshold from 1 through 720 hours.</td></tr>
+      </tbody></table></div>
+      <p>Ports must be integers from 1 through 65535 and unique across configured projects. The in-app editor enforces existing absolute folders and non-empty commands for launchable components.</p>
+
+      <h2 id="examples">Copyable examples</h2>
+      <h3>npm / Vite</h3>
+      <pre class="command-block"><code>{
+  "name": "signal-ui",
+  "type": "Vite",
+  "components": [{
+    "name": "frontend",
+    "role": "frontend",
+    "cwd": "C:\\Dev\\signal-ui",
+    "command": "npm.cmd run dev -- --port 5173",
+    "match": "C:\\Dev\\signal-ui",
+    "port": 5173
+  }]
+}</code></pre>
+
+      <h3>Next.js</h3>
+      <pre class="command-block"><code>{
+  "name": "docs-console",
+  "type": "Next.js",
+  "components": [{
+    "name": "web",
+    "role": "fullstack",
+    "cwd": "C:\\Dev\\docs-console",
+    "command": "npm.cmd run dev -- --port 3000",
+    "match": "C:\\Dev\\docs-console",
+    "port": 3000,
+    "autoRestart": true,
+    "maxRestarts": 3
+  }]
+}</code></pre>
+
+      <h3>Docker Compose</h3>
+      <pre class="command-block"><code>{
+  "name": "local-stack",
+  "type": "Docker Compose",
+  "components": [{
+    "name": "stack",
+    "role": "fullstack",
+    "cwd": "C:\\Dev\\local-stack",
+    "command": "docker compose -p local-stack up --build",
+    "stopCommand": "docker compose -p local-stack down",
+    "match": "-p local-stack up",
+    "ports": [5174, 4100],
+    "uiPorts": [5174],
+    "backendPorts": [4100]
+  }]
+}</code></pre>
+
+      <h3>Maven / Gradle</h3>
+      <pre class="command-block"><code>{
+  "name": "catalog-api",
+  "type": "Spring Boot",
+  "components": [{
+    "name": "server",
+    "role": "backend",
+    "cwd": "C:\\Dev\\catalog-api",
+    "command": "mvnw.cmd spring-boot:run",
+    "match": "C:\\Dev\\catalog-api",
+    "port": 8080
+  }]
+}</code></pre>
+      <p>For a Gradle wrapper, replace the command with <code>gradlew.bat bootRun</code> on Windows or <code>./gradlew bootRun</code> on Linux.</p>
+
+      <h3>Python / FastAPI</h3>
+      <pre class="command-block"><code>{
+  "name": "events-api",
+  "type": "FastAPI",
+  "components": [{
+    "name": "api",
+    "role": "backend",
+    "cwd": "C:\\Dev\\events-api",
+    "command": "python -m uvicorn main:app --reload --port 8000",
+    "match": "C:\\Dev\\events-api",
+    "port": 8000
+  }]
+}</code></pre>
+
+      <h3>Headless process</h3>
+      <pre class="command-block"><code>{
+  "name": "queue-worker",
+  "type": "Python worker",
+  "components": [{
+    "name": "worker",
+    "role": "worker",
+    "cwd": "C:\\Dev\\queue-worker",
+    "command": "python worker.py",
+    "match": "C:\\Dev\\queue-worker",
+    "track": "process",
+    "autoRestart": true,
+    "maxRestarts": 5,
+    "zombieAfterHours": 12
+  }]
+}</code></pre>
+
+      <div class="docs-callout"><strong>Linux commands:</strong> use Linux absolute paths and native wrapper names—for example <code>/home/dev/signal-ui</code>, <code>npm run dev</code>, <code>./mvnw</code>, and <code>python3</code>.</div>
+      <p>See <a href="./detection.html">how command-line and listener evidence combine</a> before choosing a tracking mode.</p>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.1</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a></div></footer>
+</body>
+</html>

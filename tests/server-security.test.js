@@ -83,6 +83,17 @@ test('protects localhost mutations and verifies the bound service identity', asy
   assert.equal(JSON.parse(identityResponse.body).nonce, identity.nonce);
   assert.doesNotMatch(identityResponse.body, new RegExp(identity.token));
 
+  const onboardingResponse = await request({
+    port,
+    pathname: `/api/onboarding?workspaceFolder=${encodeURIComponent(dataDirectory)}`,
+  });
+  assert.equal(onboardingResponse.status, 200);
+  const onboarding = JSON.parse(onboardingResponse.body);
+  const projectPrompt = onboarding.prompts.find((prompt) => prompt.id === 'projects').prompt;
+  assert.match(projectPrompt, new RegExp(dataDirectory.replaceAll('\\', '\\\\'), 'i'));
+  assert.match(projectPrompt, /projects\.schema\.json/);
+  assert.match(projectPrompt, /lair doctor.*lair ls/s);
+
   const wrongHost = await request({
     port,
     pathname: '/api/identity',
@@ -131,6 +142,37 @@ test('protects localhost mutations and verifies the bound service identity', asy
     'Content-Type': 'application/json',
     'X-Lair-Token': identity.token,
   };
+  const preferenceResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/settings/preferences',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      theme: 'ghost',
+      density: 'compact',
+      motion: 'reduced',
+      fontScale: 110,
+    }),
+  });
+  assert.equal(preferenceResponse.status, 200);
+  const persistedSettings = JSON.parse(fs.readFileSync(path.join(dataDirectory, 'settings.json')));
+  assert.equal(persistedSettings.uiPreferences.theme, 'ghost');
+  assert.equal(persistedSettings.uiPreferences.fontScale, 110);
+
+  const invalidPreferences = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/settings/preferences',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      theme: 'custom',
+      density: 'compact',
+      motion: 'reduced',
+      fontScale: 110,
+    }),
+  });
+  assert.equal(invalidPreferences.status, 400);
+
   const scanResponse = await request({
     port,
     method: 'POST',
@@ -152,6 +194,59 @@ test('protects localhost mutations and verifies the bound service identity', asy
   });
   assert.equal(applyResponse.status, 200);
   assert.equal(JSON.parse(fs.readFileSync(path.join(dataDirectory, 'projects.json'))).projects[0].name, 'free-tool');
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(path.join(dataDirectory, 'settings.json'))).workspaceFolders,
+    [path.resolve(scanRoot)],
+  );
+
+  const configuredProject = {
+    name: 'editor-project',
+    type: 'Node',
+    components: [{
+      name: 'web',
+      role: 'frontend',
+      cwd: scanProject,
+      command: 'npm run dev',
+      match: scanProject,
+      port: 4190,
+    }],
+  };
+  const createProject = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/projects/configure',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ project: configuredProject }),
+  });
+  assert.equal(createProject.status, 200);
+  const updateProject = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/projects/configure',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      originalName: configuredProject.name,
+      project: {
+        ...configuredProject,
+        name: 'editor-project-renamed',
+        components: [{ ...configuredProject.components[0], port: 4191 }],
+      },
+    }),
+  });
+  assert.equal(updateProject.status, 200);
+  const removeProject = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/projects/remove',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ name: 'editor-project-renamed' }),
+  });
+  assert.equal(removeProject.status, 200);
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(dataDirectory, 'projects.json'))).projects
+      .some((project) => project.name === 'editor-project-renamed'),
+    false,
+  );
 
   const schemaResponse = await request({ port, pathname: '/api/schema/projects' });
   assert.equal(schemaResponse.status, 200);
@@ -191,6 +286,19 @@ test('protects localhost mutations and verifies the bound service identity', asy
     body: templateBody,
   });
   assert.equal(duplicateTemplate.status, 409);
+  const conflictingTemplate = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/templates/apply',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      templateId: 'vite',
+      name: 'port-conflict',
+      folder: scanProject,
+      port: 4173,
+    }),
+  });
+  assert.equal(conflictingTemplate.status, 409);
 
   const exportResponse = await request({
     port,
@@ -200,7 +308,10 @@ test('protects localhost mutations and verifies the bound service identity', asy
     body: '{}',
   });
   assert.equal(exportResponse.status, 200);
-  assert.doesNotMatch(exportResponse.body, new RegExp(dataDirectory.replaceAll('\\', '\\\\'), 'i'));
+  assert.doesNotMatch(
+    exportResponse.body,
+    new RegExp(dataDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+  );
 
   const { stdout: cliOutput } = await execFileAsync(process.execPath, [path.join(ROOT, 'bin', 'lair.js'), 'ls'], {
     cwd: ROOT,

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FAQ — Hacker's Lair Docs</title>
+  <meta name="description" content="Answers about Hacker's Lair safety, local API protection, telemetry, checksums, updates, project scope, and clean uninstall.">
+  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/docs/faq.html">
+  <meta property="og:type" content="article"><meta property="og:title" content="FAQ — Hacker's Lair"><meta property="og:description" content="Local-only behavior, checksums, updates, and uninstall."><meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png"><meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="../assets/icon.png" type="image/png"><link rel="stylesheet" href="../assets/site.css"><script src="../assets/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="../" aria-label="Hacker's Lair home"><img src="../assets/command-line-mark.png" alt="">Hacker's <span>Lair</span></a><nav class="site-nav" aria-label="Primary navigation"><a href="../">Home</a><a href="../getting-started/">Getting started</a><a href="./" aria-current="page">Docs</a><a class="nav-install" href="./#windows">Install</a></nav></div></header>
+  <main class="docs-shell" id="main">
+    <aside class="docs-sidebar" aria-label="Documentation navigation"><h2>Docs registry</h2><nav><a href="./">Installation</a><a href="../getting-started/">Getting started</a><a href="./configuration.html">Configuration</a><a href="./detection.html">Detection</a><a href="./troubleshooting.html">Troubleshooting</a><a href="./faq.html" aria-current="page">FAQ</a><a href="./uninstall.html">Uninstall</a></nav></aside>
+    <article class="docs-content">
+      <div class="eyebrow">Guide 06 // FAQ</div>
+      <h1>Questions before you give it process control.</h1>
+      <p class="lede">Hacker's Lair can launch and stop local commands, so its trust boundary should be legible. These answers describe what the current code does, not aspirational security claims.</p>
+
+      <h2 id="safe">Is Hacker's Lair safe?</h2>
+      <p>It is a local, open-source process controller. The app does not make arbitrary commands safe: it runs the project commands you approve in your own user context. Review discovered commands before importing them, keep <code>match</code> values distinctive, and do not put secrets in project config.</p>
+      <p>The control service binds to <code>127.0.0.1</code>. POST requests require a per-launch random token and JSON content type, Host headers are restricted to the actual localhost origin, and the desktop host verifies an identity nonce and child PID before loading the UI. Content Security Policy limits the packaged page to its own assets.</p>
+
+      <h2 id="telemetry">Does it collect telemetry or require an account?</h2>
+      <p>No. The desktop app has no analytics, account system, cloud database, or remote control service. Mutable config, logs, backups, token, activity history, and preferences remain in the local user data directory. The public website makes one optional client-side request to the GitHub Releases API to display the current version; the static fallback works without JavaScript.</p>
+
+      <h2 id="network">Can another website call the localhost API?</h2>
+      <p>Mutating routes require the private token, reject non-JSON requests, and validate the Host header. The token is injected only into the served app page and is never exposed through a GET API. Those controls are designed to block ordinary cross-site request and DNS rebinding paths.</p>
+
+      <h2 id="checksums">How do I verify a release?</h2>
+      <p>Download <code>checksums.txt</code> from the same GitHub Release as the package and calculate SHA256 locally.</p>
+      <h3>Windows</h3>
+      <pre class="command-block"><code>Get-FileHash .\hackers-lair-win32-x64.zip -Algorithm SHA256
+Get-Content .\checksums.txt</code></pre>
+      <h3>Linux</h3>
+      <pre class="command-block"><code>sha256sum --ignore-missing -c checksums.txt</code></pre>
+      <p>The hosted PowerShell installer automates this comparison and refuses to unblock or extract the ZIP when the checksum is missing or different.</p>
+
+      <h2 id="signed">Are the packages code-signed?</h2>
+      <p>Not currently. Releases are built in GitHub Actions and publish SHA256 checksums, but checksum publication is not the same as publisher identity signing. The release setup keeps signing configuration isolated so a trusted certificate can be enabled later without changing package channels. The project does not self-sign public packages or ask users to disable operating-system protection.</p>
+
+      <h2 id="update">How do I update?</h2>
+      <h3>Winget</h3>
+      <pre class="command-block"><code>winget upgrade --id Alfonza1.HackersLair --exact</code></pre>
+      <h3>PowerShell channel</h3>
+      <pre class="command-block"><code>irm https://alfonza1.github.io/hackers-lair/install.ps1 | iex</code></pre>
+      <h3>Scoop</h3>
+      <pre class="command-block"><code>scoop update hackerslair</code></pre>
+      <p>Linux package managers can install the newer downloaded package over the existing version. User config remains in the data directory across application updates.</p>
+
+      <h2 id="quit">Does quitting stop my projects?</h2>
+      <p>Quitting Hacker's Lair stops its private control service and desktop host. It does not silently terminate every project you launched; managed targets are independent developer processes and remain under your explicit start/stop control. Use the target Stop action before quitting when you want a clean workspace shutdown.</p>
+
+      <h2 id="config">Do I have to edit JSON?</h2>
+      <p>No for normal use. The first-run wizard discovers supported project layouts, and the project editor handles add, edit, and remove actions with validation. JSON Schema and hot reload remain available for automation and advanced hand editing.</p>
+
+      <h2 id="uninstall">How do I remove everything?</h2>
+      <p>Use the uninstall command for your installation channel, quit the tray application if prompted, and choose whether to keep or delete the user data directory. See the <a href="./uninstall.html">complete uninstall guide</a>.</p>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.1</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a></div></footer>
+</body>
+</html>

@@ -8,7 +8,7 @@ function fakeElectronApp() {
   return {
     calls,
     relaunch: () => calls.push('relaunch'),
-    exit: (code) => calls.push(`exit:${code}`),
+    quit: () => calls.push('quit'),
   };
 }
 
@@ -16,14 +16,14 @@ test('restart schedules a relaunch before exiting cleanly', () => {
   const app = fakeElectronApp();
 
   assert.equal(performPowerAction('restart', app), true);
-  assert.deepEqual(app.calls, ['relaunch', 'exit:0']);
+  assert.deepEqual(app.calls, ['relaunch', 'quit']);
 });
 
 test('shutdown exits without scheduling a relaunch', () => {
   const app = fakeElectronApp();
 
   assert.equal(performPowerAction('shutdown', app), true);
-  assert.deepEqual(app.calls, ['exit:0']);
+  assert.deepEqual(app.calls, ['quit']);
 });
 
 test('unknown power actions are rejected', () => {
