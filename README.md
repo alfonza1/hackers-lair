@@ -71,11 +71,12 @@ working-tree changes, upstream divergence, missing upstream, detached HEAD, and
 dirty protected-branch state. Hacker's Lair does not stage, commit, reset, pull,
 or push repositories.
 
-When no targets are configured, the empty view provides
-copyable prompts for a coding agent. The service inserts the current machine's
-real AppData configuration path (and the shared skills path only after opt-in), while the prompt tells the agent
-to inspect first, preserve existing files, ask about ambiguity, validate the
-result, and verify it in the running app.
+When no targets are configured, the empty view gives the guided wizard and the
+copyable agent prompt equal prominence. The service inserts the current
+machine's real AppData configuration and schema paths (and the shared skills
+path only after opt-in), while the prompt tells the agent to inspect first,
+preserve existing files, ask about ambiguity, validate the result, and verify
+it in the running app.
 
 ## Architecture
 
@@ -128,6 +129,28 @@ the existing taskbar entry, run `install.ps1`, launch the refreshed Start menu
 or Desktop shortcut, and pin that running instance. The installer assigns the
 same Windows app identity to the shortcut and Electron process so future
 launches stay grouped under the native command-line icon.
+
+### Let your AI agent set it up
+
+An empty **Targets** view offers two equal setup paths: **Set up with wizard**
+opens the guided folder scanner, while **Copy prompt for your AI agent** copies
+a machine-aware setup request for any coding agent.
+
+The generated prompt includes the live AppData config path, the matching local
+JSON Schema path and URL, a valid compact target example, any workspace folders
+already selected in setup or `settings.json`, and safety rules for preserving
+existing entries. Paste it into your agent, let the agent inspect before
+editing, then have it run:
+
+```powershell
+lair doctor
+lair ls
+```
+
+The Targets view hot-reloads `projects.json`, so a successful setup appears
+without restarting Hacker's Lair. Agent skill configuration remains an
+explicitly enabled local-only feature and is not included in the default public
+prompt.
 
 ### Run without installing shortcuts
 

@@ -83,6 +83,17 @@ test('protects localhost mutations and verifies the bound service identity', asy
   assert.equal(JSON.parse(identityResponse.body).nonce, identity.nonce);
   assert.doesNotMatch(identityResponse.body, new RegExp(identity.token));
 
+  const onboardingResponse = await request({
+    port,
+    pathname: `/api/onboarding?workspaceFolder=${encodeURIComponent(dataDirectory)}`,
+  });
+  assert.equal(onboardingResponse.status, 200);
+  const onboarding = JSON.parse(onboardingResponse.body);
+  const projectPrompt = onboarding.prompts.find((prompt) => prompt.id === 'projects').prompt;
+  assert.match(projectPrompt, new RegExp(dataDirectory.replaceAll('\\', '\\\\'), 'i'));
+  assert.match(projectPrompt, /projects\.schema\.json/);
+  assert.match(projectPrompt, /lair doctor.*lair ls/s);
+
   const wrongHost = await request({
     port,
     pathname: '/api/identity',

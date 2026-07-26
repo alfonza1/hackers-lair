@@ -1073,6 +1073,42 @@
     line-height: 1.55;
   }
 
+  .onboarding-paths {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .onboarding-path {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    min-width: 0;
+    border: 1px solid rgba(91, 220, 255, .2);
+    border-radius: 5px;
+    padding: 15px;
+    background: rgba(0, 0, 0, .22);
+  }
+
+  .onboarding-path.agent {
+    border-color: rgba(102, 255, 181, .24);
+  }
+
+  .onboarding-path .section-kicker { margin-bottom: -4px; }
+  .onboarding-path h3 {
+    margin: 0;
+    color: var(--text);
+    font-size: 14px;
+    text-transform: uppercase;
+  }
+  .onboarding-path > p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.55;
+  }
+  .onboarding-path .utility { margin-top: auto; align-self: flex-start; }
+
   .prompt-card {
     display: grid;
     gap: 10px;
@@ -1105,6 +1141,7 @@
 
   .prompt-card pre {
     margin: 0;
+    max-height: 260px;
     overflow: auto;
     overflow-wrap: anywhere;
     color: var(--text);
@@ -1609,6 +1646,7 @@
     .feed-panel .utility { justify-self: end; }
     .setup-grid { grid-template-columns: 1fr; }
     .setup-module + .setup-module { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 18px; }
+    .onboarding-paths { grid-template-columns: 1fr; }
     .filter-row { grid-template-columns: 1fr; }
     .target-card { grid-template-columns: 1fr; }
     .machine-screen { grid-template-columns: 1fr; }
@@ -2043,6 +2081,7 @@
 
   const FEED_KEY = 'operatorConsole.feed';
   const ACTION_KEY = 'operatorConsole.actions';
+  const WORKSPACE_FOLDERS_KEY = 'hackersLair.workspaceFolders';
   const RAIN_COLUMN_WIDTH = 30;
   const RAIN_FRAME_INTERVAL = 74;
   const RAIN_TRAIL_LENGTH = 5;
@@ -2068,6 +2107,10 @@
     onboarding: null,
     settings: null,
     discovery: null,
+    workspaceFolders: (() => {
+      const saved = loadJson(WORKSPACE_FOLDERS_KEY, []);
+      return Array.isArray(saved) ? saved : [];
+    })(),
     doctor: null,
     templates: [],
     backups: [],
@@ -2908,12 +2951,12 @@
   }
 
   function onboardingHtml(prompts) {
-    return `
-      <div class="onboarding">
-        <div class="onboarding-intro">
-          <strong>Configuration needed</strong>
-          <span>Copy a prompt into your coding agent. It contains the live paths for this machine and guardrails that preserve existing work.</span>
-        </div>
+    const projectSetup = state.view === 'projects';
+    const agentPath = `
+      <section class="onboarding-path agent">
+        <div class="section-kicker">Agent-assisted</div>
+        <h3>Copy prompt for your AI agent</h3>
+        <p>Use the generated machine-aware prompt with any coding agent. It includes live config and schema locations, safety rules, and verification commands.</p>
         ${prompts.map((prompt) => `
           <section class="prompt-card">
             <div class="prompt-head">
@@ -2923,6 +2966,25 @@
             <pre>${esc(prompt.prompt)}</pre>
           </section>
         `).join('')}
+      </section>
+    `;
+    return `
+      <div class="onboarding">
+        <div class="onboarding-intro">
+          <strong>${projectSetup ? 'Choose your setup path' : 'Configuration needed'}</strong>
+          <span>${projectSetup ? 'Use the guided setup or hand the same job to your preferred coding agent. Both paths preserve existing configuration.' : 'Copy a machine-aware prompt to configure this optional local feature safely.'}</span>
+        </div>
+        <div class="onboarding-paths">
+          ${projectSetup ? `
+          <section class="onboarding-path wizard">
+            <div class="section-kicker">Guided setup</div>
+            <h3>Set up with wizard</h3>
+            <p>Choose a workspace folder, review detected projects, and import only the targets you approve.</p>
+            <button class="utility" type="button" data-onboarding-wizard>Open setup wizard</button>
+          </section>
+          ` : ''}
+          ${agentPath}
+        </div>
       </div>
     `;
   }
@@ -3084,7 +3146,10 @@
 
   async function loadOnboarding() {
     try {
-      state.onboarding = await fetchJson('/api/onboarding');
+      const parameters = new URLSearchParams();
+      state.workspaceFolders.forEach((folder) => parameters.append('workspaceFolder', folder));
+      const query = parameters.size ? `?${parameters}` : '';
+      state.onboarding = await fetchJson(`/api/onboarding${query}`);
       renderTargets();
     } catch {
       state.onboarding = null;
@@ -3284,7 +3349,14 @@
     button.disabled = true;
     try {
       state.discovery = await postJson('/api/discovery/scan', { folder });
+      const resolvedFolder = state.discovery.folder || folder;
+      state.workspaceFolders = [...new Set([
+        ...state.workspaceFolders,
+        resolvedFolder,
+      ])].slice(-10);
+      localStorage.setItem(WORKSPACE_FOLDERS_KEY, JSON.stringify(state.workspaceFolders));
       renderDiscovery();
+      await loadOnboarding();
       pushFeed('DISCOVERY_COMPLETE', `proposals=${state.discovery.proposals.length}`, 'info');
     } catch (error) {
       toast(error.message, true);
@@ -3830,6 +3902,17 @@
   });
 
   $('emptyState').addEventListener('click', async (event) => {
+    const wizardButton = event.target.closest('[data-onboarding-wizard]');
+    if (wizardButton) {
+      const preferredFolder = state.workspaceFolders.at(-1)
+        || state.settings?.workspaceFolders?.[0]
+        || '';
+      if (!$('scanFolder').value && preferredFolder) $('scanFolder').value = preferredFolder;
+      document.querySelector('.setup-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => $('scanFolder').focus(), 350);
+      pushFeed('SETUP_WIZARD_OPENED', 'source=empty_state', 'info');
+      return;
+    }
     const button = event.target.closest('[data-copy-prompt]');
     if (!button) return;
     const prompt = state.onboarding?.prompts?.find((item) => item.id === button.dataset.copyPrompt);

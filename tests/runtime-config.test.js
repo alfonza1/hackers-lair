@@ -38,6 +38,17 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
   assert.equal(runtime.projects.file, path.join(data, 'projects.json'));
   assert.ok(fs.existsSync(path.join(data, 'scripts.json')));
   assert.ok(fs.existsSync(path.join(data, 'settings.json')));
+
+  const settings = runtime.settings.write({
+    enableSkills: false,
+    browserPath: '',
+    zombieAfterHours: 8,
+    workspaceFolders: ['D:\\Code', 'E:\\Experiments'],
+  });
+  assert.deepEqual(settings.workspaceFolders, ['D:\\Code', 'E:\\Experiments']);
+  assert.throws(() => runtime.settings.write({
+    workspaceFolders: ['relative-folder'],
+  }), /absolute folder strings/i);
 });
 
 test('validates nested project fields and retains ten restorable backups', (t) => {

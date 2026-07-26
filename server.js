@@ -53,6 +53,9 @@ function loadSettings() {
     enableSkills: result.value.enableSkills === true,
     browserPath: String(result.value.browserPath || ''),
     zombieAfterHours: Number(result.value.zombieAfterHours) || 8,
+    workspaceFolders: Array.isArray(result.value.workspaceFolders)
+      ? result.value.workspaceFolders
+      : [],
     error: result.error,
   };
 }
@@ -1107,7 +1110,8 @@ function securityHeaders() {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const pathname = new URL(req.url, 'http://localhost').pathname;
+    const requestUrl = new URL(req.url, 'http://localhost');
+    const { pathname } = requestUrl;
     if (!allowedHost(req.headers.host, currentPort)) {
       json(res, 403, { error: 'Forbidden host' });
       return;
@@ -1424,14 +1428,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'GET' && req.url === '/api/onboarding') {
+    if (req.method === 'GET' && pathname === '/api/onboarding') {
       const settings = loadSettings();
+      const selectedWorkspaceFolders = requestUrl.searchParams
+        .getAll('workspaceFolder')
+        .map((folder) => folder.trim())
+        .filter((folder) => folder.length <= 1024)
+        .slice(0, 10);
       json(res, 200, onboardingState({
         projectsFile: PROJECTS_FILE,
+        projectsSchemaFile: runtimeConfig.projectsSchemaFile,
+        projectsSchemaUrl: `http://localhost:${currentPort}/api/schema/projects`,
         agentsHome: AGENTS_HOME,
         projects: loadProjects(),
         skills: settings.enableSkills ? listSkills({ agentsHome: AGENTS_HOME }) : [],
         enableSkills: settings.enableSkills,
+        workspaceFolders: [
+          ...settings.workspaceFolders,
+          ...selectedWorkspaceFolders,
+        ],
       }));
       return;
     }
@@ -1453,6 +1468,7 @@ const server = http.createServer(async (req, res) => {
         projectsFile: PROJECTS_FILE,
         scriptsFile: SCRIPTS_FILE,
         enableSkills: settings.enableSkills,
+        workspaceFolders: settings.workspaceFolders,
         browserOverride: Boolean(configuredBrowserPath()),
         configError: settings.error,
         backups: runtimeConfig.projects.listBackups().map(({ path: _path, ...backup }) => backup),
