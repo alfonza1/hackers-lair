@@ -142,6 +142,23 @@ test('protects localhost mutations and verifies the bound service identity', asy
     'Content-Type': 'application/json',
     'X-Lair-Token': identity.token,
   };
+  const runtimeLogDirectory = path.join(dataDirectory, 'logs');
+  fs.mkdirSync(runtimeLogDirectory, { recursive: true });
+  fs.writeFileSync(path.join(runtimeLogDirectory, 'runtime-errors.log'), 'sanitized fixture');
+  const logSummary = await request({ port, pathname: '/api/logs' });
+  assert.equal(logSummary.status, 200);
+  assert.equal(JSON.parse(logSummary.body).bytes, 'sanitized fixture'.length);
+  const clearLogs = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/logs/clear',
+    headers: authorizedHeaders,
+    body: '{}',
+  });
+  assert.equal(clearLogs.status, 200);
+  assert.equal(JSON.parse(clearLogs.body).cleared, 1);
+  assert.equal(fs.statSync(path.join(runtimeLogDirectory, 'runtime-errors.log')).size, 0);
+
   const preferenceResponse = await request({
     port,
     method: 'POST',
@@ -324,7 +341,24 @@ test('protects localhost mutations and verifies the bound service identity', asy
 
   const html = await request({ port });
   assert.equal(html.status, 200);
+  assert.equal(html.headers['cache-control'], 'no-store');
   assert.match(html.headers['content-security-policy'], /default-src 'self'/);
   assert.match(html.body, new RegExp(identity.token));
   assert.doesNotMatch(html.body, /__LAIR_CSP_NONCE__|__LAIR_BOOTSTRAP_PAYLOAD__/);
+
+  const icon = await request({ port, pathname: '/icon.ico' });
+  assert.equal(icon.status, 200);
+  assert.equal(icon.headers['cache-control'], 'public, max-age=31536000, immutable');
+
+  const shutdownExit = new Promise((resolve) => child.once('exit', (code) => resolve(code)));
+  const shutdown = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/service/shutdown',
+    headers: authorizedHeaders,
+    body: '{}',
+  });
+  assert.equal(shutdown.status, 200);
+  assert.equal(await shutdownExit, 0);
+  assert.equal(fs.existsSync(path.join(dataDirectory, 'api-token')), false);
 });

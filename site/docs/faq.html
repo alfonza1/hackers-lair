@@ -35,10 +35,13 @@
 Get-Content .\checksums.txt</code></pre>
       <h3>Linux</h3>
       <pre class="command-block"><code>sha256sum --ignore-missing -c checksums.txt</code></pre>
+      <p>Every artifact also has GitHub build provenance. Verify it with the GitHub CLI:</p>
+      <pre class="command-block"><code>gh attestation verify &lt;file&gt; -R alfonza1/hackers-lair</code></pre>
+      <p>The checksum proves that the file's bytes match the release manifest. The attestation proves that those bytes came from an authenticated GitHub Actions build in <code>alfonza1/hackers-lair</code>.</p>
       <p>The hosted PowerShell installer automates this comparison and refuses to unblock or extract the ZIP when the checksum is missing or different.</p>
 
       <h2 id="signed">Are the packages code-signed?</h2>
-      <p>Not currently. Releases are built in GitHub Actions and publish SHA256 checksums, but checksum publication is not the same as publisher identity signing. The release setup keeps signing configuration isolated so a trusted certificate can be enabled later without changing package channels. The project does not self-sign public packages or ask users to disable operating-system protection.</p>
+      <p>Not currently. Releases are built in GitHub Actions and publish SHA256 checksums plus provenance attestations, but neither is Windows publisher identity signing or a way around SmartScreen. The release setup keeps signing configuration isolated so a trusted certificate can be enabled later without changing package channels. The project does not self-sign public packages or ask users to disable operating-system protection.</p>
 
       <h2 id="update">How do I update?</h2>
       <h3>Winget</h3>

@@ -10,24 +10,31 @@ Run on Windows:
 
 ```powershell
 npm ci
-npm test
+npm run test:coverage
+python -m pip install -r requirements-test.txt
+python -m playwright install --only-shell chromium
+npm run test:ui
 npm run package
 npm run smoke:package
 npm run smoke:install
 npm run make
 ```
 
-- `npm test` covers API authorization, Host and content-type protection,
+- `test:coverage` covers API authorization, Host and content-type protection,
   identity handshakes, config backups and last-known-good behavior, project
   editing/discovery, truthful URLs, preferences, both platform parsers,
   onboarding prompts, static-site contracts, and release manifest generation.
-- `smoke:package` launches the packaged EXE with an isolated user-data
-  directory, verifies the child service identity, quits, and proves the child
-  PID stopped.
+- `smoke:package` launches the packaged executable with an isolated user-data
+  directory, forcibly terminates its first child service, verifies Electron
+  recovers with a new identity/PID, quits, and proves both service PIDs stopped.
 - `smoke:install` serves a local release fixture, runs the stock PowerShell
   installer into a unique directory below `%LOCALAPPDATA%\Programs`, verifies
   SHA256-before-unblock behavior, runs the packaged `lair` CLI without Node,
   and exercises the verified uninstaller.
+- `test:ui` drives the served page in headless Chromium at 1440x900 and
+  900x620. It covers equal-path onboarding, live/dormant cards, truthful port
+  chips, state-filtered palette commands, theme persistence, console errors,
+  and minimum-window overflow.
 
 CI runs `npm test` on `windows-latest` and `ubuntu-latest`; Windows also runs
 both packaged smoke tests. Tagged builds run Forge on both operating systems,
@@ -135,6 +142,25 @@ Record the VM image, release tag, and result in the release notes.
    `${XDG_CONFIG_HOME:-$HOME/.config}/HackersLair`.
 7. Extract the tarball on a third clean snapshot and run both `HackersLair`
    and the bundled `lair` companion.
+
+### Squirrel update lifecycle
+
+This needs two public GitHub Releases, so it cannot be completed against a
+single source checkout.
+
+1. Install the older release through its Squirrel setup executable and confirm
+   Doctor reports the `squirrel` channel.
+2. Publish the newer release with its Squirrel `RELEASES` file and full nupkg,
+   then launch the older app. The immediate GitHub update check should
+   download it and show the non-blocking version banner with working release
+   notes.
+3. Start a harmless dummy target. Confirm **Restart to Apply** reports that
+   managed targets must stop and does not restart the desktop.
+4. Stop the target, apply the update, and confirm the app restarts on the
+   newer version with the same user configuration.
+5. Repeat from the Scoop and PowerShell portable channels. Confirm neither
+   starts the internal updater; each shows its own passive upgrade command and
+   Doctor reports the matching channel.
 
 ### Owner-controlled distribution channels
 

@@ -1,11 +1,13 @@
 const {
   app,
+  autoUpdater,
   BrowserWindow,
   dialog,
   globalShortcut,
   ipcMain,
   Menu,
   screen,
+  shell,
   Tray,
 } = require('electron');
 
@@ -14,11 +16,19 @@ const fs = require('fs');
 const path = require('path');
 const { APP_NAME, APP_USER_MODEL_ID } = require('./app-config');
 const { performPowerAction } = require('./lib/app-power');
+const { detectInstallChannel, installChannelDetails } = require('./lib/install-channel');
+const {
+  managedTargetsRunning,
+  releaseVersion,
+  updateStateForChannel,
+} = require('./lib/update-policy');
 const {
   APP_ID,
   desktopDataDirectory,
   readIdentityRecord,
+  restartBackoffDelay,
   stopManagedChild,
+  waitForExit,
   writeManagedCliShim,
 } = require('./lib/desktop-service');
 
@@ -52,8 +62,125 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 let serviceProcess = null;
-let serviceStopped = false;
 let quitAfterServiceStops = false;
+let quitSequenceStarted = false;
+let updateStop = null;
+let installUpdateAfterStop = false;
+let serviceRestartTimer = null;
+let serviceHealthTimer = null;
+let serviceHealthCheckInFlight = false;
+let serviceRestartAttempts = 0;
+const MAX_SERVICE_RESTARTS = 5;
+const SERVICE_HEALTH_INTERVAL_MS = 5_000;
+const SERVICE_RESTART_STABILITY_MS = 30_000;
+let serviceHealthySince = 0;
+let backendState = {
+  status: 'starting',
+  message: 'Starting the local service…',
+  attempt: 0,
+  maxAttempts: MAX_SERVICE_RESTARTS,
+};
+const installChannel = detectInstallChannel({
+  isPackaged: app.isPackaged,
+  platform: process.platform,
+  executablePath: process.execPath,
+});
+const channelDetails = installChannelDetails(installChannel);
+let updateState = updateStateForChannel(installChannel, channelDetails, app.getVersion());
+
+function publishUpdateState(patch = {}) {
+  updateState = { ...updateState, ...patch };
+  sendToRenderer('app:update-state', updateState);
+  void refreshTrayMenu();
+  return updateState;
+}
+
+function sendToRenderer(channel, payload) {
+  try {
+    if (
+      !mainWindow
+      || mainWindow.isDestroyed()
+      || mainWindow.webContents.isDestroyed()
+    ) return false;
+    mainWindow.webContents.send(channel, payload);
+    return true;
+  } catch (error) {
+    console.warn(`Could not send ${channel} to the renderer: ${error.message}`);
+    return false;
+  }
+}
+
+function publishBackendState(patch = {}) {
+  backendState = { ...backendState, ...patch };
+  sendToRenderer('app:backend-state', backendState);
+  return backendState;
+}
+
+async function runningManagedTargets() {
+  if (!appOrigin) return [];
+  try {
+    const data = await localApi('/api/projects');
+    return managedTargetsRunning(data.projects);
+  } catch {
+    return ['backend-unavailable'];
+  }
+}
+
+async function requestUpdateApply() {
+  if (updateState.status !== 'ready' && updateState.status !== 'blocked') return updateState;
+  const running = await runningManagedTargets();
+  if (running.length) {
+    return publishUpdateState({
+      status: 'blocked',
+      managedTargets: running,
+      message: `Stop managed targets before applying ${updateState.version || 'the update'}.`,
+    });
+  }
+  installUpdateAfterStop = true;
+  publishUpdateState({
+    status: 'applying',
+    managedTargets: [],
+    message: `Restarting to apply ${updateState.version || 'the update'}.`,
+  });
+  isQuitting = true;
+  app.quit();
+  return updateState;
+}
+
+function initializeUpdates() {
+  if (installChannel !== 'squirrel' || !app.isPackaged) return;
+  const { UpdateSourceType, updateElectronApp } = require('update-electron-app');
+  autoUpdater.on('error', (error) => {
+    if (['ready', 'blocked', 'applying'].includes(updateState.status)) return;
+    publishUpdateState({
+      status: 'error',
+      message: `Update check unavailable: ${error.message}`,
+    });
+  });
+  const updater = updateElectronApp({
+    updateSource: {
+      type: UpdateSourceType.ElectronPublicUpdateService,
+      repo: 'alfonza1/hackers-lair',
+    },
+    updateInterval: '1 hour',
+    notifyUser: true,
+    onNotifyUser: (info) => {
+      const version = releaseVersion(info.releaseName);
+      publishUpdateState({
+        status: 'ready',
+        version,
+        message: version
+          ? `v${version} ready — restart to apply.`
+          : 'An update is ready — restart to apply.',
+        releaseUrl: version
+          ? `https://github.com/alfonza1/hackers-lair/releases/tag/v${version}`
+          : updateState.releaseUrl,
+        managedTargets: [],
+      });
+    },
+  });
+  updateStop = updater.stopUpdates;
+}
 
 function pathIsWithin(candidate, parent) {
   const relative = path.relative(path.resolve(parent), path.resolve(candidate));
@@ -191,8 +318,8 @@ function identityPath() {
   return path.join(desktopDataDirectory(app), 'api-token');
 }
 
-async function verifiedServerIdentity() {
-  const record = readIdentityRecord(identityPath(), serviceProcess?.pid ?? null);
+async function verifiedServerIdentity(expectedProcess = serviceProcess) {
+  const record = readIdentityRecord(identityPath(), expectedProcess?.pid ?? null);
   const { port } = record;
 
   const origin = `http://127.0.0.1:${port}`;
@@ -214,34 +341,39 @@ function startLocalService() {
   try { fs.unlinkSync(identityPath()); } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
-  serviceStopped = false;
-  serviceProcess = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
+  const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',
       PROJECT_MANAGER_DATA_DIR: dataDirectory,
-      LAIR_INSTALL_CHANNEL: app.isPackaged ? 'desktop' : 'source',
+      LAIR_INSTALL_CHANNEL: installChannel,
     },
     stdio: 'ignore',
     windowsHide: true,
   });
-  serviceProcess.once('exit', () => {
-    serviceStopped = true;
+  serviceProcess = child;
+  child.once('exit', (code, signal) => {
+    if (serviceProcess === child) serviceProcess = null;
+    if (!child.lairExpectedStop && !isQuitting && !quitSequenceStarted) {
+      scheduleServiceRestart(`The local service exited (${signal || code || 'unknown'}).`);
+    }
   });
-  serviceProcess.once('error', (error) => {
+  child.once('error', (error) => {
     console.error(`Could not start the local service: ${error.message}`);
   });
+  return child;
 }
 
-async function ensureServerIdentity() {
-  startLocalService();
-
-  const deadline = Date.now() + 12_000;
+async function waitForServerIdentity(child, timeoutMs = 12_000) {
+  const deadline = Date.now() + timeoutMs;
   let lastError;
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 250));
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error('The local service exited before becoming ready.');
+    }
     try {
-      return await verifiedServerIdentity();
+      return await verifiedServerIdentity(child);
     } catch (error) {
       lastError = error;
     }
@@ -249,11 +381,139 @@ async function ensureServerIdentity() {
   throw lastError || new Error('The local service did not start.');
 }
 
+async function ensureServerIdentity() {
+  if (serviceProcess) {
+    try {
+      return await verifiedServerIdentity(serviceProcess);
+    } catch {
+      const staleProcess = serviceProcess;
+      serviceProcess = null;
+      staleProcess.lairExpectedStop = true;
+      await stopManagedChild(staleProcess);
+    }
+  }
+  const child = startLocalService();
+  return waitForServerIdentity(child);
+}
+
+function applyServerIdentity(server, { reload = false } = {}) {
+  const previousOrigin = appOrigin;
+  appOrigin = server.origin;
+  apiToken = server.token;
+  serviceHealthySince = Date.now();
+  publishBackendState({
+    status: 'available',
+    message: 'Local service connected.',
+    attempt: 0,
+  });
+  if (reload && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.loadURL(server.url);
+  } else if (previousOrigin && previousOrigin !== server.origin) {
+    void refreshTrayMenu();
+  }
+}
+
+function scheduleServiceRestart(reason) {
+  if (isQuitting || quitSequenceStarted || serviceRestartTimer) return;
+  if (serviceRestartAttempts >= MAX_SERVICE_RESTARTS) {
+    publishBackendState({
+      status: 'unavailable',
+      message: `Local service unavailable after ${MAX_SERVICE_RESTARTS} restart attempts. Restart Hacker's Lair to retry.`,
+      attempt: serviceRestartAttempts,
+    });
+    return;
+  }
+  serviceRestartAttempts += 1;
+  const attempt = serviceRestartAttempts;
+  const delay = restartBackoffDelay(attempt);
+  console.warn(`${reason} Backend restart ${attempt}/${MAX_SERVICE_RESTARTS} scheduled in ${delay}ms.`);
+  try {
+    publishBackendState({
+      status: 'restarting',
+      message: `${reason} Restarting backend in ${(delay / 1000).toFixed(1)}s (${attempt}/${MAX_SERVICE_RESTARTS}).`,
+      attempt,
+    });
+  } catch (error) {
+    console.warn(`Could not publish backend restart state: ${error.message}`);
+  }
+  serviceRestartTimer = setTimeout(() => {
+    console.warn(`Attempting backend restart ${attempt}/${MAX_SERVICE_RESTARTS}.`);
+    serviceRestartTimer = null;
+    void (async () => {
+      try {
+        const child = startLocalService();
+        const server = await waitForServerIdentity(child);
+        applyServerIdentity(server, { reload: true });
+        console.warn(`Local service recovered on ${server.origin}.`);
+        void refreshTrayMenu();
+      } catch (error) {
+        console.error(`Backend restart ${attempt} failed: ${error.message}`);
+        const failedChild = serviceProcess;
+        if (failedChild) failedChild.lairExpectedStop = true;
+        await stopManagedChild(failedChild);
+        if (serviceProcess === failedChild) serviceProcess = null;
+        scheduleServiceRestart(error.message);
+      }
+    })();
+  }, delay);
+  serviceRestartTimer.ref?.();
+}
+
+function startServiceHealthChecks() {
+  clearInterval(serviceHealthTimer);
+  serviceHealthTimer = setInterval(() => {
+    if (serviceHealthCheckInFlight || isQuitting || !serviceProcess) return;
+    serviceHealthCheckInFlight = true;
+    const checkedProcess = serviceProcess;
+    void verifiedServerIdentity(checkedProcess)
+      .then(() => {
+        if (
+          serviceRestartAttempts
+          && Date.now() - serviceHealthySince >= SERVICE_RESTART_STABILITY_MS
+        ) {
+          serviceRestartAttempts = 0;
+        }
+      })
+      .catch(async (error) => {
+        if (checkedProcess !== serviceProcess || isQuitting) return;
+        checkedProcess.lairExpectedStop = true;
+        serviceProcess = null;
+        await stopManagedChild(checkedProcess);
+        scheduleServiceRestart(`Backend health check failed: ${error.message}`);
+      })
+      .finally(() => { serviceHealthCheckInFlight = false; });
+  }, SERVICE_HEALTH_INTERVAL_MS);
+  serviceHealthTimer.ref?.();
+}
+
 async function stopLocalService() {
+  clearInterval(serviceHealthTimer);
+  serviceHealthTimer = null;
+  if (serviceRestartTimer) {
+    clearTimeout(serviceRestartTimer);
+    serviceRestartTimer = null;
+  }
   const child = serviceProcess;
   serviceProcess = null;
-  await stopManagedChild(child);
-  serviceStopped = true;
+  if (child) child.lairExpectedStop = true;
+  let stoppedGracefully = false;
+  if (child && appOrigin && apiToken) {
+    try {
+      const response = await fetch(`${appOrigin}/api/service/shutdown`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Lair-Token': apiToken,
+        },
+        body: '{}',
+        signal: AbortSignal.timeout(2_000),
+      });
+      stoppedGracefully = response.ok && await waitForExit(child, 2_500);
+    } catch {
+      // Fall through to the bounded signal/kill path.
+    }
+  }
+  if (!stoppedGracefully) await stopManagedChild(child);
   try { fs.unlinkSync(identityPath()); } catch (error) {
     if (error.code !== 'ENOENT') console.warn(`Could not remove the local identity file: ${error.message}`);
   }
@@ -390,6 +650,17 @@ async function refreshTrayMenu() {
     : [{ label: 'No configured targets', enabled: false }];
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Open Hacker's Lair", click: showMainWindow },
+    ...(updateState.status === 'ready' || updateState.status === 'blocked'
+      ? [{
+        label: updateState.version
+          ? `Restart to apply v${updateState.version}`
+          : 'Restart to apply update',
+        click: () => void requestUpdateApply(),
+      }, {
+        label: 'View release notes',
+        click: () => void shell.openExternal(updateState.releaseUrl),
+      }]
+      : []),
     { type: 'separator' },
     { label: 'Targets', submenu: projectItems },
     { type: 'separator' },
@@ -428,8 +699,7 @@ async function createWindow() {
     app.quit();
     return;
   }
-  appOrigin = server.origin;
-  apiToken = server.token;
+  applyServerIdentity(server);
   Menu.setApplicationMenu(null);
 
   const savedState = loadWindowState();
@@ -511,6 +781,10 @@ ipcMain.on('app:power', (event, action) => {
   if (!window || window !== mainWindow) return;
 
   if (['restart', 'shutdown'].includes(action)) saveWindowState(window);
+  if (action === 'restart' && ['ready', 'blocked'].includes(updateState.status)) {
+    void requestUpdateApply();
+    return;
+  }
   performPowerAction(action, app);
 });
 
@@ -547,6 +821,28 @@ ipcMain.handle('app:launch-at-login', (event, enabled) => {
   };
 });
 
+ipcMain.handle('app:get-update-state', (event) => {
+  if (!senderBelongsToApplication(event)) return null;
+  return updateState;
+});
+
+ipcMain.handle('app:get-backend-state', (event) => {
+  if (!senderBelongsToApplication(event)) return null;
+  return backendState;
+});
+
+ipcMain.handle('app:apply-update', async (event) => {
+  if (!senderBelongsToApplication(event)) return null;
+  return requestUpdateApply();
+});
+
+ipcMain.handle('app:open-update-notes', async (event) => {
+  if (!senderBelongsToApplication(event)) return false;
+  if (!updateState.releaseUrl.startsWith('https://github.com/alfonza1/hackers-lair/')) return false;
+  await shell.openExternal(updateState.releaseUrl);
+  return true;
+});
+
 app.on('second-instance', () => {
   showMainWindow();
 });
@@ -566,7 +862,11 @@ app.whenReady().then(async () => {
   if (!hasLock) return;
   installLinuxCli();
   await createWindow();
-  if (appOrigin) installDesktopControls();
+  if (appOrigin) {
+    installDesktopControls();
+    startServiceHealthChecks();
+  }
+  initializeUpdates();
   const smokeExitAfterMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_MS);
   if (Number.isFinite(smokeExitAfterMs) && smokeExitAfterMs > 0) {
     setTimeout(() => app.quit(), smokeExitAfterMs).unref?.();
@@ -575,12 +875,20 @@ app.whenReady().then(async () => {
 app.on('activate', showMainWindow);
 app.on('before-quit', (event) => {
   isQuitting = true;
-  if (serviceStopped || !serviceProcess || quitAfterServiceStops) return;
+  if (quitAfterServiceStops) return;
   event.preventDefault();
-  quitAfterServiceStops = true;
-  void stopLocalService().finally(() => {
-    app.quit();
-  });
+  if (quitSequenceStarted) return;
+  quitSequenceStarted = true;
+  void (async () => {
+    if (!installUpdateAfterStop && updateState.status === 'ready') {
+      installUpdateAfterStop = (await runningManagedTargets()).length === 0;
+    }
+    updateStop?.();
+    await stopLocalService();
+    quitAfterServiceStops = true;
+    if (installUpdateAfterStop) autoUpdater.quitAndInstall(false, true);
+    else app.quit();
+  })();
 });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => {});

@@ -24,6 +24,7 @@ const {
   splitTargetUrls,
 } = require('./lib/runtime-intelligence');
 const { createRuntimeConfig } = require('./lib/runtime-config');
+const { LogStore } = require('./lib/log-store');
 const { normalizeUiPreferences, validateUiPreferences } = require('./lib/ui-preferences');
 const { createPlatform } = require('./lib/platform');
 const {
@@ -45,6 +46,11 @@ const PROJECT_STOP_VERIFY_TIMEOUT_MS = Number.isFinite(configuredStopVerifyTimeo
 const PROJECT_STOP_VERIFY_INTERVAL_MS = 200;
 const PROCESS_SNAPSHOT_TTL_MS = 3_000;
 const GIT_REFRESH_INTERVAL_MS = 10_000;
+const LOG_MAINTENANCE_INTERVAL_MS = 5_000;
+const configuredMaxLogBytes = Number(process.env.LAIR_MAX_COMPONENT_LOG_BYTES);
+const MAX_COMPONENT_LOG_BYTES = Number.isFinite(configuredMaxLogBytes)
+  ? Math.max(64 * 1024, configuredMaxLogBytes)
+  : 2 * 1024 * 1024;
 const MAX_BODY_BYTES = 1024 * 1024;
 const runtimeConfig = createRuntimeConfig(__dirname);
 const runtimeIdentity = createRuntimeIdentity();
@@ -419,7 +425,7 @@ async function refreshDoctor() {
     dataDirectory: DATA_DIR,
     projects: projects.value.projects,
     configErrors: [projects.error, scripts.error, settings.error],
-    installChannel: process.env.LAUNCH_CHANNEL || (process.versions.electron ? 'portable' : 'source'),
+    installChannel: process.env.LAIR_INSTALL_CHANNEL || (process.versions.electron ? 'portable' : 'source'),
     port: currentPort,
   });
   return doctorSnapshot;
@@ -633,15 +639,22 @@ async function getScripts() {
 // ---- Launch tracking: capture output + notice early crashes -----------------
 
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-try { fs.mkdirSync(LOG_DIR, { recursive: true }); } catch { /* ignore */ }
+const logStore = new LogStore(LOG_DIR, { maxBytes: MAX_COMPONENT_LOG_BYTES });
 
 // key `${project}::${component}` -> { status, reason, logFile, startedAt, pid }
 // status: 'starting' | 'running' | 'errored'
 const launches = new Map();
 const telemetryHistory = new Map();
 const launchKey = (proj, comp) => `${proj}::${comp}`;
-const slug = (s) => String(s).replace(/[^a-z0-9._-]+/gi, '_');
 const MAX_TELEMETRY_POINTS = 60;
+
+function configuredComponentLogFiles(projects = loadProjects()) {
+  return new Set(projects.flatMap((project) => (
+    (project.components || []).map((component) => (
+      logStore.componentFile(project.name, component.name)
+    ))
+  )));
+}
 
 // Pull the meaningful error out of a component's log. Node prints the message
 // at the top of its crash (above the stack); Python puts the real exception at
@@ -686,7 +699,7 @@ function launchProjectComponent(project, component, options = {}) {
     return { started: false, reason };
   }
 
-  const logFile = path.join(LOG_DIR, `${slug(project.name)}--${slug(component.name)}.log`);
+  const logFile = logStore.componentFile(project.name, component.name);
   const restartCount = Number(options.restartCount) || 0;
   const rec = {
     status: 'starting',
@@ -704,9 +717,11 @@ function launchProjectComponent(project, component, options = {}) {
   let outFd = 'ignore';
   let errFd = 'ignore';
   try {
-    outFd = fs.openSync(logFile, restartCount ? 'a' : 'w');
-    errFd = fs.openSync(logFile, 'a');
-    if (restartCount) fs.writeSync(outFd, `\n--- auto-restart attempt ${restartCount} ---\n`);
+    logStore.prepare(logFile, {
+      append: restartCount > 0,
+      heading: restartCount ? `\n--- auto-restart attempt ${restartCount} ---\n` : '',
+    });
+    [outFd, errFd] = logStore.openAppendDescriptors(logFile);
   } catch {
     outFd = 'ignore';
     errFd = 'ignore';
@@ -729,12 +744,17 @@ function launchProjectComponent(project, component, options = {}) {
     });
     rec.pid = child.pid;
     child.on('error', (error) => {
+      closeFds();
       rec.status = 'errored';
       rec.reason = error.message;
     });
     child.on('exit', (code) => {
       closeFds();
-      const unexpected = rec.everRunning && !actionLocks.has(`project:${project.name}`);
+      const unexpected = (
+        rec.everRunning
+        && !shuttingDown
+        && !actionLocks.has(`project:${project.name}`)
+      );
       const maxRestarts = Math.min(Math.max(Number(component.maxRestarts) || 3, 1), 10);
       if (unexpected) {
         const nextAttempt = rec.restartCount + 1;
@@ -753,7 +773,7 @@ function launchProjectComponent(project, component, options = {}) {
           rec.nextRestartAt = Date.now() + delay;
           const crashEvent = rec.crashEvent;
           setTimeout(() => {
-            if (!actionLocks.has(`project:${project.name}`)) {
+            if (!shuttingDown && !actionLocks.has(`project:${project.name}`)) {
               launchProjectComponent(project, component, { restartCount: nextAttempt, crashEvent });
             }
           }, delay).unref?.();
@@ -978,6 +998,7 @@ function invalidateProcessSnapshot() {
 
 let currentPort = PORT;
 const actionLocks = new Set();
+let shuttingDown = false;
 
 function securityHeaders() {
   return {
@@ -1016,8 +1037,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (req.method === 'GET' && pathname === '/icon.ico') {
-      res.writeHead(200, { 'Content-Type': 'image/x-icon', 'Cache-Control': 'public, max-age=86400' });
+      res.writeHead(200, {
+        'Content-Type': 'image/x-icon',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      });
       res.end(fs.readFileSync(path.join(__dirname, 'icon.ico')));
+      return;
+    }
+    if (req.method === 'GET' && pathname === '/third-party-notices.txt') {
+      res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+      });
+      res.end(fs.readFileSync(path.join(__dirname, 'THIRD_PARTY_NOTICES.txt'), 'utf8'));
       return;
     }
     if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
@@ -1029,6 +1061,12 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/api/identity') {
       json(res, 200, { app: runtimeIdentity.app, nonce: runtimeIdentity.nonce });
+      return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/service/shutdown') {
+      json(res, 200, { ok: true });
+      setImmediate(() => shutDownServer('desktop-request'));
       return;
     }
 
@@ -1182,91 +1220,9 @@ const server = http.createServer(async (req, res) => {
         const pool = c.track === 'process' ? tracked : listeners;
         const detectedByPort = allConfiguredPortsDetected(c, listeners);
         if (listenersFor(c, pool).length || detectedByPort) { skipped.push(c.name); continue; } // already running
-        if (!c.command || !c.cwd || !fs.existsSync(c.cwd)) {
-          launches.set(launchKey(name, c.name), {
-            status: 'errored',
-            reason: `Missing command or folder: ${c.cwd || '(no cwd)'}`,
-            logFile: '',
-            startedAt: Date.now(),
-          });
-          failed.push(c.name);
-          continue;
-        }
-        const logFile = path.join(LOG_DIR, `${slug(name)}--${slug(c.name)}.log`);
-        const rec = {
-          status: 'starting',
-          reason: '',
-          logFile,
-          startedAt: Date.now(),
-          pid: null,
-          restartCount: 0,
-          everRunning: false,
-          crashEvent: null,
-        };
-        launches.set(launchKey(name, c.name), rec);
-
-        // Separate fds for stdout and stderr to the same file — sharing one fd
-        // drops stderr on Windows, which is exactly where startup errors go.
-        let outFd = 'ignore', errFd = 'ignore';
-        try { outFd = fs.openSync(logFile, 'w'); errFd = fs.openSync(logFile, 'a'); }
-        catch { outFd = 'ignore'; errFd = 'ignore'; }
-        const closeFds = () => { for (const f of [outFd, errFd]) if (typeof f === 'number') { try { fs.closeSync(f); } catch { /* ignore */ } } };
-
-        try {
-          // NOT detached: a detached child on Windows doesn't inherit our log
-          // file handles (stderr would be lost). Non-detached children still
-          // outlive us on Windows, and unref() lets us exit independently.
-          const child = spawn(c.command, {
-            cwd: c.cwd,
-            shell: true,
-            windowsHide: true,
-            stdio: ['ignore', outFd, errFd],
-            env: environmentWithBrowser(),
-          });
-          rec.pid = child.pid;
-          child.on('error', (err) => { rec.status = 'errored'; rec.reason = err.message; });
-          child.on('exit', (code) => {
-            closeFds();
-            const unexpected = rec.everRunning && !actionLocks.has(`project:${name}`);
-            const maxRestarts = Math.min(Math.max(Number(c.maxRestarts) || 3, 1), 10);
-            if (unexpected) {
-              const nextAttempt = rec.restartCount + 1;
-              rec.crashEvent = {
-                id: `${Date.now()}-${name}-${c.name}`,
-                at: Date.now(),
-                code,
-                restarting: c.autoRestart === true && nextAttempt <= maxRestarts,
-                attempt: nextAttempt,
-                maxRestarts,
-              };
-              if (rec.crashEvent.restarting) {
-                const delay = Math.min(30_000, 1_000 * (2 ** (nextAttempt - 1)));
-                rec.status = 'restarting';
-                rec.reason = `Exited with code ${code}; retry ${nextAttempt}/${maxRestarts} in ${Math.ceil(delay / 1000)}s.`;
-                rec.nextRestartAt = Date.now() + delay;
-                const crashEvent = rec.crashEvent;
-                setTimeout(() => {
-                  if (!actionLocks.has(`project:${name}`)) {
-                    launchProjectComponent(proj, c, { restartCount: nextAttempt, crashEvent });
-                  }
-                }, delay).unref?.();
-                return;
-              }
-            }
-            // If the shell exits while we still think it's "starting", it never
-            // came up — that's a startup failure. Show the tail of its log
-            // (short delay so the child's final writes are flushed to disk).
-            if (rec.status === 'starting' || unexpected) {
-              setTimeout(() => { rec.status = 'errored'; rec.reason = tailLog(logFile, code); }, 150);
-            }
-          });
-          child.unref();
-          started.push(c.name);
-        } catch (err) {
-          closeFds();
-          rec.status = 'errored'; rec.reason = err.message;
-          failed.push(c.name);
-        }
+        const result = launchProjectComponent(proj, c);
+        if (result.started) started.push(c.name);
+        else failed.push(c.name);
       }
       // Bump the project to the top of the "recently started" order — only
       // when something actually launched, not for a no-op click.
@@ -1605,6 +1561,16 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/api/doctor/report') {
       const report = await refreshDoctor();
       json(res, 200, { report: formatDoctorReport(report) });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/logs') {
+      json(res, 200, logStore.summary());
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/logs/clear') {
+      json(res, 200, { ok: true, ...logStore.clear() });
       return;
     }
 
@@ -2036,18 +2002,59 @@ const gitRefreshTimer = setInterval(() => {
   void refreshGitAttention(loadProjects());
 }, GIT_REFRESH_INTERVAL_MS);
 gitRefreshTimer.unref();
+logStore.maintain(configuredComponentLogFiles());
+const logMaintenanceTimer = setInterval(() => {
+  logStore.maintain(configuredComponentLogFiles());
+}, LOG_MAINTENANCE_INTERVAL_MS);
+logMaintenanceTimer.unref();
 
-let shuttingDown = false;
-function shutDownServer(signal) {
+function recordRuntimeFailure(kind, error, context = {}) {
+  try {
+    logStore.appendRuntimeError(kind, error, {
+      coherent: !shuttingDown && server.listening,
+      ...context,
+    });
+  } catch (logError) {
+    console.error(`Could not persist ${kind}: ${logError.message}`);
+  }
+  console.error(`[${kind}]`, error?.stack || error);
+}
+
+function shutDownServer(signal, exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
   clearInterval(gitRefreshTimer);
-  server.close(() => process.exit(0));
+  clearInterval(logMaintenanceTimer);
+  saveStopped();
+  saveStartedTimes();
+  saveTimestampMap(ACTIVITY_FILE, projectActivityTimes);
+  const finish = () => {
+    try { fs.unlinkSync(runtimeConfig.identityFile); } catch (error) {
+      if (error.code !== 'ENOENT') console.warn(`Could not remove local identity: ${error.message}`);
+    }
+    process.exit(exitCode);
+  };
+  if (server.listening) {
+    server.close(finish);
+    server.closeIdleConnections?.();
+    server.closeAllConnections?.();
+  } else {
+    finish();
+  }
   const forcedExit = setTimeout(() => process.exit(1), 3_000);
   forcedExit.unref?.();
   console.log(`Hacker's Lair local service stopping (${signal}).`);
 }
 process.once('SIGTERM', () => shutDownServer('SIGTERM'));
 process.once('SIGINT', () => shutDownServer('SIGINT'));
+process.on('unhandledRejection', (reason) => {
+  recordRuntimeFailure('unhandledRejection', reason);
+  // Background refresh failures do not invalidate config or HTTP state.
+});
+process.on('uncaughtException', (error) => {
+  recordRuntimeFailure('uncaughtException', error);
+  // An uncaught synchronous exception can leave shared process state inconsistent.
+  shutDownServer('uncaughtException', 1);
+});
 
 listen(0);

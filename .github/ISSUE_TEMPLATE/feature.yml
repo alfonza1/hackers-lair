@@ -1,0 +1,35 @@
+name: Feature request
+description: Propose an offline, local-first product improvement
+title: "feature: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Developer problem
+      description: What recurring workflow problem should Hacker's Lair solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the smallest useful workflow, including empty and error states.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Product constraints
+      options:
+        - label: The feature works offline.
+          required: true
+        - label: The feature requires no account, telemetry, analytics, or paid service.
+          required: true
+        - label: I have described any new process-control or configuration risk.
+          required: true

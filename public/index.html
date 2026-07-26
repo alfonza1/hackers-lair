@@ -1568,6 +1568,46 @@
     grid-column: 1 / -1;
   }
 
+  .update-banner {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 10px;
+    align-items: center;
+    margin: 0 0 14px;
+    padding: 9px 12px;
+    border: 1px solid rgba(var(--secondary-rgb), .38);
+    border-radius: 4px;
+    color: var(--text);
+    background: rgba(var(--secondary-rgb), .08);
+    font: 700 .7rem/1.45 var(--mono);
+  }
+
+  .update-banner code {
+    color: var(--cyan);
+    overflow-wrap: anywhere;
+  }
+
+  .update-banner .update-message { flex: 1; }
+
+  .backend-banner {
+    border-color: color-mix(in srgb, var(--error) 58%, var(--border));
+    color: var(--error);
+  }
+
+  .app-footer {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 12px;
+    justify-content: flex-end;
+    color: var(--dim);
+    font: 700 .62rem/1.4 var(--mono);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .app-footer a { color: var(--muted); }
+  .app-footer a:hover { color: var(--cyan); }
+
   .setup-panel {
     grid-column: 1 / -1;
   }
@@ -2442,6 +2482,15 @@
   </header>
 
   <main class="console-layout">
+    <section class="update-banner" id="updateBanner" role="status" hidden>
+      <span class="update-message" id="updateMessage"></span>
+      <code id="updateCommand" hidden></code>
+      <button class="utility" id="applyUpdate" type="button" hidden>Restart to Apply</button>
+      <button class="utility" id="updateNotes" type="button">Release Notes</button>
+    </section>
+    <section class="update-banner backend-banner" id="backendBanner" role="alert" hidden>
+      <span class="update-message" id="backendMessage">Local service unavailable.</span>
+    </section>
     <div class="config-banner" id="configBanner" role="alert" hidden></div>
     <section class="panel matrix" aria-labelledby="viewTitle">
       <div class="panel-head">
@@ -2566,8 +2615,10 @@
             <button class="utility" id="exportConfig" type="button">Export Redacted</button>
             <button class="utility" id="importConfig" type="button">Import</button>
             <button class="utility" id="restoreConfig" type="button">Restore Previous</button>
+            <button class="utility" id="clearLogs" type="button">Clear Logs</button>
             <input id="importConfigFile" type="file" accept=".json,application/json" hidden>
           </div>
+          <p class="schema-summary" id="logSummary">Calculating local log usage…</p>
           <p class="schema-summary" id="schemaSummary">Loading schema-backed config reference…</p>
           <details class="schema-docs">
             <summary>Schema field reference</summary>
@@ -2590,6 +2641,10 @@
       </div>
       <div class="feed-lines" id="feed" aria-live="polite" aria-label="System event feed"></div>
     </section>
+    <footer class="app-footer">
+      <span>Local-only · no telemetry</span>
+      <a href="/third-party-notices.txt" download="THIRD_PARTY_NOTICES.txt">Third-party notices</a>
+    </footer>
   </main>
 </div>
 </div>
@@ -2715,6 +2770,8 @@
     skillsLoaded: false,
     onboarding: null,
     settings: null,
+    update: null,
+    backend: null,
     discovery: null,
     uiPreferences: normalizeUiPreferences(loadJson(UI_PREFERENCES_KEY, {})),
     expandedCards: new Set(),
@@ -2726,6 +2783,7 @@
     doctor: null,
     templates: [],
     backups: [],
+    logs: null,
     seenCrashes: new Set(),
     system: null,
     showSystem: false,
@@ -3060,6 +3118,14 @@
     if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} GB`;
     if (value >= 1024) return `${(value / 1024).toFixed(value >= 10240 ? 0 : 1)} MB`;
     return `${value} KB`;
+  }
+
+  function formatBytes(bytes) {
+    const value = Math.max(0, Number(bytes) || 0);
+    if (value >= 1024 * 1024 * 1024) return `${(value / 1024 / 1024 / 1024).toFixed(1)} GB`;
+    if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
+    if (value >= 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${value} B`;
   }
 
   function formatCpu(value) {
@@ -3914,6 +3980,56 @@
     }
   }
 
+  function renderUpdateState(update) {
+    state.update = update;
+    const banner = $('updateBanner');
+    if (!update) {
+      banner.hidden = true;
+      return;
+    }
+    const show = update.mode === 'manual'
+      || ['ready', 'blocked', 'applying', 'error'].includes(update.status);
+    banner.hidden = !show;
+    $('updateMessage').textContent = update.message || 'Update status unavailable.';
+    $('updateCommand').hidden = !update.upgradeCommand;
+    $('updateCommand').textContent = update.upgradeCommand || '';
+    $('applyUpdate').hidden = !['ready', 'blocked'].includes(update.status);
+    $('applyUpdate').disabled = update.status === 'applying';
+    $('updateNotes').hidden = !update.releaseUrl;
+  }
+
+  function renderBackendState(backend) {
+    state.backend = backend;
+    const banner = $('backendBanner');
+    const available = !backend || backend.status === 'available';
+    banner.hidden = available;
+    $('backendMessage').textContent = backend?.message || 'Local service unavailable.';
+    $('nodeStatus').textContent = available ? 'ONLINE' : String(backend.status || 'unavailable').toUpperCase();
+    $('nodeStatus').classList.toggle('online', available);
+  }
+
+  async function syncDesktopBackend() {
+    const desktop = window.hackerLairWindow;
+    if (!desktop?.getBackendState) return;
+    try {
+      renderBackendState(await desktop.getBackendState());
+      desktop.onBackendState?.(renderBackendState);
+    } catch {
+      renderBackendState({ status: 'unavailable', message: 'Local service unavailable.' });
+    }
+  }
+
+  async function syncDesktopUpdate() {
+    const desktop = window.hackerLairWindow;
+    if (!desktop?.getUpdateState) return;
+    try {
+      renderUpdateState(await desktop.getUpdateState());
+      desktop.onUpdateState?.(renderUpdateState);
+    } catch {
+      renderUpdateState(null);
+    }
+  }
+
   function renderDoctor() {
     const report = state.doctor;
     if (!report) return;
@@ -3955,13 +4071,16 @@
 
   async function loadOfflineTools() {
     try {
-      const [templateData, backupData, schema] = await Promise.all([
+      const [templateData, backupData, schema, logs] = await Promise.all([
         fetchJson('/api/templates'),
         fetchJson('/api/config/backups'),
         fetchJson('/api/schema/projects'),
+        fetchJson('/api/logs'),
       ]);
       state.templates = templateData.templates || [];
       state.backups = backupData.backups || [];
+      state.logs = logs;
+      $('logSummary').textContent = `${logs.files} log file(s) · ${formatBytes(logs.bytes)} total · ${formatBytes(logs.perComponentLimitBytes)} per-component cap.`;
       $('templateKind').innerHTML = state.templates
         .map((template) => `<option value="${esc(template.id)}">${esc(template.name)}</option>`)
         .join('');
@@ -3975,6 +4094,22 @@
         .join('');
     } catch (error) {
       $('schemaSummary').textContent = `Config tools unavailable: ${error.message}`;
+    }
+  }
+
+  async function clearLogs() {
+    const button = $('clearLogs');
+    button.disabled = true;
+    try {
+      const logs = await postJson('/api/logs/clear', {});
+      state.logs = logs;
+      $('logSummary').textContent = `${logs.files} log file(s) · ${formatBytes(logs.bytes)} total · ${formatBytes(logs.perComponentLimitBytes)} per-component cap.`;
+      toast(`Cleared ${logs.cleared} log file(s).`);
+      pushFeed('LOGS_CLEARED', `files=${logs.cleared}`, 'info');
+    } catch (error) {
+      toast(`Could not clear logs: ${error.message}`, true);
+    } finally {
+      button.disabled = false;
     }
   }
 
@@ -5228,6 +5363,7 @@
   $('importConfig').addEventListener('click', () => $('importConfigFile').click());
   $('importConfigFile').addEventListener('change', (event) => importConfigFile(event.target.files?.[0]));
   $('restoreConfig').addEventListener('click', restorePreviousConfig);
+  $('clearLogs').addEventListener('click', clearLogs);
   $('commandTrigger').addEventListener('click', openCommandPalette);
   $('commandInput').addEventListener('input', () => {
     commandSelection = 0;
@@ -5272,6 +5408,13 @@
       event.target.checked = !event.target.checked;
       toast(`Could not update launch at login: ${error.message}`, true);
     }
+  });
+  $('applyUpdate').addEventListener('click', async () => {
+    const update = await window.hackerLairWindow?.applyUpdate?.();
+    if (update) renderUpdateState(update);
+  });
+  $('updateNotes').addEventListener('click', () => {
+    void window.hackerLairWindow?.openUpdateNotes?.();
   });
   window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => {
     applyUiPreferences(state.uiPreferences);
@@ -5318,7 +5461,7 @@
       pushFeed('CONSOLE_BOOT', 'mode=process_control node=local', 'info');
       pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
     }
-    await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings()]);
+    await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings(), syncDesktopUpdate(), syncDesktopBackend()]);
     setInterval(() => void pollVisibleView(), 3500);
   }
 

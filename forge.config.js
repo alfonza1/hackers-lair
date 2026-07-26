@@ -27,14 +27,29 @@ const PACKAGED_RUNTIME_PATHS = new Set([
   'scripts.example.json',
   'server.js',
   'settings.example.json',
+  'THIRD_PARTY_NOTICES.txt',
+]);
+const PACKAGED_NODE_MODULES = new Set([
+  'github-url-to-object',
+  'is-url',
+  'ms',
+  'update-electron-app',
 ]);
 
 function ignoreNonRuntimePath(file) {
   if (!file) return false;
-  const topLevelPath = file
+  const segments = file
     .replaceAll('\\', '/')
     .replace(/^\/+/, '')
-    .split('/')[0];
+    .split('/');
+  const [topLevelPath] = segments;
+  if (topLevelPath === 'node_modules') {
+    if (segments.length === 1) return false;
+    const packageName = segments[1].startsWith('@')
+      ? `${segments[1]}/${segments[2] || ''}`
+      : segments[1];
+    return !PACKAGED_NODE_MODULES.has(packageName);
+  }
   return !PACKAGED_RUNTIME_PATHS.has(topLevelPath);
 }
 
@@ -129,3 +144,4 @@ module.exports = {
 };
 
 module.exports.ignoreNonRuntimePath = ignoreNonRuntimePath;
+module.exports.PACKAGED_NODE_MODULES = PACKAGED_NODE_MODULES;

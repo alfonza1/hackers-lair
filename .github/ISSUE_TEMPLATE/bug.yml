@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible Hacker's Lair problem
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Hacker's Lair. For a security issue, stop here and use the private advisory link in SECURITY.md.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the result you saw and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open …
+        2. Start …
+        3. Observe …
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Redacted Doctor report
+      description: In Settings choose "Copy redacted Doctor report", or run `lair doctor`, then paste the output. Review it before submitting.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: Install channel
+      options:
+        - Squirrel installer
+        - Winget
+        - Scoop
+        - PowerShell portable
+        - Linux DEB
+        - Linux RPM
+        - Linux archive
+        - Source/development
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant sanitized logs
+      description: Remove usernames, absolute paths, tokens, secrets, and personal project details.
+      render: text

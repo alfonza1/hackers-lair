@@ -8,6 +8,7 @@ const { EventEmitter } = require('node:events');
 const {
   desktopDataDirectory,
   readIdentityRecord,
+  restartBackoffDelay,
   stopManagedChild,
   writeManagedCliShim,
 } = require('../lib/desktop-service');
@@ -75,10 +76,31 @@ test('managed child is terminated and awaited', async () => {
   assert.deepEqual(child.signals, ['SIGTERM']);
 });
 
+test('service restart backoff is exponential and capped', () => {
+  assert.deepEqual(
+    [1, 2, 3, 4, 5, 6].map((attempt) => restartBackoffDelay(attempt)),
+    [500, 1_000, 2_000, 4_000, 8_000, 8_000],
+  );
+});
+
+test('desktop supervision publishes backend state and reloads after recovery', () => {
+  const desktop = fs.readFileSync(path.join(__dirname, '..', 'desktop.js'), 'utf8');
+  const preload = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8');
+  assert.match(desktop, /MAX_SERVICE_RESTARTS = 5/);
+  assert.match(desktop, /scheduleServiceRestart/);
+  assert.match(desktop, /startServiceHealthChecks/);
+  assert.match(desktop, /applyServerIdentity\(server, \{ reload: true \}\)/);
+  assert.match(desktop, /app:backend-state/);
+  assert.match(preload, /getBackendState/);
+  assert.match(preload, /onBackendState/);
+});
+
 test('packaging excludes repository-only files and keeps runtime files', () => {
   for (const runtimePath of [
     '/desktop.js',
     '/lib/platform/linux.js',
+    '/node_modules/update-electron-app/dist/index.js',
+    '/node_modules/github-url-to-object/index.js',
     '/public/index.html',
     '/schemas/projects.schema.json',
   ]) {

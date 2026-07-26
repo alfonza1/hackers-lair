@@ -121,6 +121,13 @@ function finalizeReleaseAssets({ version, assetDirectory, manifestDirectory }) {
     'hackers-lair-linux-x64.tar.gz',
     'hackers-lair-linux-x64.zip',
   ];
+  const squirrelPackages = fs.existsSync(assetDirectory)
+    ? fs.readdirSync(assetDirectory).filter((filename) => /-full\.nupkg$/i.test(filename))
+    : [];
+  if (squirrelPackages.length !== 1) {
+    throw new Error(`Expected one Squirrel full nupkg, found ${squirrelPackages.length}.`);
+  }
+  expectedFiles.push('RELEASES', squirrelPackages[0]);
   const missing = expectedFiles.filter((filename) => (
     !fs.existsSync(path.join(assetDirectory, filename))
   ));

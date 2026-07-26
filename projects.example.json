@@ -1,4 +1,5 @@
 {
+  "configVersion": 1,
   "$schema": "./projects.schema.json",
   "_comment": "Local project launch configuration. Add one entry per project and keep each component's cwd, command, port, and match values aligned with your workspace. Components without a listening port should set track to process. Optional stopCommand values run before process cleanup.",
   "projects": []

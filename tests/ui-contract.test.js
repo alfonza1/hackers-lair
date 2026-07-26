@@ -32,6 +32,15 @@ test('command palette includes setup and every preference family', () => {
   assert.match(html, /component\.hasLog/);
 });
 
+test('runtime resilience controls surface backend and log state', () => {
+  assert.match(html, /id="backendBanner"/);
+  assert.match(html, /syncDesktopBackend/);
+  assert.match(html, /onBackendState/);
+  assert.match(html, /id="logSummary"/);
+  assert.match(html, /id="clearLogs"/);
+  assert.match(html, /\/api\/logs\/clear/);
+});
+
 test('onboarding and project management never require hand-edited JSON', () => {
   for (const marker of [
     'id="setupWizard"',

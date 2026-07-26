@@ -2,6 +2,8 @@ node_modules/
 out/
 .tmp-*-test-*/
 npm-debug.log*
+__pycache__/
+*.py[cod]
 logs/
 started.json
 project-activity.json

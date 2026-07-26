@@ -109,7 +109,8 @@ restricted to the actual localhost origin, IPC senders are origin-checked, and
 the packaged page uses a restrictive Content Security Policy. Config parse
 failures retain the last known-good value and surface a visible error.
 
-The current release artifacts are checksum-published but unsigned. See
+The current release artifacts are checksum-published and carry GitHub build
+provenance, but remain unsigned. See [SECURITY.md](SECURITY.md) and
 [SIGNING.md](SIGNING.md); the project does not self-sign distribution packages
 or tell users to disable operating-system security.
 
@@ -152,13 +153,17 @@ npm run make
 
 Forge produces the Squirrel installer and portable ZIP on Windows, plus DEB,
 RPM, and ZIP packages on Linux. The release workflow adds the Linux tarball.
-CI tests both operating systems; tagged builds create the GitHub Release,
-checksums, and package-channel manifests. Pushes to `main` deploy the
-pure-static `site/` directory to GitHub Pages.
+CI reports built-in Node coverage on both operating systems, runs a headless
+Playwright UI smoke, and exercises packaged lifecycle recovery. Tagged builds
+repeat those gates before creating the GitHub Release, checksums, provenance,
+and package-channel manifests. Pushes to `main` deploy the pure-static `site/`
+directory to GitHub Pages.
 
 See [TESTING.md](TESTING.md) for clean-VM acceptance steps and
 [distribution/WINGET.md](distribution/WINGET.md) for the one manual community
-manifest submission.
+manifest submission. Contributor workflow and compatibility rules live in
+[CONTRIBUTING.md](CONTRIBUTING.md), [VERSIONING.md](VERSIONING.md), and
+[CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
