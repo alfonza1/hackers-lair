@@ -21,9 +21,9 @@ npm run make
   identity handshakes, config backups and last-known-good behavior, project
   editing/discovery, truthful URLs, preferences, both platform parsers,
   onboarding prompts, static-site contracts, and release manifest generation.
-- `smoke:package` launches the packaged EXE with an isolated user-data
-  directory, verifies the child service identity, quits, and proves the child
-  PID stopped.
+- `smoke:package` launches the packaged executable with an isolated user-data
+  directory, forcibly terminates its first child service, verifies Electron
+  recovers with a new identity/PID, quits, and proves both service PIDs stopped.
 - `smoke:install` serves a local release fixture, runs the stock PowerShell
   installer into a unique directory below `%LOCALAPPDATA%\Programs`, verifies
   SHA256-before-unblock behavior, runs the packaged `lair` CLI without Node,

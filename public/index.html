@@ -1589,6 +1589,11 @@
 
   .update-banner .update-message { flex: 1; }
 
+  .backend-banner {
+    border-color: color-mix(in srgb, var(--error) 58%, var(--border));
+    color: var(--error);
+  }
+
   .app-footer {
     display: flex;
     grid-column: 1 / -1;
@@ -2483,6 +2488,9 @@
       <button class="utility" id="applyUpdate" type="button" hidden>Restart to Apply</button>
       <button class="utility" id="updateNotes" type="button">Release Notes</button>
     </section>
+    <section class="update-banner backend-banner" id="backendBanner" role="alert" hidden>
+      <span class="update-message" id="backendMessage">Local service unavailable.</span>
+    </section>
     <div class="config-banner" id="configBanner" role="alert" hidden></div>
     <section class="panel matrix" aria-labelledby="viewTitle">
       <div class="panel-head">
@@ -2607,8 +2615,10 @@
             <button class="utility" id="exportConfig" type="button">Export Redacted</button>
             <button class="utility" id="importConfig" type="button">Import</button>
             <button class="utility" id="restoreConfig" type="button">Restore Previous</button>
+            <button class="utility" id="clearLogs" type="button">Clear Logs</button>
             <input id="importConfigFile" type="file" accept=".json,application/json" hidden>
           </div>
+          <p class="schema-summary" id="logSummary">Calculating local log usage…</p>
           <p class="schema-summary" id="schemaSummary">Loading schema-backed config reference…</p>
           <details class="schema-docs">
             <summary>Schema field reference</summary>
@@ -2761,6 +2771,7 @@
     onboarding: null,
     settings: null,
     update: null,
+    backend: null,
     discovery: null,
     uiPreferences: normalizeUiPreferences(loadJson(UI_PREFERENCES_KEY, {})),
     expandedCards: new Set(),
@@ -2772,6 +2783,7 @@
     doctor: null,
     templates: [],
     backups: [],
+    logs: null,
     seenCrashes: new Set(),
     system: null,
     showSystem: false,
@@ -3106,6 +3118,14 @@
     if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} GB`;
     if (value >= 1024) return `${(value / 1024).toFixed(value >= 10240 ? 0 : 1)} MB`;
     return `${value} KB`;
+  }
+
+  function formatBytes(bytes) {
+    const value = Math.max(0, Number(bytes) || 0);
+    if (value >= 1024 * 1024 * 1024) return `${(value / 1024 / 1024 / 1024).toFixed(1)} GB`;
+    if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
+    if (value >= 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${value} B`;
   }
 
   function formatCpu(value) {
@@ -3978,6 +3998,27 @@
     $('updateNotes').hidden = !update.releaseUrl;
   }
 
+  function renderBackendState(backend) {
+    state.backend = backend;
+    const banner = $('backendBanner');
+    const available = !backend || backend.status === 'available';
+    banner.hidden = available;
+    $('backendMessage').textContent = backend?.message || 'Local service unavailable.';
+    $('nodeStatus').textContent = available ? 'ONLINE' : String(backend.status || 'unavailable').toUpperCase();
+    $('nodeStatus').classList.toggle('online', available);
+  }
+
+  async function syncDesktopBackend() {
+    const desktop = window.hackerLairWindow;
+    if (!desktop?.getBackendState) return;
+    try {
+      renderBackendState(await desktop.getBackendState());
+      desktop.onBackendState?.(renderBackendState);
+    } catch {
+      renderBackendState({ status: 'unavailable', message: 'Local service unavailable.' });
+    }
+  }
+
   async function syncDesktopUpdate() {
     const desktop = window.hackerLairWindow;
     if (!desktop?.getUpdateState) return;
@@ -4030,13 +4071,16 @@
 
   async function loadOfflineTools() {
     try {
-      const [templateData, backupData, schema] = await Promise.all([
+      const [templateData, backupData, schema, logs] = await Promise.all([
         fetchJson('/api/templates'),
         fetchJson('/api/config/backups'),
         fetchJson('/api/schema/projects'),
+        fetchJson('/api/logs'),
       ]);
       state.templates = templateData.templates || [];
       state.backups = backupData.backups || [];
+      state.logs = logs;
+      $('logSummary').textContent = `${logs.files} log file(s) · ${formatBytes(logs.bytes)} total · ${formatBytes(logs.perComponentLimitBytes)} per-component cap.`;
       $('templateKind').innerHTML = state.templates
         .map((template) => `<option value="${esc(template.id)}">${esc(template.name)}</option>`)
         .join('');
@@ -4050,6 +4094,22 @@
         .join('');
     } catch (error) {
       $('schemaSummary').textContent = `Config tools unavailable: ${error.message}`;
+    }
+  }
+
+  async function clearLogs() {
+    const button = $('clearLogs');
+    button.disabled = true;
+    try {
+      const logs = await postJson('/api/logs/clear', {});
+      state.logs = logs;
+      $('logSummary').textContent = `${logs.files} log file(s) · ${formatBytes(logs.bytes)} total · ${formatBytes(logs.perComponentLimitBytes)} per-component cap.`;
+      toast(`Cleared ${logs.cleared} log file(s).`);
+      pushFeed('LOGS_CLEARED', `files=${logs.cleared}`, 'info');
+    } catch (error) {
+      toast(`Could not clear logs: ${error.message}`, true);
+    } finally {
+      button.disabled = false;
     }
   }
 
@@ -5303,6 +5363,7 @@
   $('importConfig').addEventListener('click', () => $('importConfigFile').click());
   $('importConfigFile').addEventListener('change', (event) => importConfigFile(event.target.files?.[0]));
   $('restoreConfig').addEventListener('click', restorePreviousConfig);
+  $('clearLogs').addEventListener('click', clearLogs);
   $('commandTrigger').addEventListener('click', openCommandPalette);
   $('commandInput').addEventListener('input', () => {
     commandSelection = 0;
@@ -5400,7 +5461,7 @@
       pushFeed('CONSOLE_BOOT', 'mode=process_control node=local', 'info');
       pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
     }
-    await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings(), syncDesktopUpdate()]);
+    await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings(), syncDesktopUpdate(), syncDesktopBackend()]);
     setInterval(() => void pollVisibleView(), 3500);
   }
 

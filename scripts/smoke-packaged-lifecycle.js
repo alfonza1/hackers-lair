@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const { execFileSync, spawn } = require('node:child_process');
 const { listPackage } = require('@electron/asar');
 const { PACKAGED_NODE_MODULES } = require('../forge.config');
 
@@ -26,7 +26,18 @@ function packagedLaunchArguments(platform = process.platform, environment = proc
   return [];
 }
 
-async function waitForIdentity(deadline, child, output, identityFile) {
+function terminateServiceUnexpectedly(pid) {
+  if (process.platform === 'win32') {
+    execFileSync('taskkill.exe', ['/PID', String(pid), '/F'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    return;
+  }
+  process.kill(pid, 'SIGKILL');
+}
+
+async function waitForIdentity(deadline, child, output, identityFile, previousIdentity = null) {
   let lastError;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
@@ -44,6 +55,12 @@ async function waitForIdentity(deadline, child, output, identityFile) {
       assert.equal(response.ok, true);
       assert.equal(identity.app, 'hackers-lair');
       assert.equal(identity.nonce, record.nonce);
+      if (
+        previousIdentity
+        && (record.pid === previousIdentity.pid || record.nonce === previousIdentity.nonce)
+      ) {
+        throw new Error('The packaged desktop has not replaced the stopped service yet.');
+      }
       return record;
     } catch (error) {
       lastError = error;
@@ -120,7 +137,7 @@ async function main() {
     env: {
       ...process.env,
       PROJECT_MANAGER_DATA_DIR: dataDirectory,
-      LAIR_SMOKE_EXIT_AFTER_MS: '1800',
+      LAIR_SMOKE_EXIT_AFTER_MS: '10000',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
@@ -128,16 +145,30 @@ async function main() {
   for (const stream of [child.stdout, child.stderr]) {
     stream.on('data', (chunk) => {
       output.text = `${output.text}${chunk}`.slice(-16_384);
+      if (process.env.LAIR_SMOKE_VERBOSE === '1') process.stderr.write(chunk);
     });
   }
   try {
-    const record = await waitForIdentity(Date.now() + 15_000, child, output, identityFile);
-    assert.equal(record.pid > 0, true);
+    const firstRecord = await waitForIdentity(Date.now() + 15_000, child, output, identityFile);
+    assert.equal(firstRecord.pid > 0, true);
+    terminateServiceUnexpectedly(firstRecord.pid);
+    const recoveredRecord = await waitForIdentity(
+      Date.now() + 30_000,
+      child,
+      output,
+      identityFile,
+      firstRecord,
+    );
+    assert.notEqual(recoveredRecord.pid, firstRecord.pid);
     assert.equal(await waitForExit(child, Date.now() + 15_000), 0);
     await delay(250);
-    assert.throws(() => process.kill(record.pid, 0));
+    assert.throws(() => process.kill(firstRecord.pid, 0));
+    assert.throws(() => process.kill(recoveredRecord.pid, 0));
     assert.equal(fs.existsSync(identityFile), false);
-    console.log(`Packaged lifecycle passed on ${process.platform}: verified service PID ${record.pid} stopped.`);
+    console.log(
+      `Packaged lifecycle passed on ${process.platform}: service PID ${firstRecord.pid}`
+      + ` recovered as ${recoveredRecord.pid}, then stopped cleanly.`,
+    );
   } finally {
     if (child.exitCode === null) child.kill();
     child.stdout.destroy();

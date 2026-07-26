@@ -11,12 +11,18 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 - Channel-aware update notices and Squirrel-only automatic update downloads.
 - GitHub build-provenance attestations and bundled third-party license notices.
+- Backend supervision with bounded restart backoff, visible recovery state, and
+  packaged recovery smoke coverage.
+- Bounded component logs, runtime failure logs, storage reporting, and an
+  in-app clear action.
 
 ### Changed
 
 - Runtime configuration now carries an ordered migration version.
 - Release automation uses immutable action revisions and audits production
   dependencies.
+- Desktop shutdown requests a graceful service flush before the forced-stop
+  fallback.
 
 ## [2.1.0-beta.1] - 2026-07-26
 
@@ -40,4 +46,3 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 [Unreleased]: https://github.com/alfonza1/hackers-lair/compare/v2.1.0-beta.1...HEAD
 [2.1.0-beta.1]: https://github.com/alfonza1/hackers-lair/releases/tag/v2.1.0-beta.1
-
