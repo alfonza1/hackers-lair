@@ -46,6 +46,10 @@ test('support exports redact usernames and absolute machine paths recursively', 
   assert.doesNotMatch(serialized, new RegExp(username, 'i'));
   assert.doesNotMatch(serialized, /C:\\\\private\\\\workspace/i);
   assert.match(redactText(input.cwd), /%USERPROFILE%/);
+  assert.equal(
+    redactText('cwd=/srv/development/private-api/server.js'),
+    'cwd=<PATH>/server.js',
+  );
 });
 
 test('CLI project matching rejects ambiguous partial names', () => {

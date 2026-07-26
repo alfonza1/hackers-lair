@@ -295,7 +295,10 @@ test('protects localhost mutations and verifies the bound service identity', asy
     body: '{}',
   });
   assert.equal(exportResponse.status, 200);
-  assert.doesNotMatch(exportResponse.body, new RegExp(dataDirectory.replaceAll('\\', '\\\\'), 'i'));
+  assert.doesNotMatch(
+    exportResponse.body,
+    new RegExp(dataDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+  );
 
   const { stdout: cliOutput } = await execFileAsync(process.execPath, [path.join(ROOT, 'bin', 'lair.js'), 'ls'], {
     cwd: ROOT,

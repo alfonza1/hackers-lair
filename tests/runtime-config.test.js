@@ -41,11 +41,14 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
   assert.ok(fs.existsSync(path.join(data, 'settings.json')));
   assert.deepEqual(runtime.settings.read().value.uiPreferences, DEFAULT_UI_PREFERENCES);
 
+  const workspaceFolders = process.platform === 'win32'
+    ? ['D:\\Code', 'E:\\Experiments']
+    : ['/code', '/experiments'];
   const settings = runtime.settings.write({
     enableSkills: false,
     browserPath: '',
     zombieAfterHours: 8,
-    workspaceFolders: ['D:\\Code', 'E:\\Experiments'],
+    workspaceFolders,
     uiPreferences: {
       theme: 'ice',
       density: 'compact',
@@ -53,7 +56,7 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
       fontScale: 110,
     },
   });
-  assert.deepEqual(settings.workspaceFolders, ['D:\\Code', 'E:\\Experiments']);
+  assert.deepEqual(settings.workspaceFolders, workspaceFolders);
   assert.equal(settings.uiPreferences.theme, 'ice');
   assert.throws(() => runtime.settings.write({
     workspaceFolders: ['relative-folder'],
