@@ -41,12 +41,25 @@ test('installation remains command-only and useful without JavaScript', () => {
   assert.match(landing, /data-platform-panel="windows"/);
   assert.match(landing, /data-platform-panel="linux"/);
   assert.doesNotMatch(landing, /data-platform-panel="[^"]+"[^>]*hidden/);
-  assert.match(landing, /winget install --id Alfonza1\.HackersLair --exact/);
+  assert.match(landing, /winget install --id hackerslair\.desktop --exact/);
   assert.match(landing, /irm https:\/\/alfonza1\.github\.io\/hackers-lair\/install\.ps1 \| iex/);
   assert.match(installation, /hackers-lair_amd64\.deb/);
   assert.match(installation, /hackers-lair_x86_64\.rpm/);
   assert.match(installation, /hackers-lair-linux-x64\.tar\.gz/);
   assert.match(installation, /gh attestation verify &lt;file&gt; -R alfonza1\/hackers-lair/);
+});
+
+test('public branding uses the product-owned Winget identity', () => {
+  const publicCopy = publicPages
+    .map((relative) => fs.readFileSync(path.join(site, relative), 'utf8'))
+    .join('\n');
+  const visibleProse = publicCopy
+    .replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, '')
+    .replace(/<[^>]+>/g, ' ');
+
+  assert.match(publicCopy, /hackerslair\.desktop/);
+  assert.doesNotMatch(publicCopy, /Alfonza1\.HackersLair|Alfonza Jones/);
+  assert.doesNotMatch(visibleProse, /alfonza/i);
 });
 
 test('site scripts stay self-contained and installer mirrors stay exact', () => {

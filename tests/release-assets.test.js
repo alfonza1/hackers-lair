@@ -37,21 +37,29 @@ test('release finalization hashes every package and generates channel manifests'
     manifests,
     'winget',
     'manifests',
-    'a',
-    'Alfonza1',
-    'HackersLair',
+    'h',
+    'hackerslair',
+    'desktop',
     version,
   );
   const installer = fs.readFileSync(
-    path.join(wingetDirectory, 'Alfonza1.HackersLair.installer.yaml'),
+    path.join(wingetDirectory, 'hackerslair.desktop.installer.yaml'),
     'utf8',
   );
   assert.match(installer, /Scope: user/);
+  assert.match(installer, /PackageIdentifier: hackerslair\.desktop/);
   assert.match(installer, /InstallerType: exe/);
   assert.match(installer, /winget-manifest\.installer\.1\.12\.0\.schema\.json/);
   assert.match(installer, /ManifestVersion: 1\.12\.0/);
   assert.match(installer, /InstallerSha256: [A-F0-9]{64}/);
   assert.match(installer, /HackersLair-2\.1\.0-beta\.1-Setup\.exe/);
+
+  const locale = fs.readFileSync(
+    path.join(wingetDirectory, 'hackerslair.desktop.locale.en-US.yaml'),
+    'utf8',
+  );
+  assert.match(locale, /Publisher: Hacker's Lair contributors/);
+  assert.doesNotMatch(locale, /Alfonza Jones|Alfonza1\.HackersLair/);
 
   const scoop = JSON.parse(fs.readFileSync(
     path.join(manifests, 'scoop', 'hackerslair.json'),

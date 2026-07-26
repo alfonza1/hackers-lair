@@ -24,19 +24,19 @@ function releaseUrl(version, filename) {
 }
 
 function wingetManifests(version, installerHash) {
-  const relative = path.join('winget', 'manifests', 'a', 'Alfonza1', 'HackersLair', version);
+  const relative = path.join('winget', 'manifests', 'h', 'hackerslair', 'desktop', version);
   return new Map([
-    [path.join(relative, 'Alfonza1.HackersLair.yaml'), `
+    [path.join(relative, 'hackerslair.desktop.yaml'), `
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json
-PackageIdentifier: Alfonza1.HackersLair
+PackageIdentifier: hackerslair.desktop
 PackageVersion: ${version}
 DefaultLocale: en-US
 ManifestType: version
 ManifestVersion: 1.12.0
 `],
-    [path.join(relative, 'Alfonza1.HackersLair.installer.yaml'), `
+    [path.join(relative, 'hackerslair.desktop.installer.yaml'), `
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
-PackageIdentifier: Alfonza1.HackersLair
+PackageIdentifier: hackerslair.desktop
 PackageVersion: ${version}
 InstallerType: exe
 Scope: user
@@ -56,12 +56,12 @@ Installers:
 ManifestType: installer
 ManifestVersion: 1.12.0
 `],
-    [path.join(relative, 'Alfonza1.HackersLair.locale.en-US.yaml'), `
+    [path.join(relative, 'hackerslair.desktop.locale.en-US.yaml'), `
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
-PackageIdentifier: Alfonza1.HackersLair
+PackageIdentifier: hackerslair.desktop
 PackageVersion: ${version}
 PackageLocale: en-US
-Publisher: Alfonza Jones
+Publisher: Hacker's Lair contributors
 PublisherUrl: https://github.com/alfonza1
 PublisherSupportUrl: https://github.com/alfonza1/hackers-lair/issues
 PackageName: Hacker's Lair

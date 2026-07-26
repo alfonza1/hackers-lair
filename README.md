@@ -30,7 +30,7 @@ checksums; there are no browser download buttons.
 Winget, after the community manifest is approved:
 
 ```powershell
-winget install --id Alfonza1.HackersLair --exact
+winget install --id hackerslair.desktop --exact
 ```
 
 Checksum-verifying PowerShell channel:
@@ -167,4 +167,4 @@ manifest submission. Contributor workflow and compatibility rules live in
 
 ## License
 
-MIT © 2026 Alfonza Jones
+MIT © 2026 Hacker's Lair contributors

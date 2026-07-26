@@ -37,7 +37,7 @@ Get-Content .\checksums.txt</code></pre>
       <pre class="command-block"><code>sha256sum --ignore-missing -c checksums.txt</code></pre>
       <p>Every artifact also has GitHub build provenance. Verify it with the GitHub CLI:</p>
       <pre class="command-block"><code>gh attestation verify &lt;file&gt; -R alfonza1/hackers-lair</code></pre>
-      <p>The checksum proves that the file's bytes match the release manifest. The attestation proves that those bytes came from an authenticated GitHub Actions build in <code>alfonza1/hackers-lair</code>.</p>
+      <p>The checksum proves that the file's bytes match the release manifest. The attestation proves that those bytes came from this repository's authenticated GitHub Actions build.</p>
       <p>The hosted PowerShell installer automates this comparison and refuses to unblock or extract the ZIP when the checksum is missing or different.</p>
 
       <h2 id="signed">Are the packages code-signed?</h2>
@@ -45,7 +45,7 @@ Get-Content .\checksums.txt</code></pre>
 
       <h2 id="update">How do I update?</h2>
       <h3>Winget</h3>
-      <pre class="command-block"><code>winget upgrade --id Alfonza1.HackersLair --exact</code></pre>
+      <pre class="command-block"><code>winget upgrade --id hackerslair.desktop --exact</code></pre>
       <h3>PowerShell channel</h3>
       <pre class="command-block"><code>irm https://alfonza1.github.io/hackers-lair/install.ps1 | iex</code></pre>
       <h3>Scoop</h3>

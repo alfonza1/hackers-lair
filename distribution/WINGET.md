@@ -4,7 +4,7 @@ The tagged release workflow generates a complete manifest bundle from the
 SHA256 of the final Squirrel installer. The package identifier is:
 
 ```text
-Alfonza1.HackersLair
+hackerslair.desktop
 ```
 
 After `v2.1.0-beta.1` is published:
@@ -12,15 +12,15 @@ After `v2.1.0-beta.1` is published:
 1. Download the `package-channel-manifests` artifact from the successful
    Release workflow run.
 2. Fork `microsoft/winget-pkgs` and create a branch such as
-   `Alfonza1.HackersLair-2.1.0-beta.1`.
+   `hackerslair.desktop-2.1.0-beta.1`.
 3. Copy the generated folder
-   `winget/manifests/a/Alfonza1/HackersLair/2.1.0-beta.1` into the same path in
+   `winget/manifests/h/hackerslair/desktop/2.1.0-beta.1` into the same path in
    the fork.
 4. From a current Windows Package Manager installation, run:
 
    ```powershell
-   winget validate .\manifests\a\Alfonza1\HackersLair\2.1.0-beta.1
-   winget install --manifest .\manifests\a\Alfonza1\HackersLair\2.1.0-beta.1
+   winget validate .\manifests\h\hackerslair\desktop\2.1.0-beta.1
+   winget install --manifest .\manifests\h\hackerslair\desktop\2.1.0-beta.1
    ```
 
 5. Confirm the per-user install, Start menu shortcut, first launch, upgrade,
