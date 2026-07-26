@@ -1589,6 +1589,20 @@
 
   .update-banner .update-message { flex: 1; }
 
+  .app-footer {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 12px;
+    justify-content: flex-end;
+    color: var(--dim);
+    font: 700 .62rem/1.4 var(--mono);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .app-footer a { color: var(--muted); }
+  .app-footer a:hover { color: var(--cyan); }
+
   .setup-panel {
     grid-column: 1 / -1;
   }
@@ -2617,6 +2631,10 @@
       </div>
       <div class="feed-lines" id="feed" aria-live="polite" aria-label="System event feed"></div>
     </section>
+    <footer class="app-footer">
+      <span>Local-only · no telemetry</span>
+      <a href="/third-party-notices.txt" download="THIRD_PARTY_NOTICES.txt">Third-party notices</a>
+    </footer>
   </main>
 </div>
 </div>

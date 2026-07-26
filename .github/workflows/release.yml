@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  attestations: write
+  id-token: write
 
 jobs:
   windows:
@@ -16,12 +18,13 @@ jobs:
       WINDOWS_SIGN_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGN_CERTIFICATE_BASE64 }}
       WINDOWS_SIGN_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERTIFICATE_PASSWORD }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.12.0
           cache: npm
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm test
       - name: Configure optional trusted signing identity
         shell: pwsh
@@ -49,12 +52,16 @@ jobs:
           $archive = Get-ChildItem out\make -Recurse -File -Filter '*.zip' |
             Where-Object FullName -Match '[\\/]zip[\\/]win32[\\/]x64[\\/]' |
             Select-Object -First 1
-          if (-not $setup -or -not $archive) {
-            throw 'Electron Forge did not produce the Windows installer and ZIP.'
+          $releases = Get-ChildItem out\make -Recurse -File -Filter 'RELEASES' | Select-Object -First 1
+          $nupkg = Get-ChildItem out\make -Recurse -File -Filter '*-full.nupkg' | Select-Object -First 1
+          if (-not $setup -or -not $archive -or -not $releases -or -not $nupkg) {
+            throw 'Electron Forge did not produce the Windows installer, ZIP, RELEASES, and full nupkg.'
           }
           Copy-Item -LiteralPath $setup.FullName -Destination "release-assets\HackersLair-$version-Setup.exe"
           Copy-Item -LiteralPath $archive.FullName -Destination 'release-assets\hackers-lair-win32-x64.zip'
-      - uses: actions/upload-artifact@v4
+          Copy-Item -LiteralPath $releases.FullName -Destination 'release-assets\RELEASES'
+          Copy-Item -LiteralPath $nupkg.FullName -Destination (Join-Path 'release-assets' $nupkg.Name)
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-windows
           path: release-assets/*
@@ -64,14 +71,15 @@ jobs:
     name: Build Linux artifacts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.12.0
           cache: npm
       - name: Install native package tools
         run: sudo apt-get update && sudo apt-get install -y fakeroot rpm xvfb
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm test
       - run: npm run make
       - name: Verify packaged Linux lifecycle
@@ -98,7 +106,7 @@ jobs:
           cp "$rpm" release-assets/hackers-lair_x86_64.rpm
           cp "$archive" release-assets/hackers-lair-linux-x64.zip
           tar -czf release-assets/hackers-lair-linux-x64.tar.gz -C "$(dirname "$package_dir")" "$(basename "$package_dir")"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-linux
           path: release-assets/*
@@ -111,11 +119,11 @@ jobs:
       - linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.12.0
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: release-*
           path: release-assets
@@ -127,11 +135,15 @@ jobs:
             --version "$version" \
             --assets release-assets \
             --manifests generated-manifests
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: package-channel-manifests
           path: generated-manifests/
           if-no-files-found: error
+      - name: Attest every release artifact
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: release-assets/*
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -148,7 +160,7 @@ jobs:
     env:
       SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: package-channel-manifests
           path: generated-manifests

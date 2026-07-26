@@ -19,6 +19,8 @@ test('release finalization hashes every package and generates channel manifests'
     'hackers-lair_x86_64.rpm',
     'hackers-lair-linux-x64.tar.gz',
     'hackers-lair-linux-x64.zip',
+    'RELEASES',
+    'hackers_lair-2.1.0-beta1-full.nupkg',
   ]) {
     fs.writeFileSync(path.join(assets, filename), `fixture:${filename}`);
   }
@@ -27,7 +29,9 @@ test('release finalization hashes every package and generates channel manifests'
 
   const checksums = fs.readFileSync(path.join(assets, 'checksums.txt'), 'utf8');
   assert.match(checksums, /^[a-f0-9]{64}  HackersLair-2\.1\.0-beta\.1-Setup\.exe/m);
-  assert.equal(checksums.trim().split('\n').length, 6);
+  assert.equal(checksums.trim().split('\n').length, 8);
+  assert.match(checksums, /RELEASES/);
+  assert.match(checksums, /hackers_lair-2\.1\.0-beta1-full\.nupkg/);
 
   const wingetDirectory = path.join(
     manifests,

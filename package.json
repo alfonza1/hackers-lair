@@ -20,6 +20,9 @@
     "desktop": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
+    "notices": "node scripts/generate-third-party-notices.js",
+    "prepackage": "npm run notices",
+    "premake": "npm run notices",
     "smoke:package": "node scripts/smoke-packaged-lifecycle.js",
     "smoke:install": "node scripts/smoke-windows-installer.js",
     "docs:screenshots": "node scripts/capture-readme-screenshots.js",
@@ -42,6 +45,7 @@
     "schemas/",
     "server.js",
     "settings.example.json",
+    "THIRD_PARTY_NOTICES.txt",
     "uninstall.ps1"
   ],
   "devDependencies": {

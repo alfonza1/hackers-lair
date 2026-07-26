@@ -27,6 +27,7 @@ const PACKAGED_RUNTIME_PATHS = new Set([
   'scripts.example.json',
   'server.js',
   'settings.example.json',
+  'THIRD_PARTY_NOTICES.txt',
 ]);
 const PACKAGED_NODE_MODULES = new Set([
   'github-url-to-object',

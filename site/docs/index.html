@@ -86,7 +86,12 @@ if ($Actual -ne $Expected.ToLowerInvariant()) { throw "SHA256 mismatch" }</code>
       <h3>Linux</h3>
       <pre class="command-block"><code>sha256sum --ignore-missing -c checksums.txt</code></pre>
 
-      <div class="docs-callout"><strong>Signing status:</strong> release packages are checksum-published but not code-signed. Command channels avoid browser download handoffs; Windows reputation behavior can still vary until a trusted signing identity is enabled. Hacker's Lair never instructs you to disable SmartScreen or other security controls.</div>
+      <h2 id="provenance">Verify build provenance</h2>
+      <p>GitHub Actions also creates a signed build-provenance attestation for every release artifact. With the GitHub CLI installed, verify that a downloaded file came from this repository's release workflow:</p>
+      <pre class="command-block"><code>gh attestation verify &lt;file&gt; -R alfonza1/hackers-lair</code></pre>
+      <p>Use the attestation and <code>checksums.txt</code> together: the checksum detects changed bytes, while the attestation ties those bytes to an authenticated GitHub Actions build for this repository.</p>
+
+      <div class="docs-callout"><strong>Signing status:</strong> provenance attestation is not Windows publisher code signing and does not remove SmartScreen reputation prompts. Release packages are checksum-published but not currently code-signed. Hacker's Lair never instructs you to disable SmartScreen or other security controls.</div>
 
       <h2 id="requirements">Runtime requirements</h2>
       <ul>

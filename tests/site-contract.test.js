@@ -46,6 +46,7 @@ test('installation remains command-only and useful without JavaScript', () => {
   assert.match(installation, /hackers-lair_amd64\.deb/);
   assert.match(installation, /hackers-lair_x86_64\.rpm/);
   assert.match(installation, /hackers-lair-linux-x64\.tar\.gz/);
+  assert.match(installation, /gh attestation verify &lt;file&gt; -R alfonza1\/hackers-lair/);
 });
 
 test('site scripts stay self-contained and installer mirrors stay exact', () => {

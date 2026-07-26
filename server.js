@@ -1020,6 +1020,14 @@ const server = http.createServer(async (req, res) => {
       res.end(fs.readFileSync(path.join(__dirname, 'icon.ico')));
       return;
     }
+    if (req.method === 'GET' && pathname === '/third-party-notices.txt') {
+      res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+      });
+      res.end(fs.readFileSync(path.join(__dirname, 'THIRD_PARTY_NOTICES.txt'), 'utf8'));
+      return;
+    }
     if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
       const template = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...securityHeaders() });
