@@ -96,6 +96,7 @@ module.exports = {
         options: {
           name: 'hackers-lair',
           productName: "Hacker's Lair",
+          bin: 'HackersLair',
           genericName: 'Developer process console',
           maintainer: packageMetadata.author,
           homepage: packageMetadata.homepage,
@@ -111,6 +112,7 @@ module.exports = {
         options: {
           name: 'hackers-lair',
           productName: "Hacker's Lair",
+          bin: 'HackersLair',
           genericName: 'Developer process console',
           homepage: packageMetadata.homepage,
           icon: path.resolve(__dirname, 'icon.png'),

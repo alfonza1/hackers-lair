@@ -11,7 +11,8 @@ const {
   stopManagedChild,
   writeManagedCliShim,
 } = require('../lib/desktop-service');
-const { ignoreNonRuntimePath } = require('../forge.config');
+const forgeConfig = require('../forge.config');
+const { ignoreNonRuntimePath } = forgeConfig;
 
 test('desktop data follows Electron userData unless explicitly overridden', () => {
   const app = { getPath: (name) => name === 'userData' ? 'C:\\AppData\\HackersLair' : '' };
@@ -90,5 +91,16 @@ test('packaging excludes repository-only files and keeps runtime files', () => {
     '/tests/server-security.test.js',
   ]) {
     assert.equal(ignoreNonRuntimePath(repositoryPath), true, repositoryPath);
+  }
+});
+
+test('Linux package makers target the custom packaged executable name', () => {
+  const linuxMakers = forgeConfig.makers.filter((maker) => (
+    ['@electron-forge/maker-deb', '@electron-forge/maker-rpm'].includes(maker.name)
+  ));
+  assert.equal(linuxMakers.length, 2);
+  for (const maker of linuxMakers) {
+    assert.equal(maker.config.options.name, 'hackers-lair');
+    assert.equal(maker.config.options.bin, 'HackersLair');
   }
 });
