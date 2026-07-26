@@ -40,6 +40,21 @@ smoke test. The generated three-file Winget bundle also passed
 `winget validate` with Windows Package Manager 1.29.280. The release workflow
 uses the same manifest generator against the final installer bytes.
 
+Published beta verification on 2026-07-26:
+
+- main CI run `30195397941` passed Windows and Ubuntu tests, the Windows
+  package/install smoke, and Linux ZIP/DEB/RPM creation plus lifecycle smoke;
+- release run `30195506471` published the Windows installer/ZIP, Linux
+  ZIP/tarball, DEB, RPM, and `checksums.txt`;
+- every binary asset's GitHub-computed SHA256 matched the published checksum
+  file, and the generated Winget bundle passed `winget validate`;
+- the production PowerShell installer resolved `v2.1.0-beta.1`, verified its
+  ZIP before extraction, installed the packaged executable and CLI into an
+  isolated per-user directory, and the verified uninstaller removed it;
+- Pages run `30195397928` deployed successfully. The live landing page, docs,
+  installer, and 404 route returned the expected status, and each
+  version-independent Linux release URL resolved to its published artifact.
+
 ## Static site checks
 
 Serve the committed static directory without a generator:
@@ -121,14 +136,10 @@ Record the VM image, release tag, and result in the release notes.
 7. Extract the tarball on a third clean snapshot and run both `HackersLair`
    and the bundled `lair` companion.
 
-### Public GitHub checks
+### Owner-controlled distribution channels
 
-1. Confirm the tag's workflow is green on Windows and Linux.
-2. Confirm the GitHub Release contains the Squirrel installer, Windows ZIP,
-   DEB, RPM, Linux ZIP/tarball, and `checksums.txt`.
-3. Download every artifact and run the documented SHA256 commands.
-4. Confirm GitHub Pages serves the canonical URLs, 404 page, sitemap, metadata,
-   OS command highlighting, and static no-JavaScript content.
-5. Run `winget validate` on the generated manifest and install the public Scoop
-   manifest after the two owner-controlled repository steps in
-   `distribution/WINGET.md` and `distribution/README.md`.
+1. Create the public `alfonza1/hackers-lair-scoop` repository, add a
+   repository-scoped token as `SCOOP_BUCKET_TOKEN`, then re-run the **Update
+   Scoop bucket** job from release run `30195506471`.
+2. Submit the generated Winget folder using `distribution/WINGET.md`, then
+   confirm the community validation and per-user install after approval.
