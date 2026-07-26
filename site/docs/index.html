@@ -48,10 +48,10 @@
       <h2 id="windows">Windows</h2>
       <h3>Winget</h3>
       <p>The per-user Squirrel package installs beneath <code>%LOCALAPPDATA%</code> and does not request elevation. Winget is the primary channel after the community manifest is approved.</p>
-      <pre class="command-block"><code>winget install --id Alfonza1.HackersLair --exact</code></pre>
+      <pre class="command-block"><code>winget install --id hackerslair.desktop --exact</code></pre>
       <p>Update or remove it through the same channel:</p>
-      <pre class="command-block"><code>winget upgrade --id Alfonza1.HackersLair --exact
-winget uninstall --id Alfonza1.HackersLair --exact</code></pre>
+      <pre class="command-block"><code>winget upgrade --id hackerslair.desktop --exact
+winget uninstall --id hackerslair.desktop --exact</code></pre>
 
       <h3>Checksum-verifying PowerShell channel</h3>
       <p>This channel works directly from GitHub Releases. The script resolves the latest release, downloads the portable ZIP and <code>checksums.txt</code>, verifies SHA256, and only then unblocks and extracts it to <code>%LOCALAPPDATA%\Programs\HackersLair</code>.</p>
