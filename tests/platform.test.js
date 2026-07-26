@@ -1,8 +1,17 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { parseNetstat, parseTasklist } = require('../lib/platform/win32');
-const { cpuTimeSeconds, parsePs, parseSs } = require('../lib/platform/linux');
+const {
+  createWin32Platform,
+  parseNetstat,
+  parseTasklist,
+} = require('../lib/platform/win32');
+const {
+  cpuTimeSeconds,
+  createLinuxPlatform,
+  parsePs,
+  parseSs,
+} = require('../lib/platform/linux');
 
 test('Win32 fixtures map listeners, connections, names, and memory', () => {
   const tasklist = [
@@ -44,4 +53,57 @@ test('Linux fixtures map ss listeners and ps process telemetry', () => {
 test('Linux CPU time parser supports day-prefixed values', () => {
   assert.equal(cpuTimeSeconds('01:02:03'), 3723);
   assert.equal(cpuTimeSeconds('2-01:00:00'), 176400);
+});
+
+test('Win32 workspace picker returns the selected absolute folder', async () => {
+  let invocation;
+  const platform = createWin32Platform({
+    runCommand: async (command, args, options) => {
+      invocation = { command, args, options };
+      return 'C:\\Workspaces\\sample-app\r\n';
+    },
+  });
+
+  assert.deepEqual(await platform.chooseWorkspaceFolders(), ['C:\\Workspaces\\sample-app']);
+  assert.equal(invocation.command, 'powershell.exe');
+  assert.ok(invocation.args.includes('-STA'));
+  assert.equal(invocation.options.timeout, 120_000);
+});
+
+test('Linux workspace picker uses an available desktop dialog', async () => {
+  let invocation;
+  const platform = createLinuxPlatform({
+    commandExists: async (command) => command === 'zenity',
+    runCommand: async (command, args, options) => {
+      invocation = { command, args, options };
+      return '/home/dev/sample-app\n';
+    },
+  });
+
+  assert.deepEqual(await platform.chooseWorkspaceFolders(), ['/home/dev/sample-app']);
+  assert.equal(invocation.command, 'zenity');
+  assert.ok(invocation.args.includes('--directory'));
+  assert.equal(invocation.options.timeout, 120_000);
+});
+
+test('Linux workspace picker treats cancel as empty but surfaces launch failures', async () => {
+  const commandExists = async (command) => command === 'zenity';
+  const canceled = createLinuxPlatform({
+    commandExists,
+    runCommand: async () => {
+      throw Object.assign(new Error('canceled'), { code: 1 });
+    },
+  });
+  assert.deepEqual(await canceled.chooseWorkspaceFolders(), []);
+
+  const unavailable = createLinuxPlatform({
+    commandExists,
+    runCommand: async () => {
+      throw Object.assign(new Error('cannot open display'), { code: 2 });
+    },
+  });
+  await assert.rejects(
+    unavailable.chooseWorkspaceFolders(),
+    /cannot open display/,
+  );
 });
