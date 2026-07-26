@@ -32,6 +32,20 @@ if ($NoStartup) {
     }
 }
 
+# Install the offline CLI shim in a stable per-user folder and add it to the
+# user PATH once. The command delegates to the verified local token/port file.
+$cliDirectory = Join-Path $env:LOCALAPPDATA 'HackersLair\bin'
+New-Item -ItemType Directory -Path $cliDirectory -Force | Out-Null
+$cliScript = Join-Path $dir 'bin\lair.js'
+$cliCommand = Join-Path $cliDirectory 'lair.cmd'
+$cliBody = "@echo off`r`nnode `"$cliScript`" %*`r`n"
+Set-Content -LiteralPath $cliCommand -Value $cliBody -Encoding Ascii
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+$pathEntries = @($userPath -split ';' | Where-Object { $_ })
+if ($pathEntries -notcontains $cliDirectory) {
+    [Environment]::SetEnvironmentVariable('Path', (($pathEntries + $cliDirectory) -join ';'), 'User')
+}
+
 $electron = Join-Path $dir 'node_modules\electron\dist\electron.exe'
 if (-not (Test-Path $electron)) {
     throw 'Electron is not installed. Run npm install before install.ps1.'
@@ -55,3 +69,4 @@ if ($NoStartup) {
 } else {
     Write-Output 'It will also start automatically (in the background) each time you log in.'
 }
+Write-Output 'Open a new terminal and run "lair ls" to use the CLI.'

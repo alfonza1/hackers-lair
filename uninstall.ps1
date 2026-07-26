@@ -48,6 +48,19 @@ if (Test-Path -LiteralPath $iconCache) {
     Write-Output "Removed icon cache: $iconCache"
 }
 
+$cliDirectory = Join-Path $env:LOCALAPPDATA 'HackersLair\bin'
+if (Test-Path -LiteralPath $cliDirectory) {
+    Remove-Item -LiteralPath $cliDirectory -Recurse -Force
+    Write-Output "Removed CLI: $cliDirectory"
+}
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+if ($userPath) {
+    $cleanPath = @($userPath -split ';' | Where-Object {
+        $_ -and $_.TrimEnd('\') -ne $cliDirectory.TrimEnd('\')
+    }) -join ';'
+    [Environment]::SetEnvironmentVariable('Path', $cleanPath, 'User')
+}
+
 $dataDirectory = Join-Path $env:APPDATA 'HackersLair'
 if (-not $DeleteData -and -not $KeepData) {
     $answer = Read-Host "Delete Hacker's Lair user configuration and logs at `"$dataDirectory`"? [y/N]"

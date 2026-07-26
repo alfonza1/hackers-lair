@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "projects.schema.json",
+  "title": "Hacker's Lair project configuration",
+  "description": "Offline schema for project targets, component launch commands, process detection, recovery, and resource hints.",
+  "type": "object",
+  "required": ["projects"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Keep this as ./projects.schema.json for offline editor autocomplete."
+    },
+    "_comment": {
+      "type": "string"
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/project"
+      }
+    }
+  },
+  "$defs": {
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "project": {
+      "type": "object",
+      "required": ["name", "components"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique display name used by the UI and CLI."
+        },
+        "type": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "stopCommand": {
+          "type": "string"
+        },
+        "match": {
+          "type": "string"
+        },
+        "track": {
+          "type": "string",
+          "enum": ["process"]
+        },
+        "port": {
+          "$ref": "#/$defs/port"
+        },
+        "ports": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/port"
+          }
+        },
+        "uiPorts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/port"
+          }
+        },
+        "backendPorts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/port"
+          }
+        },
+        "detectByPort": {
+          "type": "boolean"
+        },
+        "autoRestart": {
+          "type": "boolean",
+          "description": "Restart an app-launched component after an unexpected exit."
+        },
+        "maxRestarts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "zombieAfterHours": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 720
+        }
+      }
+    }
+  }
+}

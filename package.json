@@ -1,6 +1,6 @@
 {
   "name": "hackers-lair",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Frameless Windows command console for coding projects and localhost processes.",
   "author": "Alfonza Jones",
   "license": "MIT",
@@ -9,6 +9,9 @@
     "url": "https://github.com/alfonza1/hackers-lair.git"
   },
   "main": "desktop.js",
+  "bin": {
+    "lair": "bin/lair.js"
+  },
   "scripts": {
     "start": "cscript //nologo launcher.vbs",
     "server": "node server.js",
@@ -20,6 +23,7 @@
   },
   "files": [
     "app-config.js",
+    "bin/",
     "desktop.js",
     "forge.config.js",
     "icon.ico",
@@ -34,6 +38,7 @@
     "README.md",
     "scripts/install-shortcuts.js",
     "scripts.example.json",
+    "schemas/",
     "server.js",
     "settings.example.json",
     "uninstall.ps1"

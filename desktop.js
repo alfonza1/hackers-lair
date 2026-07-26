@@ -1,4 +1,13 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, screen } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  dialog,
+  globalShortcut,
+  ipcMain,
+  Menu,
+  screen,
+  Tray,
+} = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -8,6 +17,7 @@ const { performPowerAction } = require('./lib/app-power');
 
 const APP_ID = 'hackers-lair';
 let appOrigin = '';
+let apiToken = '';
 
 const DEFAULT_BOUNDS = { width: 1480, height: 940 };
 const MIN_SIZE = { width: 900, height: 620 };
@@ -19,6 +29,8 @@ const hasLock = app.requestSingleInstanceLock();
 if (!hasLock) app.quit();
 
 let mainWindow = null;
+let tray = null;
+let isQuitting = false;
 
 function identityPath() {
   const dataDirectory = process.env.PROJECT_MANAGER_DATA_DIR
@@ -33,6 +45,7 @@ async function verifiedServerIdentity() {
   const port = Number(record.port);
   if (
     record.app !== APP_ID
+    || !record.token
     || !record.nonce
     || !Number.isInteger(port)
     || port < 1
@@ -51,7 +64,7 @@ async function verifiedServerIdentity() {
   if (identity.app !== APP_ID || identity.nonce !== record.nonce) {
     throw new Error('Another service answered on the recorded Hacker’s Lair port.');
   }
-  return { origin, url: `${origin}/?desktop=1` };
+  return { origin, token: record.token, url: `${origin}/?desktop=1` };
 }
 
 function startLocalService() {
@@ -143,6 +156,98 @@ function sendMaximizeState(window) {
   window.webContents.send('window:maximize-state', window.isMaximized());
 }
 
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    void createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+async function localApi(pathname, options = {}) {
+  const headers = { Accept: 'application/json', ...(options.headers || {}) };
+  if (options.method === 'POST') {
+    headers['Content-Type'] = 'application/json';
+    headers['X-Lair-Token'] = apiToken;
+  }
+  const response = await fetch(`${appOrigin}${pathname}`, {
+    ...options,
+    headers,
+    signal: AbortSignal.timeout(3500),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+async function runTrayProjectAction(project, action) {
+  try {
+    await localApi(`/api/projects/${action}`, {
+      method: 'POST',
+      body: JSON.stringify({ name: project.name }),
+    });
+    await refreshTrayMenu();
+  } catch (error) {
+    dialog.showErrorBox(`Could not ${action} ${project.name}`, error.message);
+  }
+}
+
+async function refreshTrayMenu() {
+  if (!tray || !appOrigin || !apiToken) return;
+  let projects = [];
+  try {
+    const data = await localApi('/api/projects');
+    projects = data.projects || [];
+  } catch {
+    // Keep the tray useful for summoning or quitting when the API is restarting.
+  }
+  const projectItems = projects.length
+    ? projects.map((project) => ({
+      label: project.name,
+      submenu: [
+        {
+          label: 'Start',
+          enabled: !project.running && !project.starting,
+          click: () => void runTrayProjectAction(project, 'start'),
+        },
+        {
+          label: 'Stop',
+          enabled: Boolean(project.running || project.starting),
+          click: () => void runTrayProjectAction(project, 'stop'),
+        },
+      ],
+    }))
+    : [{ label: 'No configured targets', enabled: false }];
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Open Hacker's Lair", click: showMainWindow },
+    { type: 'separator' },
+    { label: 'Targets', submenu: projectItems },
+    { type: 'separator' },
+    { label: 'Refresh targets', click: () => void refreshTrayMenu() },
+    {
+      label: "Quit Hacker's Lair",
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]));
+}
+
+function installDesktopControls() {
+  tray = new Tray(path.join(__dirname, 'icon.ico'));
+  tray.setToolTip("Hacker's Lair");
+  tray.on('click', showMainWindow);
+  void refreshTrayMenu();
+
+  const shortcut = 'CommandOrControl+Shift+L';
+  if (!globalShortcut.register(shortcut, showMainWindow)) {
+    console.warn(`Could not register global shortcut ${shortcut}`);
+  }
+}
+
 async function createWindow() {
   let server;
   try {
@@ -156,6 +261,7 @@ async function createWindow() {
     return;
   }
   appOrigin = server.origin;
+  apiToken = server.token;
   Menu.setApplicationMenu(null);
 
   const savedState = loadWindowState();
@@ -201,7 +307,13 @@ async function createWindow() {
   });
   mainWindow.on('maximize', () => sendMaximizeState(mainWindow));
   mainWindow.on('unmaximize', () => sendMaximizeState(mainWindow));
-  mainWindow.on('close', () => saveWindowState(mainWindow));
+  mainWindow.on('close', (event) => {
+    saveWindowState(mainWindow);
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
   mainWindow.on('closed', () => { mainWindow = null; });
   mainWindow.once('ready-to-show', () => {
     if (savedState.isMaximized) mainWindow.maximize();
@@ -235,12 +347,15 @@ ipcMain.on('app:power', (event, action) => {
 });
 
 app.on('second-instance', () => {
-  if (!mainWindow) return;
-  if (mainWindow.isMinimized()) mainWindow.restore();
-  mainWindow.show();
-  mainWindow.focus();
+  showMainWindow();
 });
 
-app.whenReady().then(() => { if (hasLock) void createWindow(); });
-app.on('activate', () => { if (!mainWindow) createWindow(); });
-app.on('window-all-closed', () => app.quit());
+app.whenReady().then(async () => {
+  if (!hasLock) return;
+  await createWindow();
+  if (appOrigin) installDesktopControls();
+});
+app.on('activate', showMainWindow);
+app.on('before-quit', () => { isQuitting = true; });
+app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('window-all-closed', () => {});

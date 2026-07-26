@@ -11,7 +11,9 @@ const { compareProjectsForDisplay } = require('./lib/project-order');
 const { onboardingState } = require('./lib/onboarding-prompts');
 const { listSkills } = require('./lib/skill-registry');
 const { discoverProjects } = require('./lib/project-discovery');
-const { runDoctor } = require('./lib/doctor');
+const { formatDoctorReport, runDoctor } = require('./lib/doctor');
+const { redactValue } = require('./lib/redaction');
+const { instantiateTemplate, PROJECT_TEMPLATES } = require('./lib/project-templates');
 const { createRuntimeConfig } = require('./lib/runtime-config');
 const {
   allowedHost,
@@ -32,6 +34,7 @@ const PROJECT_STOP_VERIFY_TIMEOUT_MS = Number.isFinite(configuredStopVerifyTimeo
 const PROJECT_STOP_VERIFY_INTERVAL_MS = 200;
 const PROCESS_SNAPSHOT_TTL_MS = 3_000;
 const GIT_REFRESH_INTERVAL_MS = 10_000;
+const MAX_BODY_BYTES = 1024 * 1024;
 const runtimeConfig = createRuntimeConfig(__dirname);
 const runtimeIdentity = createRuntimeIdentity();
 const DATA_DIR = runtimeConfig.dataDirectory;
@@ -48,6 +51,7 @@ function loadSettings() {
   return {
     enableSkills: result.value.enableSkills === true,
     browserPath: String(result.value.browserPath || ''),
+    zombieAfterHours: Number(result.value.zombieAfterHours) || 8,
     error: result.error,
   };
 }
@@ -367,6 +371,7 @@ async function getListeners() {
     run('tasklist', ['/FO', 'CSV', '/NH']),
   ]);
   const procInfo = parseTasklist(tasklistOut);
+  const connectionsByPort = new Map();
 
   // pid -> Map(port -> Set(addresses))
   const byPid = new Map();
@@ -374,7 +379,7 @@ async function getListeners() {
     const line = raw.trim();
     if (!line.startsWith('TCP')) continue;
     const parts = line.split(/\s+/);
-    if (parts.length < 5 || parts[3] !== 'LISTENING') continue;
+    if (parts.length < 5) continue;
     const local = parts[1];
     const sep = local.lastIndexOf(':');
     if (sep === -1) continue;
@@ -382,6 +387,11 @@ async function getListeners() {
     const port = Number(local.slice(sep + 1));
     const pid = Number(parts[4]);
     if (!Number.isInteger(port) || !Number.isInteger(pid)) continue;
+    if (parts[3] === 'ESTABLISHED') {
+      connectionsByPort.set(port, (connectionsByPort.get(port) || 0) + 1);
+      continue;
+    }
+    if (parts[3] !== 'LISTENING') continue;
 
     if (!byPid.has(pid)) byPid.set(pid, new Map());
     const ports = byPid.get(pid);
@@ -423,7 +433,11 @@ async function getListeners() {
       system: !((pid === process.pid)) && (isProtected || SYSTEM_NAMES.has(lowerName)),
       ports: [...ports.entries()]
         .sort((a, b) => a[0] - b[0])
-        .map(([port, addrs]) => ({ port, addresses: [...addrs] })),
+        .map(([port, addrs]) => ({
+          port,
+          addresses: [...addrs],
+          establishedConnections: connectionsByPort.get(port) || 0,
+        })),
     });
   }
 
@@ -480,6 +494,8 @@ async function refreshDoctor() {
     dataDirectory: DATA_DIR,
     projects: projects.value.projects,
     configErrors: [projects.error, scripts.error, settings.error],
+    installChannel: process.env.LAUNCH_CHANNEL || (process.versions.electron ? 'portable' : 'source'),
+    port: currentPort,
   });
   return doctorSnapshot;
 }
@@ -716,8 +732,10 @@ try { fs.mkdirSync(LOG_DIR, { recursive: true }); } catch { /* ignore */ }
 // key `${project}::${component}` -> { status, reason, logFile, startedAt, pid }
 // status: 'starting' | 'running' | 'errored'
 const launches = new Map();
+const telemetryHistory = new Map();
 const launchKey = (proj, comp) => `${proj}::${comp}`;
 const slug = (s) => String(s).replace(/[^a-z0-9._-]+/gi, '_');
+const MAX_TELEMETRY_POINTS = 60;
 
 // Pull the meaningful error out of a component's log. Node prints the message
 // at the top of its crash (above the stack); Python puts the real exception at
@@ -743,7 +761,166 @@ function tailLog(file, code) {
   } catch { return `Exited with code ${code}.`; }
 }
 
+function openBrowserUrl(url) {
+  const browser = configuredBrowserPath();
+  const child = browser
+    ? spawn(browser, [url], { detached: true, stdio: 'ignore', windowsHide: false })
+    : spawn('cmd.exe', ['/d', '/s', '/c', 'start', '', url], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+  child.on('error', () => {});
+  child.unref();
+  return browser || 'system default';
+}
+
+function detectedUrlsFromLog(file) {
+  if (!file) return [];
+  try {
+    const stat = fs.statSync(file);
+    const readSize = Math.min(stat.size, 128 * 1024);
+    const descriptor = fs.openSync(file, 'r');
+    const buffer = Buffer.alloc(readSize);
+    fs.readSync(descriptor, buffer, 0, readSize, Math.max(0, stat.size - readSize));
+    fs.closeSync(descriptor);
+    const text = buffer.toString('utf8');
+    return [...new Set([...text.matchAll(/https?:\/\/(?:localhost|127\.0\.0\.1):\d{1,5}(?:\/[^\s"'<>]*)?/gi)]
+      .map((match) => match[0].replace(/[),.;]+$/, ''))
+      .filter((url) => {
+        try {
+          const port = Number(new URL(url).port);
+          return port > 0 && port <= 65535;
+        } catch {
+          return false;
+        }
+      }))].slice(-6);
+  } catch {
+    return [];
+  }
+}
+
+function launchProjectComponent(project, component, options = {}) {
+  if (!component.command || !component.cwd || !fs.existsSync(component.cwd)) {
+    const reason = `Missing command or folder: ${component.cwd || '(no cwd)'}`;
+    launches.set(launchKey(project.name, component.name), {
+      status: 'errored',
+      reason,
+      logFile: '',
+      startedAt: Date.now(),
+      pid: null,
+    });
+    return { started: false, reason };
+  }
+
+  const logFile = path.join(LOG_DIR, `${slug(project.name)}--${slug(component.name)}.log`);
+  const restartCount = Number(options.restartCount) || 0;
+  const rec = {
+    status: 'starting',
+    reason: restartCount ? `Auto-restart attempt ${restartCount}` : '',
+    logFile,
+    startedAt: Date.now(),
+    pid: null,
+    restartCount,
+    nextRestartAt: null,
+    everRunning: false,
+    crashEvent: options.crashEvent || null,
+  };
+  launches.set(launchKey(project.name, component.name), rec);
+
+  let outFd = 'ignore';
+  let errFd = 'ignore';
+  try {
+    outFd = fs.openSync(logFile, restartCount ? 'a' : 'w');
+    errFd = fs.openSync(logFile, 'a');
+    if (restartCount) fs.writeSync(outFd, `\n--- auto-restart attempt ${restartCount} ---\n`);
+  } catch {
+    outFd = 'ignore';
+    errFd = 'ignore';
+  }
+  const closeFds = () => {
+    for (const descriptor of [outFd, errFd]) {
+      if (typeof descriptor === 'number') {
+        try { fs.closeSync(descriptor); } catch { /* ignore */ }
+      }
+    }
+  };
+
+  try {
+    const child = spawn(component.command, {
+      cwd: component.cwd,
+      shell: true,
+      windowsHide: true,
+      stdio: ['ignore', outFd, errFd],
+      env: environmentWithBrowser(),
+    });
+    rec.pid = child.pid;
+    child.on('error', (error) => {
+      rec.status = 'errored';
+      rec.reason = error.message;
+    });
+    child.on('exit', (code) => {
+      closeFds();
+      const unexpected = rec.everRunning && !actionLocks.has(`project:${project.name}`);
+      const maxRestarts = Math.min(Math.max(Number(component.maxRestarts) || 3, 1), 10);
+      if (unexpected) {
+        const nextAttempt = rec.restartCount + 1;
+        rec.crashEvent = {
+          id: `${Date.now()}-${project.name}-${component.name}`,
+          at: Date.now(),
+          code,
+          restarting: component.autoRestart === true && nextAttempt <= maxRestarts,
+          attempt: nextAttempt,
+          maxRestarts,
+        };
+        if (rec.crashEvent.restarting) {
+          const delay = Math.min(30_000, 1_000 * (2 ** (nextAttempt - 1)));
+          rec.status = 'restarting';
+          rec.reason = `Exited with code ${code}; retry ${nextAttempt}/${maxRestarts} in ${Math.ceil(delay / 1000)}s.`;
+          rec.nextRestartAt = Date.now() + delay;
+          const crashEvent = rec.crashEvent;
+          setTimeout(() => {
+            if (!actionLocks.has(`project:${project.name}`)) {
+              launchProjectComponent(project, component, { restartCount: nextAttempt, crashEvent });
+            }
+          }, delay).unref?.();
+          return;
+        }
+      }
+      if (rec.status === 'starting' || unexpected) {
+        setTimeout(() => {
+          rec.status = 'errored';
+          rec.reason = tailLog(logFile, code);
+        }, 150);
+      }
+    });
+    child.unref();
+    return { started: true, pid: child.pid };
+  } catch (error) {
+    closeFds();
+    rec.status = 'errored';
+    rec.reason = error.message;
+    return { started: false, reason: error.message };
+  }
+}
+
+function recordTelemetry(projectName, cpuPercent, memKB) {
+  const now = Date.now();
+  const history = telemetryHistory.get(projectName) || [];
+  if (!history.length || now - history[history.length - 1].at >= 2_500) {
+    history.push({
+      at: now,
+      cpuPercent: Number.isFinite(cpuPercent) ? Math.round(cpuPercent * 10) / 10 : null,
+      memKB: Math.max(0, Math.round(Number(memKB) || 0)),
+    });
+    if (history.length > MAX_TELEMETRY_POINTS) history.splice(0, history.length - MAX_TELEMETRY_POINTS);
+    telemetryHistory.set(projectName, history);
+  }
+  return history;
+}
+
 function annotateProjects(projects, listeners, tracked = []) {
+  const settings = loadSettings();
   return projects.map((proj) => {
     const gitAttention = gitAttentionForProject(proj);
     const components = (proj.components || []).map((c) => {
@@ -759,7 +936,11 @@ function annotateProjects(projects, listeners, tracked = []) {
       const partiallyDetectedByPort = anyConfiguredPortDetected(c, listeners) && !detectedByPort;
       const running = detectedByPort || (hits.length > 0 && (!requiresReadyPort || readinessListeners.length > 0));
       const rec = launches.get(launchKey(proj.name, c.name));
-      if (running && rec) { rec.status = 'running'; rec.reason = ''; } // it made it up
+      if (running && rec) {
+        rec.status = 'running';
+        rec.reason = '';
+        rec.everRunning = true;
+      }
 
       let status = 'stopped';
       let error = '';
@@ -775,6 +956,30 @@ function annotateProjects(projects, listeners, tracked = []) {
       const startedAt = hits.map((l) => l.startedAt).filter(Boolean).sort((a, b) => a - b)[0]
         || (rec && rec.startedAt) || null;
       const uptimeValues = hits.map((l) => l.uptimeSeconds).filter((v) => Number.isFinite(v));
+      const relevantPorts = new Set([...expectedPorts, ...liveReadinessPorts]);
+      const establishedConnections = listeners
+        .flatMap((listener) => listener.ports)
+        .filter((port) => relevantPorts.has(port.port))
+        .reduce((sum, port) => sum + (port.establishedConnections || 0), 0);
+      const zombieAfterHours = Number(c.zombieAfterHours) || settings.zombieAfterHours;
+      const uptimeSeconds = uptimeValues.length ? Math.max(...uptimeValues) : null;
+      if (running && rec && uptimeSeconds >= 60 && rec.restartCount) rec.restartCount = 0;
+      const zombie = running
+        && Number.isFinite(uptimeSeconds)
+        && uptimeSeconds >= zombieAfterHours * 3600
+        && establishedConnections === 0;
+      const configuredUrls = expectedPorts.map((port) => `http://localhost:${port}/`);
+      const detectedUrls = [...new Set([...detectedUrlsFromLog(rec?.logFile), ...configuredUrls])];
+      const portConflicts = status === 'errored' && /EADDRINUSE|address already in use/i.test(error)
+        ? expectedPorts.flatMap((port) => listeners
+          .filter((listener) => listener.ports.some((entry) => entry.port === port))
+          .map((listener) => ({
+            port,
+            pid: listener.pid,
+            name: listener.label || listener.name,
+            protected: listener.protected || listener.self,
+          })))
+        : [];
 
       return {
         name: c.name,
@@ -796,7 +1001,16 @@ function annotateProjects(projects, listeners, tracked = []) {
         memKB: hits.reduce((sum, l) => sum + (Number(l.memKB) || 0), 0),
         cpuPercent: cpuValues.length ? cpuValues.reduce((sum, value) => sum + value, 0) : null,
         startedAt,
-        uptimeSeconds: uptimeValues.length ? Math.max(...uptimeValues) : null,
+        uptimeSeconds,
+        establishedConnections,
+        zombie,
+        zombieAfterHours,
+        detectedUrls,
+        portConflicts,
+        autoRestart: c.autoRestart === true,
+        restartAttempt: rec?.restartCount || 0,
+        nextRestartAt: rec?.nextRestartAt || null,
+        crashEvent: rec?.crashEvent || null,
         lastActionAt: (rec && rec.startedAt) || startedTimes[proj.name] || 0,
         livePorts: [...new Set(
           [
@@ -810,7 +1024,7 @@ function annotateProjects(projects, listeners, tracked = []) {
     const pids = [...new Set(components.flatMap((c) => c.pids || []))].sort((a, b) => a - b);
     const cpuValues = components.map((c) => c.cpuPercent).filter((v) => Number.isFinite(v));
     const uptimeValues = components.map((c) => c.uptimeSeconds).filter((v) => Number.isFinite(v));
-    return {
+    const projectResult = {
       name: proj.name,
       type: proj.type || '',
       gitBranches: [...new Set(gitAttention.repositories.map((repository) => repository.branch).filter(Boolean))],
@@ -828,6 +1042,13 @@ function annotateProjects(projects, listeners, tracked = []) {
       cpuPercent: cpuValues.length ? cpuValues.reduce((sum, value) => sum + value, 0) : null,
       uptimeSeconds: uptimeValues.length ? Math.max(...uptimeValues) : null,
     };
+    projectResult.telemetry = recordTelemetry(proj.name, projectResult.cpuPercent, projectResult.memKB);
+    projectResult.zombie = components.some((component) => component.zombie);
+    projectResult.establishedConnections = components.reduce(
+      (sum, component) => sum + component.establishedConnections,
+      0,
+    );
+    return projectResult;
   });
 }
 
@@ -841,7 +1062,7 @@ function readBody(req) {
     let body = '';
     req.on('data', (chunk) => {
       body += chunk;
-      if (body.length > 10_000) { reject(new Error('Body too large')); req.destroy(); }
+      if (body.length > MAX_BODY_BYTES) { reject(new Error('Body too large')); req.destroy(); }
     });
     req.on('end', () => resolve(body));
     req.on('error', reject);
@@ -953,17 +1174,8 @@ const server = http.createServer(async (req, res) => {
 
       const url = `http://localhost:${port}/`;
       try {
-        const browser = configuredBrowserPath();
-        const child = browser
-          ? spawn(browser, [url], { detached: true, stdio: 'ignore', windowsHide: false })
-          : spawn('cmd.exe', ['/d', '/s', '/c', 'start', '', url], {
-            detached: true,
-            stdio: 'ignore',
-            windowsHide: true,
-          });
-        child.on('error', () => {});
-        child.unref();
-        json(res, 200, { ok: true, browser: browser || 'system default', port, url });
+        const browser = openBrowserUrl(url);
+        json(res, 200, { ok: true, browser, port, url });
       } catch (err) {
         json(res, 500, { error: `Could not open the browser: ${err.message}` });
       }
@@ -1014,13 +1226,26 @@ const server = http.createServer(async (req, res) => {
         const detectedByPort = allConfiguredPortsDetected(c, listeners);
         if (listenersFor(c, pool).length || detectedByPort) { skipped.push(c.name); continue; } // already running
         if (!c.command || !c.cwd || !fs.existsSync(c.cwd)) {
-          launches.set(launchKey(name, c.name), { status: 'errored', reason: `Missing command or folder: ${c.cwd || '(no cwd)'}`, logFile: '', startedAt: Date.now() });
+          launches.set(launchKey(name, c.name), {
+            status: 'errored',
+            reason: `Missing command or folder: ${c.cwd || '(no cwd)'}`,
+            logFile: '',
+            startedAt: Date.now(),
+          });
           failed.push(c.name);
           continue;
         }
-
         const logFile = path.join(LOG_DIR, `${slug(name)}--${slug(c.name)}.log`);
-        const rec = { status: 'starting', reason: '', logFile, startedAt: Date.now(), pid: null };
+        const rec = {
+          status: 'starting',
+          reason: '',
+          logFile,
+          startedAt: Date.now(),
+          pid: null,
+          restartCount: 0,
+          everRunning: false,
+          crashEvent: null,
+        };
         launches.set(launchKey(name, c.name), rec);
 
         // Separate fds for stdout and stderr to the same file — sharing one fd
@@ -1045,10 +1270,38 @@ const server = http.createServer(async (req, res) => {
           child.on('error', (err) => { rec.status = 'errored'; rec.reason = err.message; });
           child.on('exit', (code) => {
             closeFds();
+            const unexpected = rec.everRunning && !actionLocks.has(`project:${name}`);
+            const maxRestarts = Math.min(Math.max(Number(c.maxRestarts) || 3, 1), 10);
+            if (unexpected) {
+              const nextAttempt = rec.restartCount + 1;
+              rec.crashEvent = {
+                id: `${Date.now()}-${name}-${c.name}`,
+                at: Date.now(),
+                code,
+                restarting: c.autoRestart === true && nextAttempt <= maxRestarts,
+                attempt: nextAttempt,
+                maxRestarts,
+              };
+              if (rec.crashEvent.restarting) {
+                const delay = Math.min(30_000, 1_000 * (2 ** (nextAttempt - 1)));
+                rec.status = 'restarting';
+                rec.reason = `Exited with code ${code}; retry ${nextAttempt}/${maxRestarts} in ${Math.ceil(delay / 1000)}s.`;
+                rec.nextRestartAt = Date.now() + delay;
+                const crashEvent = rec.crashEvent;
+                setTimeout(() => {
+                  if (!actionLocks.has(`project:${name}`)) {
+                    launchProjectComponent(proj, c, { restartCount: nextAttempt, crashEvent });
+                  }
+                }, delay).unref?.();
+                return;
+              }
+            }
             // If the shell exits while we still think it's "starting", it never
             // came up — that's a startup failure. Show the tail of its log
             // (short delay so the child's final writes are flushed to disk).
-            if (rec.status === 'starting') setTimeout(() => { rec.status = 'errored'; rec.reason = tailLog(logFile, code); }, 150);
+            if (rec.status === 'starting' || unexpected) {
+              setTimeout(() => { rec.status = 'errored'; rec.reason = tailLog(logFile, code); }, 150);
+            }
           });
           child.unref();
           started.push(c.name);
@@ -1216,12 +1469,240 @@ const server = http.createServer(async (req, res) => {
         enableSkills: settings.enableSkills,
         browserOverride: Boolean(configuredBrowserPath()),
         configError: settings.error,
+        backups: runtimeConfig.projects.listBackups().map(({ path: _path, ...backup }) => backup),
       });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/open-url') {
+      let url;
+      try { url = new URL(String(JSON.parse(await readBody(req)).url || '')); }
+      catch { json(res, 400, { error: 'A valid URL is required.' }); return; }
+      if (!['http:', 'https:'].includes(url.protocol) || !['localhost', '127.0.0.1'].includes(url.hostname)) {
+        json(res, 400, { error: 'Only localhost URLs can be opened.' });
+        return;
+      }
+      try {
+        const browser = openBrowserUrl(url.href);
+        json(res, 200, { ok: true, browser, url: url.href });
+      } catch (error) {
+        json(res, 500, { error: `Could not open the browser: ${error.message}` });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/projects/resolve-port') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const project = loadProjects().find((item) => item.name === String(input.name));
+      const component = project?.components?.find((item) => item.name === String(input.component));
+      const port = Number(input.port);
+      if (!project || !component || !configuredPorts(component).includes(port)) {
+        json(res, 400, { error: 'The requested port is not configured for that component.' });
+        return;
+      }
+      const owner = (await getListeners()).find((listener) => (
+        listener.ports.some((entry) => entry.port === port)
+      ));
+      if (!owner) {
+        json(res, 200, { ok: true, alreadyFree: true, port });
+        return;
+      }
+      if (owner.protected || owner.self) {
+        json(res, 403, { error: `Port ${port} belongs to a protected process.` });
+        return;
+      }
+      try {
+        await run('taskkill', ['/PID', String(owner.pid), '/T', '/F']);
+        invalidateProcessSnapshot();
+        json(res, 200, {
+          ok: true,
+          port,
+          killed: { pid: owner.pid, name: owner.label || owner.name },
+        });
+      } catch (error) {
+        json(res, 500, { error: `Could not release port ${port}: ${error.message}` });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/projects/open-in') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const project = loadProjects().find((item) => item.name === String(input.name));
+      const component = project?.components?.find((item) => item.name === String(input.component))
+        || project?.components?.find((item) => item.cwd);
+      if (!project || !component?.cwd || !fs.existsSync(component.cwd)) {
+        json(res, 404, { error: 'Project folder was not found.' });
+        return;
+      }
+      const action = String(input.action || '');
+      if (action === 'copy') {
+        json(res, 200, { ok: true, cwd: component.cwd, command: component.command || '' });
+        return;
+      }
+      if (action === 'logs') {
+        const logFile = launches.get(launchKey(project.name, component.name))?.logFile;
+        if (!logFile || !fs.existsSync(logFile)) {
+          json(res, 404, { error: 'No component log exists yet. Start the target once to create it.' });
+          return;
+        }
+        const child = spawn('notepad.exe', [logFile], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: false,
+        });
+        child.on('error', () => {});
+        child.unref();
+        json(res, 200, { ok: true, action, logFile });
+        return;
+      }
+      const launchPlans = {
+        explorer: ['explorer.exe', [component.cwd]],
+        terminal: ['cmd.exe', ['/d', '/k', 'cd', '/d', component.cwd]],
+        vscode: ['code.cmd', [component.cwd]],
+      };
+      const plan = launchPlans[action];
+      if (!plan) {
+        json(res, 400, { error: 'Unknown open-in action.' });
+        return;
+      }
+      try {
+        const child = spawn(plan[0], plan[1], {
+          cwd: component.cwd,
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: false,
+        });
+        child.on('error', () => {});
+        child.unref();
+        json(res, 200, { ok: true, action, cwd: component.cwd });
+      } catch (error) {
+        json(res, 500, { error: `Could not open ${action}: ${error.message}` });
+      }
       return;
     }
 
     if (req.method === 'GET' && req.url === '/api/doctor') {
       json(res, 200, await refreshDoctor());
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/doctor/report') {
+      const report = await refreshDoctor();
+      json(res, 200, { report: formatDoctorReport(report) });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/schema/projects') {
+      json(res, 200, runtimeConfig.projectsSchema);
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/templates') {
+      json(res, 200, {
+        templates: PROJECT_TEMPLATES.map(({ component: _component, ...template }) => template),
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/templates/apply') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      let project;
+      try {
+        project = instantiateTemplate(input);
+      } catch (error) {
+        json(res, 400, { error: error.message });
+        return;
+      }
+      if (!fs.existsSync(project.components[0].cwd)) {
+        json(res, 400, { error: 'Project folder does not exist.' });
+        return;
+      }
+      const current = runtimeConfig.projects.read();
+      if (current.error) {
+        json(res, 409, { error: `Fix the current configuration first: ${current.error}` });
+        return;
+      }
+      if (current.value.projects.some((item) => item.name.toLowerCase() === project.name.toLowerCase())) {
+        json(res, 409, { error: `A project named "${project.name}" already exists.` });
+        return;
+      }
+      runtimeConfig.projects.write({
+        ...current.value,
+        projects: [...current.value.projects, project],
+      });
+      void refreshGitAttention(loadProjects());
+      void refreshDoctor();
+      json(res, 200, { ok: true, project });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/config/backups') {
+      json(res, 200, {
+        backups: runtimeConfig.projects.listBackups().map(({ path: _path, ...backup }) => backup),
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/config/export') {
+      const config = runtimeConfig.projects.read();
+      if (config.error) {
+        json(res, 409, { error: `Fix the project configuration before exporting: ${config.error}` });
+        return;
+      }
+      json(res, 200, { config: redactValue(config.value) });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/config/import') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const imported = input?.config;
+      try {
+        runtimeConfig.projects.validate(imported);
+      } catch (error) {
+        json(res, 400, { error: `Imported configuration is invalid: ${error.message}` });
+        return;
+      }
+      const current = runtimeConfig.projects.read();
+      if (current.error) {
+        json(res, 409, { error: `Fix the current configuration before importing: ${current.error}` });
+        return;
+      }
+      let next = imported;
+      if (input.mode === 'merge') {
+        const existingNames = new Set(current.value.projects.map((project) => project.name.toLowerCase()));
+        const additions = imported.projects.filter((project) => !existingNames.has(project.name.toLowerCase()));
+        next = {
+          ...current.value,
+          projects: [...current.value.projects, ...additions],
+        };
+      }
+      runtimeConfig.projects.write({ $schema: './projects.schema.json', ...next });
+      void refreshGitAttention(loadProjects());
+      void refreshDoctor();
+      json(res, 200, { ok: true, projects: next.projects.length });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/config/restore') {
+      let name;
+      try { name = String(JSON.parse(await readBody(req)).name || ''); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      try {
+        const restored = runtimeConfig.projects.restore(name);
+        void refreshGitAttention(loadProjects());
+        void refreshDoctor();
+        json(res, 200, { ok: true, projects: restored.projects.length });
+      } catch (error) {
+        json(res, 400, { error: error.message });
+      }
       return;
     }
 

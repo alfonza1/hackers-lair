@@ -46,15 +46,20 @@ window controls, and scrollbar. The control service listens only on
 
 | Surface | What it controls |
 |---|---|
-| **Targets** | Starts or stops every configured component of a project as one unit, while showing component status, Git attention, and logs. Live projects stay first; the most recently terminated project leads the dormant group. |
+| **Targets** | Starts or stops every configured component as one unit, shows Git attention and logs, detects announced localhost URLs, resolves port conflicts, and offers Explorer, terminal, VS Code, and copy-command actions. |
 | **Port Signals** | Shows listening localhost ports, labels known development servers, stops processes, and relaunches processes previously stopped by the console. |
 | **Scripts** | Discovers configured AutoIt scripts live and starts or stops them from the same interface. |
 | **Skills** | Optional, explicitly enabled view that scans shared agent skill metadata. It is off in public installs by default. |
-| **Discovery + Doctor** | Proposes runnable projects from a folder, then checks tools, paths, ports, config parsing, and data-directory access. |
-| **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, recent commands, and current control state. |
+| **Discovery + Doctor** | Proposes runnable projects from a folder, offers Vite/Next.js/Spring Boot/FastAPI/Compose templates, then checks tools, paths, ports, config parsing, and data-directory access. Its copyable report redacts usernames and paths. |
+| **Intel Rack** | Tracks live and dormant targets, CPU and memory pressure, per-target sparklines, recent commands, and current control state. |
 | **Desktop Core** | Runs guarded restart and quit sequences for the Electron host without stopping managed projects or the local control service. |
 | **Signal Tape** | Keeps an operator-readable event feed for starts, stops, refreshes, and failures. |
 | **Cinematic shell** | Runs a short secure-boot handoff, ambient signal rain, and scan passes without covering the controls. |
+
+Press <kbd>Ctrl</kbd>+<kbd>K</kbd> for the command palette. It fuzzy-filters
+start, stop, open, log, Doctor, and config actions. The Electron app also keeps
+a tray menu with per-project controls; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>
+summons the console globally.
 
 Managed project UIs open in the Windows default browser. Set `BROWSER_PATH` or
 `browserPath` in `%APPDATA%\HackersLair\settings.json` only when you want a
@@ -108,8 +113,9 @@ npm install
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-The installer creates Start menu and Desktop shortcuts named **Hacker's Lair**
-and registers a silent login-time launcher for the local service. Press the
+The installer creates Start menu and Desktop shortcuts named **Hacker's Lair**,
+installs the `lair` command shim, adds it to the user PATH, and registers a
+silent login-time launcher for the local service. Press the
 Windows key, type `Hacker's Lair`, and launch it like any other desktop app.
 
 Re-run `install.ps1` after moving the repository. Use `uninstall.ps1` to remove
@@ -141,12 +147,32 @@ port, launch nonce, PID, and private mutation token live in
 `%APPDATA%\HackersLair\api-token`; the desktop launcher verifies the identity
 before loading the UI.
 
+### Use the terminal companion
+
+The CLI reads the same rotating AppData identity record as the desktop host,
+verifies the per-launch nonce, and sends the private token only to the verified
+localhost service.
+
+```powershell
+lair ls
+lair start "My Project"
+lair stop "My Project"
+lair open "My Project"
+lair doctor
+lair backups
+lair restore 2026-07-26T12-00-00-000Z.json
+```
+
 ## Configure projects
 
 `%APPDATA%\HackersLair\projects.json` defines each target and its frontend, backend, Docker stack, or
 headless components. Docker stacks declare their published `ports` as the
 authoritative readiness signal, so Hacker's Lair recognizes containers started
 inside or outside the app even though Docker owns the Windows listener process.
+The file includes `"$schema": "./projects.schema.json"` by default. Hacker's
+Lair copies the bundled schema beside the user config, so VS Code autocomplete,
+server-side validation, and the in-app field reference all use the same offline
+source.
 
 To add your own project:
 
@@ -206,12 +232,23 @@ example paths with your own:
 - `match` is a distinctive substring in the process command line. An absolute
   project path is the safest default.
 - `track: "process"` supports headless components that never bind a port.
+- `autoRestart: true` opts a component into capped exponential-backoff restart
+  after an unexpected exit. `maxRestarts` defaults to 3 and is capped at 10.
+- `zombieAfterHours` overrides the global idle threshold for a component.
+  Components over the threshold with no established connections are flagged
+  for one-click shutdown.
 
 The service reloads the user configuration on every request, so edits do not
 require a restart. If JSON becomes invalid, the last known-good configuration
 stays active and the UI displays the exact parse failure. Only sanitized
 `projects.example.json`, `scripts.example.json`, and `settings.example.json`
 are tracked; personal paths are never package or repository content.
+
+Every in-app config write first creates a version under
+`%APPDATA%\HackersLair\backups\projects`; the newest ten are retained. **Restore
+Previous** also backs up the current version before restoring. Redacted export
+removes usernames and absolute paths for sharing; import validates the same
+JSON Schema before merging non-duplicate project names.
 
 Before refreshing the application, you can validate the JSON from PowerShell:
 
@@ -288,7 +325,11 @@ skill metadata is sent to the local UI; filesystem paths are not exposed.
 | `lib/skill-registry.js` | Live shared and default agent skill metadata discovery |
 | `lib/git-attention.js` | Read-only Git working-tree and upstream attention state |
 | `lib/onboarding-prompts.js` | Portable first-run prompts using live machine paths |
-| `desktop.js` | Frameless Electron window lifecycle |
+| `lib/schema-validator.js` / `schemas/projects.schema.json` | Dependency-free config validation and the shared offline schema |
+| `lib/project-templates.js` | Smart defaults for common local development layouts |
+| `lib/redaction.js` / `lib/doctor.js` | Privacy-safe exports and support diagnostics |
+| `bin/lair.js` | Token-authenticated local CLI companion |
+| `desktop.js` | Frameless Electron window, tray, and global-hotkey lifecycle |
 | `app-config.js` | Shared desktop name, Windows app identity, and icon-cache version |
 | `preload.js` | Restricted bridge for in-app window controls |
 | `projects.example.json` | Sanitized seed for user-owned project configuration |
@@ -309,8 +350,14 @@ Edge is installed somewhere else.
   `%APPDATA%\HackersLair` (or `PROJECT_MANAGER_DATA_DIR`) and are ignored by Git.
 - A component startup failure stays visible on its target with the error and a
   link to the full log.
-- Closing the Electron window leaves the local service running so the next
-  launch is immediate.
+- Closing the Electron window hides it to the tray and leaves the local service
+  running. Use **Quit Hacker's Lair** or the tray Quit action to exit the host.
+- Component logs are scanned locally for `localhost` and `127.0.0.1` URLs.
+  Nothing is uploaded, and every feature works without an account or network
+  service.
+- If a managed start reports `EADDRINUSE`, the target identifies the owning PID
+  and can terminate that process before retrying. Protected and self-owned
+  processes remain blocked.
 - The boot sequence plays once. **Replay Intro** re-enables it; cinematic
   effects pause when hidden and respect Windows reduced-motion preferences.
 - Every request validates the exact localhost Host header. Every mutation also
