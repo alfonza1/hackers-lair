@@ -29,7 +29,7 @@ test('detects Squirrel, PowerShell, Scoop, portable, and source channels', () =>
   }), 'squirrel');
 
   const portableExe = 'C:\\Tools\\HackersLair\\HackersLair.exe';
-  const marker = path.join(path.dirname(portableExe), 'install-channel.txt');
+  const marker = path.win32.join(path.win32.dirname(portableExe), 'install-channel.txt');
   const powershell = fakeFilesystem([marker], {
     [marker.replaceAll('\\', '/').toLowerCase()]: 'powershell\n',
   });
