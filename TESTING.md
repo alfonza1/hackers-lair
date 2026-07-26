@@ -34,7 +34,7 @@ both packaged smoke tests. Tagged builds run Forge on both operating systems,
 normalize artifact names, generate checksums and Winget/Scoop manifests from
 the final bytes, and publish one GitHub Release.
 
-Local release-candidate verification on 2026-07-26 passed all 62 tests,
+Local release-candidate verification on 2026-07-26 passed the full test suite,
 JavaScript syntax checks, the packaged lifecycle, and the checksum installer
 smoke test. The generated three-file Winget bundle also passed
 `winget validate` with Windows Package Manager 1.29.280. The release workflow

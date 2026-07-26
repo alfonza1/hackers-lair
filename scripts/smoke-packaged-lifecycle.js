@@ -13,16 +13,27 @@ const executable = process.platform === 'win32'
   ? path.join(root, 'out', platformFolder, 'HackersLair.exe')
   : path.join(root, 'out', platformFolder, 'HackersLair');
 const appArchive = path.join(root, 'out', platformFolder, 'resources', 'app.asar');
-const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'hackers-lair-packaged-smoke-'));
-const identityFile = path.join(dataDirectory, 'api-token');
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function waitForIdentity(deadline) {
+function packagedLaunchArguments(platform = process.platform, environment = process.env) {
+  if (platform === 'linux' && environment.LAIR_SMOKE_DISABLE_SANDBOX === '1') {
+    return ['--no-sandbox'];
+  }
+  return [];
+}
+
+async function waitForIdentity(deadline, child, output, identityFile) {
   let lastError;
   while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(
+        `Packaged desktop exited with code ${child.exitCode} before starting its service.`
+        + `${output.text ? `\n${output.text.trim()}` : ''}`,
+      );
+    }
     try {
       const record = JSON.parse(fs.readFileSync(identityFile, 'utf8'));
       const response = await fetch(`http://127.0.0.1:${record.port}/api/identity`, {
@@ -38,7 +49,10 @@ async function waitForIdentity(deadline) {
       await delay(150);
     }
   }
-  throw lastError || new Error('Packaged service identity was not created.');
+  throw new Error(
+    `Packaged service identity was not created: ${lastError?.message || 'timed out'}.`
+    + `${output.text ? `\n${output.text.trim()}` : ''}`,
+  );
 }
 
 async function waitForExit(child, deadline) {
@@ -50,6 +64,18 @@ async function waitForExit(child, deadline) {
       resolve(code);
     });
   });
+}
+
+async function removeDirectoryWithRetry(directory) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    try {
+      fs.rmSync(directory, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (!['EBUSY', 'EPERM'].includes(error.code) || attempt === 9) throw error;
+      await delay(100);
+    }
+  }
 }
 
 async function main() {
@@ -74,17 +100,25 @@ async function main() {
       `Packaged runtime contains repository-only path ${forbiddenRoot}.`,
     );
   }
-  const child = spawn(executable, [], {
+  const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'hackers-lair-packaged-smoke-'));
+  const identityFile = path.join(dataDirectory, 'api-token');
+  const output = { text: '' };
+  const child = spawn(executable, packagedLaunchArguments(), {
     env: {
       ...process.env,
       PROJECT_MANAGER_DATA_DIR: dataDirectory,
       LAIR_SMOKE_EXIT_AFTER_MS: '1800',
     },
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
+  for (const stream of [child.stdout, child.stderr]) {
+    stream.on('data', (chunk) => {
+      output.text = `${output.text}${chunk}`.slice(-16_384);
+    });
+  }
   try {
-    const record = await waitForIdentity(Date.now() + 15_000);
+    const record = await waitForIdentity(Date.now() + 15_000, child, output, identityFile);
     assert.equal(record.pid > 0, true);
     assert.equal(await waitForExit(child, Date.now() + 15_000), 0);
     await delay(250);
@@ -93,11 +127,17 @@ async function main() {
     console.log(`Packaged lifecycle passed on ${process.platform}: verified service PID ${record.pid} stopped.`);
   } finally {
     if (child.exitCode === null) child.kill();
-    fs.rmSync(dataDirectory, { recursive: true, force: true });
+    child.stdout.destroy();
+    child.stderr.destroy();
+    await removeDirectoryWithRetry(dataDirectory);
   }
 }
 
-main().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.stack || error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { packagedLaunchArguments };

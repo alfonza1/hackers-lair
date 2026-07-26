@@ -11,7 +11,9 @@ const {
   stopManagedChild,
   writeManagedCliShim,
 } = require('../lib/desktop-service');
-const { ignoreNonRuntimePath } = require('../forge.config');
+const forgeConfig = require('../forge.config');
+const { ignoreNonRuntimePath } = forgeConfig;
+const { packagedLaunchArguments } = require('../scripts/smoke-packaged-lifecycle');
 
 test('desktop data follows Electron userData unless explicitly overridden', () => {
   const app = { getPath: (name) => name === 'userData' ? 'C:\\AppData\\HackersLair' : '' };
@@ -91,4 +93,24 @@ test('packaging excludes repository-only files and keeps runtime files', () => {
   ]) {
     assert.equal(ignoreNonRuntimePath(repositoryPath), true, repositoryPath);
   }
+});
+
+test('Linux package makers target the custom packaged executable name', () => {
+  const linuxMakers = forgeConfig.makers.filter((maker) => (
+    ['@electron-forge/maker-deb', '@electron-forge/maker-rpm'].includes(maker.name)
+  ));
+  assert.equal(linuxMakers.length, 2);
+  for (const maker of linuxMakers) {
+    assert.equal(maker.config.options.name, 'hackers-lair');
+    assert.equal(maker.config.options.bin, 'HackersLair');
+  }
+});
+
+test('the Linux package smoke disables Chromium sandboxing only when explicitly requested', () => {
+  assert.deepEqual(packagedLaunchArguments('linux', {}), []);
+  assert.deepEqual(packagedLaunchArguments('win32', { LAIR_SMOKE_DISABLE_SANDBOX: '1' }), []);
+  assert.deepEqual(
+    packagedLaunchArguments('linux', { LAIR_SMOKE_DISABLE_SANDBOX: '1' }),
+    ['--no-sandbox'],
+  );
 });

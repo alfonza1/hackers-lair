@@ -40,3 +40,23 @@ jobs:
       - run: npm run package
       - run: npm run smoke:package
       - run: npm run smoke:install
+
+  linux-package-smoke:
+    name: Native package smoke / Linux
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.12.0
+          cache: npm
+      - name: Install native package tools
+        run: sudo apt-get update && sudo apt-get install -y fakeroot rpm xvfb
+      - run: npm ci
+      - run: npm run make
+      - name: Verify packaged Linux lifecycle
+        env:
+          # Forge's raw output cannot carry the root-owned setuid helper used by installed packages.
+          LAIR_SMOKE_DISABLE_SANDBOX: "1"
+        run: xvfb-run -a npm run smoke:package
