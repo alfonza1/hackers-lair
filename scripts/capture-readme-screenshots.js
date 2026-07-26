@@ -98,8 +98,8 @@ const onboardingFixtures = {
     projectCount: 0,
     personalSkillCount: 0,
     prompts: configurationPrompts({
-      projectsFile: 'C:\\Users\\Operator\\AppData\\Roaming\\HackersLair\\projects.json',
-      projectsSchemaFile: 'C:\\Users\\Operator\\AppData\\Roaming\\HackersLair\\projects.schema.json',
+      projectsFile: 'C:\\Workspaces\\.lair-data\\projects.json',
+      projectsSchemaFile: 'C:\\Workspaces\\.lair-data\\projects.schema.json',
       projectsSchemaUrl: 'http://localhost:4949/api/schema/projects',
       skillsDirectory: 'C:\\Workspaces\\.agents\\skills',
       projectCount: 0,
@@ -135,7 +135,7 @@ const injection = `<style>
   const onboardingFixtures = ${JSON.stringify(onboardingFixtures)};
   window.fetch = async (input) => {
     const key = Object.keys(demoFixtures).find((route) => String(input).startsWith(route));
-    const onboardingPayload = location.hash === '#onboarding' ? onboardingFixtures[key] : null;
+    const onboardingPayload = ['#onboarding', '#wizard'].includes(location.hash) ? onboardingFixtures[key] : null;
     const payload = onboardingPayload || (key ? demoFixtures[key] : { error: 'Demo route unavailable' });
     return new Response(JSON.stringify(payload), { status: key ? 200 : 404, headers: { 'Content-Type': 'application/json' } });
   };
@@ -144,6 +144,7 @@ const injection = `<style>
     if (bootSequence) bootSequence.style.display = 'none';
     const view = location.hash.slice(1);
     if (['processes', 'scripts'].includes(view)) document.querySelector('[data-view="' + view + '"]')?.click();
+    if (view === 'wizard') document.querySelector('[data-onboarding-wizard]')?.click();
   }, 120));
 </script>`;
 
@@ -162,7 +163,7 @@ fs.mkdirSync(outputDir, { recursive: true });
 const edge = process.env.EDGE_PATH || path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
 if (!fs.existsSync(edge)) throw new Error('Microsoft Edge was not found. Set EDGE_PATH to a Chromium executable.');
 
-for (const [name, hash] of [['targets', ''], ['onboarding', '#onboarding'], ['port-signals', '#processes'], ['scripts', '#scripts']]) {
+for (const [name, hash] of [['targets', ''], ['onboarding', '#onboarding'], ['wizard', '#wizard'], ['port-signals', '#processes'], ['scripts', '#scripts']]) {
   const output = path.join(outputDir, `${name}.png`);
   const profile = path.join(os.tmpdir(), `hackers-lair-readme-${name}-${process.pid}`);
   fs.rmSync(output, { force: true });

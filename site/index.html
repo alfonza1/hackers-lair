@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hacker's Lair — Local developer process control</title>
+  <meta name="description" content="Start, stop, inspect, and recover local development projects from one offline-first desktop console for Windows and Linux.">
+  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Hacker's Lair — Local developer process control">
+  <meta property="og:description" content="One desktop console for local projects, ports, processes, logs, and recovery.">
+  <meta property="og:url" content="https://alfonza1.github.io/hackers-lair/">
+  <meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Hacker's Lair">
+  <meta name="twitter:description" content="Local developer process control for Windows and Linux.">
+  <meta name="twitter:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png">
+  <link rel="icon" href="./assets/icon.png" type="image/png">
+  <link rel="stylesheet" href="./assets/site.css">
+  <script src="./assets/site.js" defer></script>
+</head>
+<body>
+  <!--
+       ╭────────────────────────────────╮
+       │  HACKER'S LAIR // NODE: LOCAL  │
+       ╰────────────────────────────────╯
+  -->
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="./" aria-label="Hacker's Lair home">
+        <img src="./assets/command-line-mark.png" alt="">
+        Hacker's <span>Lair</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="./" aria-current="page">Home</a>
+        <a href="./getting-started/">Getting started</a>
+        <a href="./docs/">Docs</a>
+        <a class="nav-install" href="#install">Install</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-shell" id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <div class="eyebrow">Local node // process control</div>
+        <h1 id="hero-title">Your dev machine has a <span>control room.</span></h1>
+        <p>Start complete projects, see what owns every localhost port, read live logs, and reclaim forgotten processes—without accounts, cloud services, or hand-edited config.</p>
+        <div class="hero-links">
+          <a class="button" href="#install">Install from terminal</a>
+          <a class="button secondary" href="./getting-started/">See first launch</a>
+        </div>
+      </div>
+
+      <div class="terminal-window" aria-label="Example Hacker's Lair terminal session">
+        <div class="terminal-chrome">
+          <span class="terminal-dot"></span>
+          <span class="terminal-dot"></span>
+          <span class="terminal-dot"></span>
+          <span class="terminal-title">lair://console_boot</span>
+        </div>
+        <div class="terminal-body" aria-live="off">
+          <p class="terminal-line command" data-terminal-line><span class="prompt">$</span> winget install Alfonza1.HackersLair</p>
+          <p class="terminal-line ok" data-terminal-line>CONSOLE_BOOT  mode=process_control node=local</p>
+          <p class="terminal-line signal" data-terminal-line>TARGET_REGISTRY_SYNCED  count=4</p>
+          <p class="terminal-line ok" data-terminal-line>&gt; 3 targets running · 1 dormant</p>
+          <p class="terminal-line" data-terminal-line>PORT_SIGNAL  localhost:5173 owner=relay-ui</p>
+          <p class="terminal-line command">&gt; <span class="terminal-cursor" aria-hidden="true"></span></p>
+        </div>
+        <div class="terminal-footer">
+          <div class="terminal-stat"><span>Network</span><strong>localhost only</strong></div>
+          <div class="terminal-stat"><span>Telemetry</span><strong>none</strong></div>
+          <div class="terminal-stat"><span>Account</span><strong>not required</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="install" aria-labelledby="install-title">
+      <div class="section-heading">
+        <div class="section-index">01 // install</div>
+        <h2 id="install-title">The command is the download.</h2>
+        <p>Choose a maintained package channel. Browser download buttons are intentionally absent; releases stay on GitHub with published SHA256 checksums.</p>
+      </div>
+
+      <div class="install-console">
+        <div class="platform-tabs requires-js" role="tablist" aria-label="Operating system">
+          <button class="platform-tab" type="button" role="tab" data-platform-tab="windows" aria-selected="true">Windows</button>
+          <button class="platform-tab" type="button" role="tab" data-platform-tab="linux" aria-selected="false">Linux</button>
+        </div>
+        <section class="install-panel" data-platform-panel="windows" aria-label="Windows installation">
+          <p class="detected-signal">Signal detected: <span data-detected-platform>windows_x64</span> · Winget</p>
+          <pre class="command-block"><code>winget install --id Alfonza1.HackersLair --exact</code></pre>
+          <p>Before the Winget community manifest is approved, use the checksum-verifying installer:</p>
+          <pre class="command-block"><code>irm https://alfonza1.github.io/hackers-lair/install.ps1 | iex</code></pre>
+          <ul class="install-notes">
+            <li>Per-user install</li>
+            <li>No Node.js required</li>
+            <li>Launch at login defaults off</li>
+          </ul>
+        </section>
+        <section class="install-panel" data-platform-panel="linux" aria-label="Linux installation">
+          <p class="detected-signal">Signal detected: <span data-detected-platform>linux_x64</span> · Debian / Ubuntu</p>
+          <pre class="command-block"><code>curl -LO https://github.com/alfonza1/hackers-lair/releases/latest/download/hackers-lair_amd64.deb &amp;&amp; sudo apt install ./hackers-lair_amd64.deb</code></pre>
+          <p>Fedora and RHEL packages, plus a distro-neutral tarball, are documented alongside checksum verification.</p>
+          <a href="./docs/#linux">View every Linux command →</a>
+        </section>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="control-title">
+      <div class="section-heading">
+        <div class="section-index">02 // control</div>
+        <h2 id="control-title">Built around the machine you already have.</h2>
+        <p>Hacker's Lair turns process, port, Git, and log signals into one truthful view. Dormant targets stay compact; live targets expand only when telemetry exists.</p>
+      </div>
+
+      <div class="feature-rows">
+        <article class="feature-row">
+          <span class="feature-number">01</span>
+          <h3>Start and stop the whole stack</h3>
+          <p>Group frontend, backend, worker, and Compose commands under one target. Per-target action locks prevent overlapping starts and stops.</p>
+        </article>
+        <article class="feature-row">
+          <span class="feature-number">02</span>
+          <h3>Resolve the port, not the symptom</h3>
+          <p>When a port is occupied, see the owning process, stop it deliberately, and retry. Detected URLs only appear when a listener or log signal is real.</p>
+        </article>
+        <article class="feature-row">
+          <span class="feature-number">03</span>
+          <h3>Set up without JSON</h3>
+          <p>Pick workspace folders, preview discovered Node, Compose, Maven, Gradle, or Python targets, and add only what you approve. An agent-ready setup prompt remains an equal path.</p>
+        </article>
+        <article class="feature-row">
+          <span class="feature-number">04</span>
+          <h3>Stay local and recoverable</h3>
+          <p>Config, logs, backups, preferences, and the rotating API identity stay in your user data directory. No account, analytics, cookies, or remote control plane.</p>
+        </article>
+      </div>
+
+      <figure class="product-frame">
+        <div class="terminal-chrome">
+          <span class="terminal-dot"></span><span class="terminal-dot"></span><span class="terminal-dot"></span>
+          <span class="terminal-title">Hacker's Lair // sanitized demo targets</span>
+        </div>
+        <img src="./assets/targets.jpg" width="1600" height="1000" loading="lazy" alt="Hacker's Lair desktop console showing two fictional live targets and one compact dormant target">
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="local-title">
+      <div class="section-heading">
+        <div class="section-index">03 // trust</div>
+        <h2 id="local-title">A local tool should behave like one.</h2>
+        <p>The desktop host owns its private localhost service. Every mutation requires a rotating token, requests reject untrusted Host headers, and the UI verifies the launch identity before it loads.</p>
+      </div>
+      <div class="trust-rail">
+        <div class="trust-item"><span>API bind</span><strong>127.0.0.1</strong></div>
+        <div class="trust-item"><span>Mutation auth</span><strong>Per-launch token</strong></div>
+        <div class="trust-item"><span>Support report</span><strong>Paths redacted</strong></div>
+        <div class="trust-item"><span>License</span><strong>MIT / source available</strong></div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="release-title">
+      <div class="section-heading">
+        <div class="section-index">04 // release</div>
+        <h2 id="release-title">Current release signal.</h2>
+        <p><span data-release-version>v2.1.0-beta.1</span> · <span data-release-date>July 2026</span></p>
+      </div>
+      <div class="feature-rows">
+        <article class="feature-row">
+          <span class="feature-number">Δ</span>
+          <h3>Changelog</h3>
+          <p data-release-notes>Desktop-owned local service, Windows and Linux packages, first-run project scanning, full in-app editing, truthful target cards, command palette, Doctor reports, config backups, and hardened localhost control.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>Version <span data-release-version>v2.1.0-beta.1</span></span>
+      <span>MIT</span>
+      <span>Local-only</span>
+      <span>No telemetry</span>
+      <a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a>
+    </div>
+  </footer>
+</body>
+</html>

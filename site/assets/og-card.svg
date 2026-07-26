@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Hacker's Lair</title>
+  <desc id="desc">Local developer process control</desc>
+  <defs>
+    <pattern id="grid" width="42" height="42" patternUnits="userSpaceOnUse">
+      <path d="M42 0H0V42" fill="none" stroke="#66ffb5" stroke-opacity=".055"/>
+    </pattern>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(170 80) rotate(33) scale(650 440)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#66ffb5" stop-opacity=".14"/>
+      <stop offset="1" stop-color="#010504" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#010504"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g font-family="Cascadia Mono, Consolas, monospace">
+    <text x="80" y="92" fill="#5ed0ff" font-size="22" font-weight="700" letter-spacing="4">LOCAL NODE // PROCESS CONTROL</text>
+    <text x="78" y="207" fill="#e7fff8" font-size="78" font-weight="800" letter-spacing="-5">HACKER'S</text>
+    <text x="78" y="290" fill="#66ffb5" font-size="78" font-weight="800" letter-spacing="-5">LAIR_</text>
+    <text x="82" y="350" fill="#8ca49c" font-size="25">Projects · ports · processes · logs · recovery</text>
+    <rect x="78" y="405" width="1044" height="138" rx="2" fill="#020806" stroke="#66ffb5" stroke-opacity=".45"/>
+    <circle cx="108" cy="435" r="6" fill="#ff6070"/>
+    <circle cx="130" cy="435" r="6" fill="#ffc95c"/>
+    <circle cx="152" cy="435" r="6" fill="#66ffb5"/>
+    <text x="102" y="492" fill="#e7fff8" font-size="24">$ lair ls</text>
+    <text x="102" y="525" fill="#66ffb5" font-size="19">3 targets running · 1 dormant · localhost only</text>
+  </g>
+</svg>

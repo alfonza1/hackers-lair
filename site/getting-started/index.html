@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Getting Started — Hacker's Lair</title>
+  <meta name="description" content="Install Hacker's Lair, scan your workspace, add the first project, and control local dev targets without editing JSON.">
+  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/getting-started/">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Getting Started — Hacker's Lair">
+  <meta property="og:description" content="From install command to a running local target.">
+  <meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="../assets/icon.png" type="image/png">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../" aria-label="Hacker's Lair home">
+        <img src="../assets/command-line-mark.png" alt="">
+        Hacker's <span>Lair</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="../">Home</a>
+        <a href="./" aria-current="page">Getting started</a>
+        <a href="../docs/">Docs</a>
+        <a class="nav-install" href="../#install">Install</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="docs-shell" id="main">
+    <aside class="docs-sidebar" aria-label="Documentation navigation">
+      <h2>Docs registry</h2>
+      <nav>
+        <a href="../docs/">Installation</a>
+        <a href="./" aria-current="page">Getting started</a>
+        <a href="../docs/configuration.html">Configuration</a>
+        <a href="../docs/detection.html">Detection</a>
+        <a href="../docs/troubleshooting.html">Troubleshooting</a>
+        <a href="../docs/faq.html">FAQ</a>
+        <a href="../docs/uninstall.html">Uninstall</a>
+      </nav>
+    </aside>
+
+    <article class="docs-content">
+      <div class="eyebrow">Guide 02 // first launch</div>
+      <h1>From install command to first target.</h1>
+      <p class="lede">The normal setup path stays inside the app. Choose folders, review detected commands, and confirm the targets you want—no hand-edited JSON required.</p>
+
+      <h2 id="install">1. Install and launch</h2>
+      <p>On Windows, Winget is the primary package channel. The checksum-verifying PowerShell channel works before the community manifest is approved.</p>
+      <pre class="command-block"><code>winget install --id Alfonza1.HackersLair --exact</code></pre>
+      <pre class="command-block"><code>irm https://alfonza1.github.io/hackers-lair/install.ps1 | iex</code></pre>
+      <p>Open <strong>Hacker's Lair</strong> from the Start menu. Linux packages add the same desktop application to the system launcher. The Electron host starts and verifies its own private localhost service; Node.js is bundled.</p>
+
+      <h2 id="wizard">2. Scan your workspace</h2>
+      <p>The first empty Targets view presents <strong>Set up with wizard</strong> and <strong>Copy prompt for your AI agent</strong> side by side. For the wizard path:</p>
+      <ol>
+        <li>Select <strong>Set up with wizard</strong>.</li>
+        <li>Choose one or more workspace folders with the native folder picker.</li>
+        <li>Review proposals found from <code>package.json</code>, Compose files, Maven, Gradle, and Python entry points.</li>
+        <li>Clear any proposal you do not want, then select <strong>Add selected</strong>.</li>
+      </ol>
+      <p>The scan is preview-only. Project configuration is written only after confirmation.</p>
+      <figure class="docs-shot">
+        <img src="../assets/wizard.jpg" width="1440" height="900" loading="lazy" alt="Hacker's Lair setup wizard showing the welcome step in a sanitized empty workspace">
+        <figcaption>Sanitized build capture · first-run wizard · phosphor theme</figcaption>
+      </figure>
+
+      <h2 id="manual-add">3. Add or edit a project</h2>
+      <p>Select <strong>Add project</strong> in the Targets toolbar when discovery cannot infer a custom command. Enter a project name and one or more components:</p>
+      <ul>
+        <li><strong>Folder</strong>: an existing absolute working directory.</li>
+        <li><strong>Start command</strong>: the exact command you already use in a terminal.</li>
+        <li><strong>Ports</strong>: listeners that identify readiness, separated by commas.</li>
+        <li><strong>Process match</strong>: a distinctive path or command token used to identify the right process.</li>
+        <li><strong>Tracking</strong>: choose headless process tracking only when the component never binds a port.</li>
+      </ul>
+      <p>The editor rejects missing folders, duplicate target names, invalid ports, and ports already assigned to another target. Every successful write keeps a restorable backup.</p>
+
+      <h2 id="control">4. Start, inspect, and stop</h2>
+      <ol>
+        <li>Select <strong>Initiate</strong> on a dormant card. A second overlapping action for that target is rejected rather than racing.</li>
+        <li>Watch the card move through <strong>Starting</strong> to <strong>Live</strong>. Detected URL chips become clickable only after a real listener or log announcement exists.</li>
+        <li>Open <strong>Logs</strong> from the expanded target or press <kbd>Ctrl</kbd>+<kbd>K</kbd> and search for the target.</li>
+        <li>Select <strong>Terminate</strong>. A configured graceful stop command runs first; remaining matched processes are then verified as stopped.</li>
+      </ol>
+      <div class="docs-callout"><strong>Port conflict:</strong> if a start command reports <code>EADDRINUSE</code>, Hacker's Lair identifies the listener and offers a deliberate kill-and-retry action.</div>
+
+      <h2 id="agent-setup">Let your AI agent set it up</h2>
+      <p>The second empty-state path is a first-class setup flow for developers who already work with a local coding agent:</p>
+      <ol>
+        <li>Select <strong>Copy prompt for your AI agent</strong>.</li>
+        <li>Paste the prompt into your preferred local coding agent while it can inspect your workspace.</li>
+        <li>The prompt supplies the live config path, bundled schema location, one valid example, selected workspace folders, and rules to preserve existing entries and avoid secrets.</li>
+        <li>The agent validates the file and verifies the hot-reloaded result with the CLI:</li>
+      </ol>
+      <pre class="command-block"><code>lair doctor
+lair ls</code></pre>
+      <p>The generated prompt is agent-agnostic. Optional local skill scanning remains excluded unless you explicitly enable the Skills feature in settings.</p>
+
+      <h2 id="next">Next signals</h2>
+      <p>Press <kbd>Ctrl</kbd>+<kbd>K</kbd> for start, stop, logs, scanning, theme, density, and settings commands. Use <code>lair ls</code>, <code>lair start "Target"</code>, and <code>lair stop "Target"</code> from a terminal.</p>
+      <p>Continue with the <a href="../docs/configuration.html">configuration reference</a> or read <a href="../docs/detection.html">how detection works</a>.</p>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>Version <span data-release-version>v2.1.0-beta.1</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span>
+      <a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a>
+    </div>
+  </footer>
+</body>
+</html>

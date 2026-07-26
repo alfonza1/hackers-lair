@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Installation — Hacker's Lair Docs</title>
+  <meta name="description" content="Command-first Hacker's Lair installation for Winget, PowerShell, Scoop, Debian, Ubuntu, Fedora, RHEL, and other Linux systems.">
+  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/docs/">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Installation — Hacker's Lair Docs">
+  <meta property="og:description" content="Verified command channels for Windows and Linux.">
+  <meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="../assets/icon.png" type="image/png">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../" aria-label="Hacker's Lair home"><img src="../assets/command-line-mark.png" alt="">Hacker's <span>Lair</span></a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="../">Home</a><a href="../getting-started/">Getting started</a><a href="./" aria-current="page">Docs</a><a class="nav-install" href="#windows">Install</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="docs-shell" id="main">
+    <aside class="docs-sidebar" aria-label="Documentation navigation">
+      <h2>Docs registry</h2>
+      <nav>
+        <a href="./" aria-current="page">Installation</a>
+        <a href="../getting-started/">Getting started</a>
+        <a href="./configuration.html">Configuration</a>
+        <a href="./detection.html">Detection</a>
+        <a href="./troubleshooting.html">Troubleshooting</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="./uninstall.html">Uninstall</a>
+      </nav>
+    </aside>
+
+    <article class="docs-content">
+      <div class="eyebrow">Guide 01 // installation</div>
+      <h1>Install from a terminal.</h1>
+      <p class="lede">Hacker's Lair ships self-contained desktop packages. End users do not install Node.js, clone the repository, or run npm.</p>
+
+      <h2 id="windows">Windows</h2>
+      <h3>Winget</h3>
+      <p>The per-user Squirrel package installs beneath <code>%LOCALAPPDATA%</code> and does not request elevation. Winget is the primary channel after the community manifest is approved.</p>
+      <pre class="command-block"><code>winget install --id Alfonza1.HackersLair --exact</code></pre>
+      <p>Update or remove it through the same channel:</p>
+      <pre class="command-block"><code>winget upgrade --id Alfonza1.HackersLair --exact
+winget uninstall --id Alfonza1.HackersLair --exact</code></pre>
+
+      <h3>Checksum-verifying PowerShell channel</h3>
+      <p>This channel works directly from GitHub Releases. The script resolves the latest release, downloads the portable ZIP and <code>checksums.txt</code>, verifies SHA256, and only then unblocks and extracts it to <code>%LOCALAPPDATA%\Programs\HackersLair</code>.</p>
+      <pre class="command-block"><code>irm https://alfonza1.github.io/hackers-lair/install.ps1 | iex</code></pre>
+      <p>Re-running the command updates the installation in place. It creates a Start menu shortcut but leaves launch-at-login off; that preference is controlled inside the desktop app.</p>
+
+      <h3>Scoop</h3>
+      <pre class="command-block"><code>scoop bucket add hackerslair https://github.com/alfonza1/hackers-lair-scoop
+scoop install hackerslair</code></pre>
+      <p>The bucket manifest consumes the same portable ZIP and release checksum as the PowerShell channel.</p>
+
+      <h2 id="linux">Linux</h2>
+      <h3>Debian / Ubuntu</h3>
+      <pre class="command-block"><code>curl -LO https://github.com/alfonza1/hackers-lair/releases/latest/download/hackers-lair_amd64.deb &amp;&amp; sudo apt install ./hackers-lair_amd64.deb</code></pre>
+
+      <h3>Fedora / RHEL</h3>
+      <pre class="command-block"><code>curl -LO https://github.com/alfonza1/hackers-lair/releases/latest/download/hackers-lair_x86_64.rpm &amp;&amp; sudo rpm -i ./hackers-lair_x86_64.rpm</code></pre>
+
+      <h3>Distro-neutral tarball</h3>
+      <pre class="command-block"><code>curl -LO https://github.com/alfonza1/hackers-lair/releases/latest/download/hackers-lair-linux-x64.tar.gz
+mkdir -p "$HOME/.local/opt/hackers-lair"
+tar -xzf hackers-lair-linux-x64.tar.gz -C "$HOME/.local/opt/hackers-lair" --strip-components=1
+"$HOME/.local/opt/hackers-lair/HackersLair"</code></pre>
+      <p>The desktop app uses <code>$XDG_CONFIG_HOME/HackersLair</code> when that variable is set, otherwise <code>~/.config/HackersLair</code>. The Windows-only AutoIt Scripts view is hidden automatically.</p>
+
+      <h2 id="verify">Verify SHA256 manually</h2>
+      <p>Every release includes <code>checksums.txt</code>. Download the artifact and checksum file from the same tag, then compare locally.</p>
+      <h3>Windows PowerShell</h3>
+      <pre class="command-block"><code>$Expected = (Select-String -Path .\checksums.txt -Pattern "hackers-lair-win32-x64.zip").Line.Split()[0]
+$Actual = (Get-FileHash .\hackers-lair-win32-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($Actual -ne $Expected.ToLowerInvariant()) { throw "SHA256 mismatch" }</code></pre>
+      <h3>Linux</h3>
+      <pre class="command-block"><code>sha256sum --ignore-missing -c checksums.txt</code></pre>
+
+      <div class="docs-callout"><strong>Signing status:</strong> release packages are checksum-published but not code-signed. Command channels avoid browser download handoffs; Windows reputation behavior can still vary until a trusted signing identity is enabled. Hacker's Lair never instructs you to disable SmartScreen or other security controls.</div>
+
+      <h2 id="requirements">Runtime requirements</h2>
+      <ul>
+        <li><strong>Windows:</strong> 64-bit Windows 10 or 11.</li>
+        <li><strong>Linux:</strong> x86_64 desktop Linux with <code>ss</code> or <code>lsof</code> and <code>ps</code>.</li>
+        <li><strong>Projects:</strong> only the tools your own start commands require, such as Git, Docker, Java, Python, or npm.</li>
+        <li><strong>Hacker's Lair itself:</strong> no separately installed Node.js or npm.</li>
+      </ul>
+      <p>Continue to <a href="../getting-started/">first launch and workspace scanning</a>.</p>
+    </article>
+  </main>
+
+  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.1</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a></div></footer>
+</body>
+</html>

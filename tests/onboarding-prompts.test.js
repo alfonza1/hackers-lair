@@ -19,8 +19,8 @@ test('offers complete and focused prompts when nothing is configured', () => {
 
 test('project prompt includes live config, schema, a valid example, and CLI verification', () => {
   const [prompt] = configurationPrompts({
-    projectsFile: 'C:\\Users\\Developer\\AppData\\Roaming\\HackersLair\\projects.json',
-    projectsSchemaFile: 'C:\\Users\\Developer\\AppData\\Roaming\\HackersLair\\projects.schema.json',
+    projectsFile: 'C:\\Workspaces\\.lair-data\\projects.json',
+    projectsSchemaFile: 'C:\\Workspaces\\.lair-data\\projects.schema.json',
     projectsSchemaUrl: 'http://localhost:4952/api/schema/projects',
     skillsDirectory: 'C:\\Code\\.agents\\skills',
     projectCount: 0,
@@ -29,7 +29,7 @@ test('project prompt includes live config, schema, a valid example, and CLI veri
   });
 
   assert.equal(prompt.id, 'projects');
-  assert.match(prompt.prompt, /C:\\Users\\Developer\\AppData\\Roaming\\HackersLair\\projects\.json/);
+  assert.match(prompt.prompt, /C:\\Workspaces\\\.lair-data\\projects\.json/);
   assert.match(prompt.prompt, /projects\.schema\.json/);
   assert.match(prompt.prompt, /http:\/\/localhost:4952\/api\/schema\/projects/);
   assert.match(prompt.prompt, /`lair doctor`/);
