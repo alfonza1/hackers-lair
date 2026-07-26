@@ -14,8 +14,13 @@ const { discoverProjects } = require('./lib/project-discovery');
 const { formatDoctorReport, runDoctor } = require('./lib/doctor');
 const { redactValue } = require('./lib/redaction');
 const { instantiateTemplate, PROJECT_TEMPLATES } = require('./lib/project-templates');
-const { detectedUrlsFromLog, isZombieComponent } = require('./lib/runtime-intelligence');
+const {
+  detectedUrlsFromLog,
+  isZombieComponent,
+  splitTargetUrls,
+} = require('./lib/runtime-intelligence');
 const { createRuntimeConfig } = require('./lib/runtime-config');
+const { normalizeUiPreferences, validateUiPreferences } = require('./lib/ui-preferences');
 const {
   allowedHost,
   createRuntimeIdentity,
@@ -56,6 +61,7 @@ function loadSettings() {
     workspaceFolders: Array.isArray(result.value.workspaceFolders)
       ? result.value.workspaceFolders
       : [],
+    uiPreferences: normalizeUiPreferences(result.value.uiPreferences),
     error: result.error,
   };
 }
@@ -958,7 +964,18 @@ function annotateProjects(projects, listeners, tracked = []) {
         establishedConnections,
         thresholdHours: zombieAfterHours,
       });
-      const detectedUrls = detectedUrlsFromLog(rec?.logFile);
+      const componentLivePorts = [...new Set(
+        [
+          ...hits.flatMap((listener) => listener.ports.map((port) => port.port)),
+          ...liveReadinessPorts,
+        ],
+      )].sort((a, b) => a - b);
+      const targetUrls = splitTargetUrls({
+        active: running || status === 'starting',
+        configuredPorts: expectedPorts,
+        livePorts: componentLivePorts,
+        logUrls: detectedUrlsFromLog(rec?.logFile),
+      });
       const portConflicts = status === 'errored' && /EADDRINUSE|address already in use/i.test(error)
         ? expectedPorts.flatMap((port) => listeners
           .filter((listener) => listener.ports.some((entry) => entry.port === port))
@@ -994,19 +1011,16 @@ function annotateProjects(projects, listeners, tracked = []) {
         establishedConnections,
         zombie,
         zombieAfterHours,
-        detectedUrls,
+        detectedUrls: targetUrls.detectedUrls,
+        configuredPorts: targetUrls.configuredPorts,
+        hasLog: Boolean(rec?.logFile && fs.existsSync(rec.logFile)),
         portConflicts,
         autoRestart: c.autoRestart === true,
         restartAttempt: rec?.restartCount || 0,
         nextRestartAt: rec?.nextRestartAt || null,
         crashEvent: rec?.crashEvent || null,
         lastActionAt: (rec && rec.startedAt) || startedTimes[proj.name] || 0,
-        livePorts: [...new Set(
-          [
-            ...hits.flatMap((listener) => listener.ports.map((port) => port.port)),
-            ...liveReadinessPorts,
-          ],
-        )].sort((a, b) => a - b),
+        livePorts: componentLivePorts,
       };
     });
     const runningCount = components.filter((c) => c.running).length;
@@ -1469,10 +1483,35 @@ const server = http.createServer(async (req, res) => {
         scriptsFile: SCRIPTS_FILE,
         enableSkills: settings.enableSkills,
         workspaceFolders: settings.workspaceFolders,
+        uiPreferences: settings.uiPreferences,
         browserOverride: Boolean(configuredBrowserPath()),
         configError: settings.error,
         backups: runtimeConfig.projects.listBackups().map(({ path: _path, ...backup }) => backup),
       });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/settings/preferences') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      try {
+        validateUiPreferences(input);
+      } catch (error) {
+        json(res, 400, { error: error.message });
+        return;
+      }
+      const current = runtimeConfig.settings.read();
+      if (current.error) {
+        json(res, 409, { error: `Fix settings.json before saving preferences: ${current.error}` });
+        return;
+      }
+      const uiPreferences = normalizeUiPreferences(input);
+      runtimeConfig.settings.write({
+        ...current.value,
+        uiPreferences,
+      });
+      json(res, 200, { ok: true, uiPreferences });
       return;
     }
 

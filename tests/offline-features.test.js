@@ -6,7 +6,11 @@ const test = require('node:test');
 const { instantiateTemplate, PROJECT_TEMPLATES } = require('../lib/project-templates');
 const { redactText, redactValue } = require('../lib/redaction');
 const { findProject } = require('../bin/lair');
-const { extractLocalUrls, isZombieComponent } = require('../lib/runtime-intelligence');
+const {
+  extractLocalUrls,
+  isZombieComponent,
+  splitTargetUrls,
+} = require('../lib/runtime-intelligence');
 
 test('project templates produce portable offline launch entries', () => {
   const folder = path.resolve('fixture-vite');
@@ -73,4 +77,29 @@ test('runtime intelligence accepts local announced URLs and rejects unsafe or in
     establishedConnections: 1,
     thresholdHours: 8,
   }), false);
+});
+
+test('target URLs separate live detections from dormant configured ports', () => {
+  assert.deepEqual(splitTargetUrls({
+    active: false,
+    configuredPorts: [3000, 8000],
+    livePorts: [],
+    logUrls: ['http://localhost:3000/'],
+  }), {
+    detectedUrls: [],
+    configuredPorts: [3000, 8000],
+  });
+
+  assert.deepEqual(splitTargetUrls({
+    active: true,
+    configuredPorts: [3000, 8000],
+    livePorts: [3000],
+    logUrls: ['http://localhost:3000/dashboard'],
+  }), {
+    detectedUrls: [
+      'http://localhost:3000/dashboard',
+      'http://localhost:3000',
+    ],
+    configuredPorts: [8000],
+  });
 });

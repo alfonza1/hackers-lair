@@ -5,6 +5,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const { JsonConfigStore, createRuntimeConfig } = require('../lib/runtime-config');
+const { DEFAULT_UI_PREFERENCES } = require('../lib/ui-preferences');
 
 test('initializes sanitized runtime configuration outside the repository', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-config-root-'));
@@ -38,17 +39,33 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
   assert.equal(runtime.projects.file, path.join(data, 'projects.json'));
   assert.ok(fs.existsSync(path.join(data, 'scripts.json')));
   assert.ok(fs.existsSync(path.join(data, 'settings.json')));
+  assert.deepEqual(runtime.settings.read().value.uiPreferences, DEFAULT_UI_PREFERENCES);
 
   const settings = runtime.settings.write({
     enableSkills: false,
     browserPath: '',
     zombieAfterHours: 8,
     workspaceFolders: ['D:\\Code', 'E:\\Experiments'],
+    uiPreferences: {
+      theme: 'ice',
+      density: 'compact',
+      motion: 'reduced',
+      fontScale: 110,
+    },
   });
   assert.deepEqual(settings.workspaceFolders, ['D:\\Code', 'E:\\Experiments']);
+  assert.equal(settings.uiPreferences.theme, 'ice');
   assert.throws(() => runtime.settings.write({
     workspaceFolders: ['relative-folder'],
   }), /absolute folder strings/i);
+  assert.throws(() => runtime.settings.write({
+    uiPreferences: {
+      theme: 'rainbow',
+      density: 'comfortable',
+      motion: 'full',
+      fontScale: 100,
+    },
+  }), /uiPreferences\.theme/i);
 });
 
 test('validates nested project fields and retains ten restorable backups', (t) => {

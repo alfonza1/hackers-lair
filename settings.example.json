@@ -3,5 +3,11 @@
   "enableSkills": false,
   "browserPath": "",
   "zombieAfterHours": 8,
-  "workspaceFolders": []
+  "workspaceFolders": [],
+  "uiPreferences": {
+    "theme": "phosphor",
+    "density": "comfortable",
+    "motion": "full",
+    "fontScale": 100
+  }
 }

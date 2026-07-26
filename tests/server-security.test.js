@@ -142,6 +142,37 @@ test('protects localhost mutations and verifies the bound service identity', asy
     'Content-Type': 'application/json',
     'X-Lair-Token': identity.token,
   };
+  const preferenceResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/settings/preferences',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      theme: 'ghost',
+      density: 'compact',
+      motion: 'reduced',
+      fontScale: 110,
+    }),
+  });
+  assert.equal(preferenceResponse.status, 200);
+  const persistedSettings = JSON.parse(fs.readFileSync(path.join(dataDirectory, 'settings.json')));
+  assert.equal(persistedSettings.uiPreferences.theme, 'ghost');
+  assert.equal(persistedSettings.uiPreferences.fontScale, 110);
+
+  const invalidPreferences = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/settings/preferences',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      theme: 'custom',
+      density: 'compact',
+      motion: 'reduced',
+      fontScale: 110,
+    }),
+  });
+  assert.equal(invalidPreferences.status, 400);
+
   const scanResponse = await request({
     port,
     method: 'POST',

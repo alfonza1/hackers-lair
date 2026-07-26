@@ -19,7 +19,15 @@ const component = (name, role, port, running, pid) => ({
   running, status: running ? 'running' : 'stopped', error: '', pids: pid ? [pid] : [], pid: pid || null,
   path: `C:\\Workspaces\\${name}`, memKB: running ? 186240 : 0, cpuPercent: running ? 2.4 : null,
   uptimeSeconds: running ? 8421 : null, lastActionAt: now - 420000, livePorts: running ? [port] : [],
+  detectedUrls: running && port ? [`http://localhost:${port}`] : [],
+  configuredPorts: !running && port ? [port] : [],
+  hasLog: running,
 });
+const telemetry = (cpuPercent, memKB) => Array.from({ length: 8 }, (_, index) => ({
+  at: now - ((7 - index) * 2500),
+  cpuPercent: Math.max(0.1, cpuPercent + (((index % 3) - 1) * 0.7)),
+  memKB: memKB + (((index % 4) - 2) * 4096),
+}));
 const gitAttention = (root, branch, overrides = {}) => {
   const repository = {
     root,
@@ -51,8 +59,8 @@ const gitAttention = (root, branch, overrides = {}) => {
   };
 };
 const projects = [
-  { name: 'nightwatch-relay', type: 'Vite + Node API', gitBranches: ['feature/relay-observability'], gitAttention: gitAttention('C:\\Workspaces\\nightwatch-relay', 'feature/relay-observability', { dirty: true, changedPaths: 2, ahead: 3, commitCount: 684 }), components: [component('relay-ui', 'frontend', 5173, true, 18420), component('relay-api', 'backend', 4100, true, 22108)], running: true, partial: false, errored: false, starting: false, pids: [18420, 22108], memKB: 372480, cpuPercent: 4.8, uptimeSeconds: 8421, lastActionAt: now - 420000 },
-  { name: 'atlas-worker', type: 'Python task runner', gitBranches: ['main'], gitAttention: gitAttention('C:\\Workspaces\\atlas-worker', 'main', { commitCount: 217 }), components: [component('atlas-worker', 'headless', null, true, 27144)], running: true, partial: false, errored: false, starting: false, pids: [27144], memKB: 92160, cpuPercent: 1.1, uptimeSeconds: 3644, lastActionAt: now - 910000 },
+  { name: 'nightwatch-relay', type: 'Vite + Node API', gitBranches: ['feature/relay-observability'], gitAttention: gitAttention('C:\\Workspaces\\nightwatch-relay', 'feature/relay-observability', { dirty: true, changedPaths: 2, ahead: 3, commitCount: 684 }), components: [component('relay-ui', 'frontend', 5173, true, 18420), component('relay-api', 'backend', 4100, true, 22108)], running: true, partial: false, errored: false, starting: false, pids: [18420, 22108], memKB: 372480, cpuPercent: 4.8, uptimeSeconds: 8421, lastActionAt: now - 420000, telemetry: telemetry(4.8, 372480) },
+  { name: 'atlas-worker', type: 'Python task runner', gitBranches: ['main'], gitAttention: gitAttention('C:\\Workspaces\\atlas-worker', 'main', { commitCount: 217 }), components: [component('atlas-worker', 'headless', null, true, 27144)], running: true, partial: false, errored: false, starting: false, pids: [27144], memKB: 92160, cpuPercent: 1.1, uptimeSeconds: 3644, lastActionAt: now - 910000, telemetry: telemetry(1.1, 92160) },
   { name: 'static-forge', type: 'Next.js workspace', gitBranches: ['release/next'], gitAttention: gitAttention('C:\\Workspaces\\static-forge', 'release/next', { commitCount: 93 }), components: [component('static-forge', 'fullstack', 3000, false)], running: false, partial: false, errored: false, starting: false, pids: [], memKB: 0, cpuPercent: null, uptimeSeconds: null, lastActionAt: now - 7200000 },
 ];
 const processes = [
@@ -72,7 +80,12 @@ const fixtures = {
   '/api/processes': { self: 9000, port: 4949, processes, stopped },
   '/api/scripts': { scripts, configured: true, configError: null },
   '/api/onboarding': { configured: true, projectCount: projects.length, personalSkillCount: 3, prompts: [] },
-  '/api/settings': { enableSkills: false, workspaceFolders: [], configError: null },
+  '/api/settings': {
+    enableSkills: false,
+    workspaceFolders: [],
+    uiPreferences: { theme: 'phosphor', density: 'comfortable', motion: 'full', fontScale: 100 },
+    configError: null,
+  },
   '/api/doctor': { status: 'pass', failures: 0, warnings: 0, checks: [] },
   '/api/templates': { templates: [] },
   '/api/config/backups': { backups: [] },
@@ -103,7 +116,16 @@ const injection = `<style>
   .cinematic-ready .topbar,.cinematic-ready .panel{animation:none!important;opacity:1!important;transform:none!important;clip-path:none!important}
   *,*::before,*::after{animation:none!important;transition:none!important}
 </style><script>
-  try { localStorage.clear(); } catch {}
+  try {
+    localStorage.clear();
+    localStorage.setItem('hackersLair.cinematicSeen', '1');
+    localStorage.setItem('hackersLair.uiPreferences', JSON.stringify({
+      theme: 'phosphor',
+      density: 'comfortable',
+      motion: 'reduced',
+      fontScale: 100,
+    }));
+  } catch {}
   const FixedDate = Date;
   window.Date = class extends FixedDate {
     constructor(...args) { super(...(args.length ? args : [${now}])); }
