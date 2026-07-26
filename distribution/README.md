@@ -7,8 +7,9 @@ jobs finish.
 
 - `winget/manifests/` is copied into a branch based on
   `microsoft/winget-pkgs` for the owner’s manual community PR.
-- `scoop/hackerslair.json` is copied into the separate
-  `alfonza1/hackers-lair-scoop` bucket after that repository is created.
+- `scoop/hackerslair.json` matches the public `hackerslairhq/scoop` bucket.
+  That bucket also refreshes itself from the latest release every day and on
+  demand, so it needs no cross-repository access token.
 
 Never hand-copy a checksum from an earlier build. Regenerate both manifests
 from the exact release assets.

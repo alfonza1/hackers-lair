@@ -6,7 +6,7 @@ Please do not open a public issue for a suspected vulnerability.
 
 Use GitHub's **Report a vulnerability** flow on the repository Security tab:
 
-https://github.com/alfonza1/hackers-lair/security/advisories/new
+https://github.com/hackerslairhq/desktop/security/advisories/new
 
 Include the affected version, operating system, reproduction steps, impact,
 and any suggested mitigation. Do not include secrets, access tokens, or
@@ -56,7 +56,7 @@ Every release includes `checksums.txt` and GitHub build-provenance
 attestations. Verify an artifact with:
 
 ```text
-gh attestation verify <file> -R alfonza1/hackers-lair
+gh attestation verify <file> -R hackerslairhq/desktop
 ```
 
 Provenance is not Windows publisher signing and does not bypass SmartScreen.

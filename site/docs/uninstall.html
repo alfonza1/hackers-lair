@@ -4,8 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Uninstall — Hacker's Lair Docs</title>
   <meta name="description" content="Remove Hacker's Lair cleanly from Windows or Linux and choose whether to retain local config, logs, and backups.">
-  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/docs/uninstall.html">
-  <meta property="og:type" content="article"><meta property="og:title" content="Uninstall — Hacker's Lair"><meta property="og:description" content="Channel-specific removal and optional user-data cleanup."><meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png"><meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://hackerslairhq.github.io/desktop/docs/uninstall.html">
+  <meta property="og:type" content="article"><meta property="og:title" content="Uninstall — Hacker's Lair"><meta property="og:description" content="Channel-specific removal and optional user-data cleanup."><meta property="og:image" content="https://hackerslairhq.github.io/desktop/assets/og-card.png"><meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="../assets/icon.png" type="image/png"><link rel="stylesheet" href="../assets/site.css"><script src="../assets/site.js" defer></script>
 </head>
 <body>
@@ -24,7 +24,7 @@
       <p>The Squirrel uninstaller removes the installed application and shortcuts. User config remains available for a later reinstall unless you remove it separately.</p>
 
       <h3>PowerShell channel</h3>
-      <pre class="command-block"><code>irm https://alfonza1.github.io/hackers-lair/uninstall.ps1 | iex</code></pre>
+      <pre class="command-block"><code>irm https://hackerslairhq.github.io/desktop/uninstall.ps1 | iex</code></pre>
       <p>The script verifies and stops only the running Hacker's Lair executable whose path belongs to the per-user installation. It then asks whether to retain or delete <code>%APPDATA%\HackersLair</code>. For a non-interactive local script run, use <code>-KeepData</code> or <code>-DeleteData</code>.</p>
 
       <h3>Scoop</h3>
@@ -62,6 +62,6 @@ fi</code></pre>
       <pre class="command-block"><code>ss -ltnp | grep -E ':(4949|495[0-9])\b' || true</code></pre>
     </article>
   </main>
-  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.1</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a></div></footer>
+  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.2</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/hackerslairhq/desktop/releases">GitHub releases for advanced users</a></div></footer>
 </body>
 </html>

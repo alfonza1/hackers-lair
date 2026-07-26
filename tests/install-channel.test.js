@@ -61,6 +61,8 @@ test('only Squirrel has an internal updater; other channels expose commands', ()
     assert.ok(installChannelDetails(channel).upgradeCommand, channel);
   }
   assert.match(installChannelDetails('linux-deb').upgradeCommand, /releases\/latest\/download\/hackers-lair_amd64\.deb/);
+  assert.match(installChannelDetails('linux-deb').upgradeCommand, /github\.com\/hackerslairhq\/desktop/);
+  assert.match(installChannelDetails('powershell').upgradeCommand, /hackerslairhq\.github\.io\/desktop/);
   assert.match(installChannelDetails('linux-rpm').upgradeCommand, /sudo rpm -U /);
   assert.match(installChannelDetails('linux-portable').upgradeCommand, /--strip-components=1/);
 });

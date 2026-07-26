@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://alfonza1.github.io/hackers-lair/sitemap.xml
+Sitemap: https://hackerslairhq.github.io/desktop/sitemap.xml

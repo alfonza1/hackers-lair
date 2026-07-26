@@ -100,7 +100,7 @@ async function refreshReleaseMetadata() {
   const notes = [...document.querySelectorAll('[data-release-notes]')];
   if (!nodes.length && !notes.length) return;
   try {
-    const response = await fetch('https://api.github.com/repos/alfonza1/hackers-lair/releases?per_page=1', {
+    const response = await fetch('https://api.github.com/repos/hackerslairhq/desktop/releases?per_page=1', {
       headers: { Accept: 'application/vnd.github+json' },
     });
     if (!response.ok) return;

@@ -179,7 +179,7 @@ function initializeUpdates() {
   const updater = updateElectronApp({
     updateSource: {
       type: UpdateSourceType.ElectronPublicUpdateService,
-      repo: 'alfonza1/hackers-lair',
+      repo: 'hackerslairhq/desktop',
     },
     updateInterval: '1 hour',
     notifyUser: true,
@@ -192,7 +192,7 @@ function initializeUpdates() {
           ? `v${version} ready — restart to apply.`
           : 'An update is ready — restart to apply.',
         releaseUrl: version
-          ? `https://github.com/alfonza1/hackers-lair/releases/tag/v${version}`
+          ? `https://github.com/hackerslairhq/desktop/releases/tag/v${version}`
           : updateState.releaseUrl,
         managedTargets: [],
       });
@@ -862,7 +862,7 @@ ipcMain.handle('app:apply-update', async (event) => {
 
 ipcMain.handle('app:open-update-notes', async (event) => {
   if (!senderBelongsToApplication(event)) return false;
-  if (!updateState.releaseUrl.startsWith('https://github.com/alfonza1/hackers-lair/')) return false;
+  if (!updateState.releaseUrl.startsWith('https://github.com/hackerslairhq/desktop/')) return false;
   await shell.openExternal(updateState.releaseUrl);
   return true;
 });

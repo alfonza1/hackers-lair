@@ -18,7 +18,7 @@ bundle Electron and Node; developers installing the app do not install Node.js
 or clone this repository.
 
 **Website and full documentation:**
-[alfonza1.github.io/hackers-lair](https://alfonza1.github.io/hackers-lair/)
+[hackerslairhq.github.io/desktop](https://hackerslairhq.github.io/desktop/)
 
 ## Install
 
@@ -36,13 +36,13 @@ winget install --id hackerslair.desktop --exact
 Checksum-verifying PowerShell channel:
 
 ```powershell
-irm https://alfonza1.github.io/hackers-lair/install.ps1 | iex
+irm https://hackerslairhq.github.io/desktop/install.ps1 | iex
 ```
 
-Scoop, after the public bucket is created:
+Scoop:
 
 ```powershell
-scoop bucket add hackerslair https://github.com/alfonza1/hackers-lair-scoop
+scoop bucket add hackerslair https://github.com/hackerslairhq/scoop
 scoop install hackerslair
 ```
 
@@ -51,16 +51,16 @@ scoop install hackerslair
 Debian / Ubuntu:
 
 ```bash
-curl -LO https://github.com/alfonza1/hackers-lair/releases/latest/download/hackers-lair_amd64.deb && sudo apt install ./hackers-lair_amd64.deb
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_amd64.deb && sudo apt install ./hackers-lair_amd64.deb
 ```
 
 Fedora / RHEL:
 
 ```bash
-curl -LO https://github.com/alfonza1/hackers-lair/releases/latest/download/hackers-lair_x86_64.rpm && sudo rpm -i ./hackers-lair_x86_64.rpm
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_x86_64.rpm && sudo rpm -i ./hackers-lair_x86_64.rpm
 ```
 
-See the [installation guide](https://alfonza1.github.io/hackers-lair/docs/)
+See the [installation guide](https://hackerslairhq.github.io/desktop/docs/)
 for the distro-neutral tarball, updates, checksums, and clean uninstall.
 
 ## First launch
@@ -135,7 +135,7 @@ Repository development requires Node.js 22.12 or newer. This is the only path
 that uses git and npm:
 
 ```powershell
-git clone https://github.com/alfonza1/hackers-lair.git
+git clone https://github.com/hackerslairhq/desktop.git
 Set-Location hackers-lair
 npm ci
 npm test

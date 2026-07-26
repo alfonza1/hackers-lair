@@ -66,7 +66,7 @@ test('installation docs explain checksums and provenance without overstating sig
   const faq = fs.readFileSync(path.join(root, 'site', 'docs', 'faq.html'), 'utf8');
   for (const document of [installation, faq]) {
     assert.match(document, /checksums\.txt/);
-    assert.match(document, /gh attestation verify &lt;file&gt; -R alfonza1\/hackers-lair/);
+    assert.match(document, /gh attestation verify &lt;file&gt; -R hackerslairhq\/desktop/);
     assert.match(document, /not (?:Windows publisher )?code signing|not currently code-signed|neither is Windows publisher identity signing/i);
     assert.match(document, /SmartScreen/i);
   }

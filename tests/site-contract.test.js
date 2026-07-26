@@ -23,8 +23,8 @@ test('static site ships complete metadata, docs navigation, and local assets', (
     const html = fs.readFileSync(file, 'utf8');
     assert.match(html, /<title>[^<]+<\/title>/, relative);
     assert.match(html, /<meta name="description" content="[^"]+"/, relative);
-    assert.match(html, /<link rel="canonical" href="https:\/\/alfonza1\.github\.io\/hackers-lair\//, relative);
-    assert.match(html, /<meta property="og:image" content="https:\/\/alfonza1\.github\.io\/hackers-lair\/assets\/og-card\.png">/, relative);
+    assert.match(html, /<link rel="canonical" href="https:\/\/hackerslairhq\.github\.io\/desktop\//, relative);
+    assert.match(html, /<meta property="og:image" content="https:\/\/hackerslairhq\.github\.io\/desktop\/assets\/og-card\.png">/, relative);
     assert.match(html, /href="[^"]*site\.css"/, relative);
     assert.match(html, /src="[^"]*site\.js"/, relative);
     assert.match(html, /href="[^"]*docs\/?[^"]*"/, relative);
@@ -74,12 +74,13 @@ test('installation remains command-only and useful without JavaScript', () => {
   assert.match(landing, /data-platform-panel="windows"/);
   assert.match(landing, /data-platform-panel="linux"/);
   assert.doesNotMatch(landing, /data-platform-panel="[^"]+"[^>]*hidden/);
-  assert.match(landing, /winget install --id hackerslair\.desktop --exact/);
-  assert.match(landing, /irm https:\/\/alfonza1\.github\.io\/hackers-lair\/install\.ps1 \| iex/);
+  assert.match(landing, /irm https:\/\/hackerslairhq\.github\.io\/desktop\/install\.ps1 \| iex/);
+  assert.match(landing, /windows_x64<\/span>[^<]*checksum-verified PowerShell/);
+  assert.doesNotMatch(landing, /<code>winget install --id hackerslair\.desktop --exact<\/code>/);
   assert.match(installation, /hackers-lair_amd64\.deb/);
   assert.match(installation, /hackers-lair_x86_64\.rpm/);
   assert.match(installation, /hackers-lair-linux-x64\.tar\.gz/);
-  assert.match(installation, /gh attestation verify &lt;file&gt; -R alfonza1\/hackers-lair/);
+  assert.match(installation, /gh attestation verify &lt;file&gt; -R hackerslairhq\/desktop/);
 });
 
 test('public branding uses the product-owned Winget identity', () => {
@@ -91,7 +92,7 @@ test('public branding uses the product-owned Winget identity', () => {
     .replace(/<[^>]+>/g, ' ');
 
   assert.match(publicCopy, /hackerslair\.desktop/);
-  assert.doesNotMatch(publicCopy, /Alfonza1\.HackersLair|Alfonza Jones/);
+  assert.doesNotMatch(publicCopy, /alfonza1|Alfonza Jones/i);
   assert.doesNotMatch(visibleProse, /alfonza/i);
 });
 
@@ -102,15 +103,15 @@ test('landing page gives engineers a concrete contribution path', () => {
   assert.match(landing, /Engineers: take a subsystem\./);
   assert.match(landing, /Where help matters/);
   assert.match(landing, /Your first patch/);
-  assert.match(landing, /href="https:\/\/github\.com\/alfonza1\/hackers-lair\/blob\/main\/CONTRIBUTING\.md"/);
-  assert.match(landing, /href="https:\/\/github\.com\/alfonza1\/hackers-lair\/issues"/);
+  assert.match(landing, /href="https:\/\/github\.com\/hackerslairhq\/desktop\/blob\/main\/CONTRIBUTING\.md"/);
+  assert.match(landing, /href="https:\/\/github\.com\/hackerslairhq\/desktop\/issues"/);
   assert.ok(landing.indexOf('id="contribute"') < landing.indexOf('id="release-title"'));
 });
 
 test('site scripts stay self-contained and installer mirrors stay exact', () => {
   const javascript = fs.readFileSync(path.join(site, 'assets', 'site.js'), 'utf8');
   assert.equal((javascript.match(/\bfetch\(/g) || []).length, 1);
-  assert.match(javascript, /api\.github\.com\/repos\/alfonza1\/hackers-lair\/releases\?per_page=1/);
+  assert.match(javascript, /api\.github\.com\/repos\/hackerslairhq\/desktop\/releases\?per_page=1/);
   assert.equal(
     fs.readFileSync(path.join(root, 'install.ps1'), 'utf8'),
     fs.readFileSync(path.join(site, 'install.ps1'), 'utf8'),

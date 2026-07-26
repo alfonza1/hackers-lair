@@ -4,8 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FAQ — Hacker's Lair Docs</title>
   <meta name="description" content="Answers about Hacker's Lair safety, local API protection, telemetry, checksums, updates, project scope, and clean uninstall.">
-  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/docs/faq.html">
-  <meta property="og:type" content="article"><meta property="og:title" content="FAQ — Hacker's Lair"><meta property="og:description" content="Local-only behavior, checksums, updates, and uninstall."><meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png"><meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://hackerslairhq.github.io/desktop/docs/faq.html">
+  <meta property="og:type" content="article"><meta property="og:title" content="FAQ — Hacker's Lair"><meta property="og:description" content="Local-only behavior, checksums, updates, and uninstall."><meta property="og:image" content="https://hackerslairhq.github.io/desktop/assets/og-card.png"><meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="../assets/icon.png" type="image/png"><link rel="stylesheet" href="../assets/site.css"><script src="../assets/site.js" defer></script>
 </head>
 <body>
@@ -36,7 +36,7 @@ Get-Content .\checksums.txt</code></pre>
       <h3>Linux</h3>
       <pre class="command-block"><code>sha256sum --ignore-missing -c checksums.txt</code></pre>
       <p>Every artifact also has GitHub build provenance. Verify it with the GitHub CLI:</p>
-      <pre class="command-block"><code>gh attestation verify &lt;file&gt; -R alfonza1/hackers-lair</code></pre>
+      <pre class="command-block"><code>gh attestation verify &lt;file&gt; -R hackerslairhq/desktop</code></pre>
       <p>The checksum proves that the file's bytes match the release manifest. The attestation proves that those bytes came from this repository's authenticated GitHub Actions build.</p>
       <p>The hosted PowerShell installer automates this comparison and refuses to unblock or extract the ZIP when the checksum is missing or different.</p>
 
@@ -47,7 +47,7 @@ Get-Content .\checksums.txt</code></pre>
       <h3>Winget</h3>
       <pre class="command-block"><code>winget upgrade --id hackerslair.desktop --exact</code></pre>
       <h3>PowerShell channel</h3>
-      <pre class="command-block"><code>irm https://alfonza1.github.io/hackers-lair/install.ps1 | iex</code></pre>
+      <pre class="command-block"><code>irm https://hackerslairhq.github.io/desktop/install.ps1 | iex</code></pre>
       <h3>Scoop</h3>
       <pre class="command-block"><code>scoop update hackerslair</code></pre>
       <p>Linux package managers can install the newer downloaded package over the existing version. User config remains in the data directory across application updates.</p>
@@ -62,6 +62,6 @@ Get-Content .\checksums.txt</code></pre>
       <p>Use the uninstall command for your installation channel, quit the tray application if prompted, and choose whether to keep or delete the user data directory. See the <a href="./uninstall.html">complete uninstall guide</a>.</p>
     </article>
   </main>
-  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.1</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a></div></footer>
+  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.2</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/hackerslairhq/desktop/releases">GitHub releases for advanced users</a></div></footer>
 </body>
 </html>
