@@ -1793,12 +1793,22 @@
   }
   .config-controls { display: flex; flex-wrap: wrap; gap: 8px; }
   .schema-summary { margin-top: 12px; color: var(--dim); font-size: 10px; }
+  .schema-docs { margin-top: 10px; color: var(--muted); font-size: 10px; }
+  .schema-docs summary { color: var(--cyan); cursor: pointer; }
+  .schema-field-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px 12px;
+    margin-top: 9px;
+  }
+  .schema-field-list code { color: var(--green); }
 
   @media (max-width: 900px) {
     .template-controls { grid-template-columns: 1fr 1fr; }
     .template-controls .utility { grid-column: 1 / -1; }
     .command-result { grid-template-columns: 70px 1fr; }
     .command-result small { display: none; }
+    .schema-field-list { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -1976,6 +1986,10 @@
             <input id="importConfigFile" type="file" accept=".json,application/json" hidden>
           </div>
           <p class="schema-summary" id="schemaSummary">Loading schema-backed config reference…</p>
+          <details class="schema-docs">
+            <summary>Schema field reference</summary>
+            <div class="schema-field-list" id="schemaFieldList"></div>
+          </details>
         </div>
       </div>
     </section>
@@ -3019,6 +3033,9 @@
         const crash = component.crashEvent;
         if (!crash?.id || state.seenCrashes.has(crash.id)) return;
         state.seenCrashes.add(crash.id);
+        if (state.seenCrashes.size > 200) {
+          state.seenCrashes.delete(state.seenCrashes.values().next().value);
+        }
         const suffix = crash.restarting
           ? ` Auto-restart ${crash.attempt}/${crash.maxRestarts} queued.`
           : ' Auto-restart is off or exhausted.';
@@ -3159,6 +3176,12 @@
         .join('');
       const fields = Object.keys(schema.$defs?.component?.properties || {}).length;
       $('schemaSummary').textContent = `${schema.title || 'Project schema'} · ${fields} component fields · validation, editor autocomplete, and this reference share one source.`;
+      $('schemaFieldList').innerHTML = Object.entries(schema.$defs?.component?.properties || {})
+        .map(([name, definition]) => {
+          const type = definition.type || (definition.$ref ? definition.$ref.split('/').at(-1) : 'value');
+          return `<span><code>${esc(name)}</code> · ${esc(type)}${definition.description ? ` · ${esc(definition.description)}` : ''}</span>`;
+        })
+        .join('');
     } catch (error) {
       $('schemaSummary').textContent = `Config tools unavailable: ${error.message}`;
     }

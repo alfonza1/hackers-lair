@@ -26,10 +26,20 @@ function usage() {
 function loadIdentity() {
   try {
     const identity = JSON.parse(fs.readFileSync(identityFile, 'utf8'));
-    if (identity.app !== 'hackers-lair' || !identity.token || !identity.nonce || !identity.port) {
+    const port = Number(identity.port);
+    if (
+      identity.app !== 'hackers-lair'
+      || typeof identity.token !== 'string'
+      || !identity.token
+      || typeof identity.nonce !== 'string'
+      || !identity.nonce
+      || !Number.isInteger(port)
+      || port < 1
+      || port > 65535
+    ) {
       throw new Error('invalid identity');
     }
-    return identity;
+    return { ...identity, port };
   } catch {
     throw new Error(`Hacker's Lair is not running or ${identityFile} is unavailable.`);
   }
@@ -44,13 +54,16 @@ async function client() {
     throw new Error('The recorded local service identity could not be verified.');
   }
   async function request(endpoint, body) {
-    const response = await fetch(`${baseUrl}${endpoint}`, body === undefined ? {} : {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Lair-Token': identity.token,
-      },
-      body: JSON.stringify(body),
+    const response = await fetch(`${baseUrl}${endpoint}`, {
+      ...(body === undefined ? {} : {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Lair-Token': identity.token,
+        },
+        body: JSON.stringify(body),
+      }),
+      signal: AbortSignal.timeout(30_000),
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
@@ -61,8 +74,13 @@ async function client() {
 
 function findProject(projects, query) {
   const normalized = String(query || '').toLowerCase();
-  return projects.find((project) => project.name.toLowerCase() === normalized)
-    || projects.find((project) => project.name.toLowerCase().includes(normalized));
+  const exact = projects.find((project) => project.name.toLowerCase() === normalized);
+  if (exact) return exact;
+  const matches = projects.filter((project) => project.name.toLowerCase().includes(normalized));
+  if (matches.length > 1) {
+    throw new Error(`Project name is ambiguous: ${matches.map((project) => project.name).join(', ')}.`);
+  }
+  return matches[0];
 }
 
 async function main() {
@@ -95,10 +113,17 @@ async function main() {
     console.log(`Restored ${result.projects} project(s).`);
     return;
   }
+  if (!['start', 'stop', 'open'].includes(command)) {
+    usage();
+    process.exitCode = 1;
+    return;
+  }
 
+  const projectQuery = args.join(' ').trim();
+  if (!projectQuery) throw new Error(`Provide a project name for "lair ${command}".`);
   const { projects } = await request('/api/projects');
-  const project = findProject(projects, args.join(' '));
-  if (!project) throw new Error(`No project matched "${args.join(' ')}".`);
+  const project = findProject(projects, projectQuery);
+  if (!project) throw new Error(`No project matched "${projectQuery}".`);
   if (command === 'start') {
     const result = await request('/api/projects/start', { name: project.name });
     console.log(`Started ${project.name}: ${result.started.join(', ') || 'already live'}`);
@@ -117,11 +142,13 @@ async function main() {
     console.log(`Opened ${url}`);
     return;
   }
-  usage();
-  process.exitCode = 1;
 }
 
-main().catch((error) => {
-  console.error(`lair: ${error.message}`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(`lair: ${error.message}`);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { findProject };

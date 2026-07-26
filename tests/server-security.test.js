@@ -1,13 +1,15 @@
 const assert = require('node:assert/strict');
-const { spawn } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const { promisify } = require('node:util');
 
 const ROOT = path.resolve(__dirname, '..');
+const execFileAsync = promisify(execFile);
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -150,6 +152,64 @@ test('protects localhost mutations and verifies the bound service identity', asy
   });
   assert.equal(applyResponse.status, 200);
   assert.equal(JSON.parse(fs.readFileSync(path.join(dataDirectory, 'projects.json'))).projects[0].name, 'free-tool');
+
+  const schemaResponse = await request({ port, pathname: '/api/schema/projects' });
+  assert.equal(schemaResponse.status, 200);
+  assert.equal(JSON.parse(schemaResponse.body).title, "Hacker's Lair project configuration");
+
+  const invalidImport = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/config/import',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      mode: 'merge',
+      config: { projects: [{ name: 'invalid', components: [{ name: 'web', port: 99999 }] }] },
+    }),
+  });
+  assert.equal(invalidImport.status, 400);
+
+  const templateBody = JSON.stringify({
+    templateId: 'vite',
+    name: 'templated-project',
+    folder: scanProject,
+    port: 4180,
+  });
+  const templateResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/templates/apply',
+    headers: authorizedHeaders,
+    body: templateBody,
+  });
+  assert.equal(templateResponse.status, 200);
+  const duplicateTemplate = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/templates/apply',
+    headers: authorizedHeaders,
+    body: templateBody,
+  });
+  assert.equal(duplicateTemplate.status, 409);
+
+  const exportResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/config/export',
+    headers: authorizedHeaders,
+    body: '{}',
+  });
+  assert.equal(exportResponse.status, 200);
+  assert.doesNotMatch(exportResponse.body, new RegExp(dataDirectory.replaceAll('\\', '\\\\'), 'i'));
+
+  const { stdout: cliOutput } = await execFileAsync(process.execPath, [path.join(ROOT, 'bin', 'lair.js'), 'ls'], {
+    cwd: ROOT,
+    env: { ...process.env, PROJECT_MANAGER_DATA_DIR: dataDirectory },
+    windowsHide: true,
+    timeout: 10_000,
+  });
+  assert.match(cliOutput, /free-tool/);
+  assert.match(cliOutput, /templated-project/);
 
   const html = await request({ port });
   assert.equal(html.status, 200);

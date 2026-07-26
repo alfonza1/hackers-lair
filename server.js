@@ -14,6 +14,7 @@ const { discoverProjects } = require('./lib/project-discovery');
 const { formatDoctorReport, runDoctor } = require('./lib/doctor');
 const { redactValue } = require('./lib/redaction');
 const { instantiateTemplate, PROJECT_TEMPLATES } = require('./lib/project-templates');
+const { detectedUrlsFromLog, isZombieComponent } = require('./lib/runtime-intelligence');
 const { createRuntimeConfig } = require('./lib/runtime-config');
 const {
   allowedHost,
@@ -761,43 +762,27 @@ function tailLog(file, code) {
   } catch { return `Exited with code ${code}.`; }
 }
 
-function openBrowserUrl(url) {
-  const browser = configuredBrowserPath();
-  const child = browser
-    ? spawn(browser, [url], { detached: true, stdio: 'ignore', windowsHide: false })
-    : spawn('cmd.exe', ['/d', '/s', '/c', 'start', '', url], {
+function spawnDetachedExecutable(executable, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(executable, args, {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
+      ...options,
     });
-  child.on('error', () => {});
-  child.unref();
-  return browser || 'system default';
+    child.once('error', reject);
+    child.once('spawn', () => {
+      child.unref();
+      resolve(child);
+    });
+  });
 }
 
-function detectedUrlsFromLog(file) {
-  if (!file) return [];
-  try {
-    const stat = fs.statSync(file);
-    const readSize = Math.min(stat.size, 128 * 1024);
-    const descriptor = fs.openSync(file, 'r');
-    const buffer = Buffer.alloc(readSize);
-    fs.readSync(descriptor, buffer, 0, readSize, Math.max(0, stat.size - readSize));
-    fs.closeSync(descriptor);
-    const text = buffer.toString('utf8');
-    return [...new Set([...text.matchAll(/https?:\/\/(?:localhost|127\.0\.0\.1):\d{1,5}(?:\/[^\s"'<>]*)?/gi)]
-      .map((match) => match[0].replace(/[),.;]+$/, ''))
-      .filter((url) => {
-        try {
-          const port = Number(new URL(url).port);
-          return port > 0 && port <= 65535;
-        } catch {
-          return false;
-        }
-      }))].slice(-6);
-  } catch {
-    return [];
-  }
+async function openBrowserUrl(url) {
+  const browser = configuredBrowserPath();
+  if (browser) await spawnDetachedExecutable(browser, [url], { windowsHide: false });
+  else await spawnDetachedExecutable('explorer.exe', [url]);
+  return browser || 'system default';
 }
 
 function launchProjectComponent(project, component, options = {}) {
@@ -964,12 +949,13 @@ function annotateProjects(projects, listeners, tracked = []) {
       const zombieAfterHours = Number(c.zombieAfterHours) || settings.zombieAfterHours;
       const uptimeSeconds = uptimeValues.length ? Math.max(...uptimeValues) : null;
       if (running && rec && uptimeSeconds >= 60 && rec.restartCount) rec.restartCount = 0;
-      const zombie = running
-        && Number.isFinite(uptimeSeconds)
-        && uptimeSeconds >= zombieAfterHours * 3600
-        && establishedConnections === 0;
-      const configuredUrls = expectedPorts.map((port) => `http://localhost:${port}/`);
-      const detectedUrls = [...new Set([...detectedUrlsFromLog(rec?.logFile), ...configuredUrls])];
+      const zombie = isZombieComponent({
+        running,
+        uptimeSeconds,
+        establishedConnections,
+        thresholdHours: zombieAfterHours,
+      });
+      const detectedUrls = detectedUrlsFromLog(rec?.logFile);
       const portConflicts = status === 'errored' && /EADDRINUSE|address already in use/i.test(error)
         ? expectedPorts.flatMap((port) => listeners
           .filter((listener) => listener.ports.some((entry) => entry.port === port))
@@ -1174,7 +1160,7 @@ const server = http.createServer(async (req, res) => {
 
       const url = `http://localhost:${port}/`;
       try {
-        const browser = openBrowserUrl(url);
+        const browser = await openBrowserUrl(url);
         json(res, 200, { ok: true, browser, port, url });
       } catch (err) {
         json(res, 500, { error: `Could not open the browser: ${err.message}` });
@@ -1483,7 +1469,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       try {
-        const browser = openBrowserUrl(url.href);
+        const browser = await openBrowserUrl(url.href);
         json(res, 200, { ok: true, browser, url: url.href });
       } catch (error) {
         json(res, 500, { error: `Could not open the browser: ${error.message}` });
@@ -1549,19 +1535,17 @@ const server = http.createServer(async (req, res) => {
           json(res, 404, { error: 'No component log exists yet. Start the target once to create it.' });
           return;
         }
-        const child = spawn('notepad.exe', [logFile], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: false,
-        });
-        child.on('error', () => {});
-        child.unref();
-        json(res, 200, { ok: true, action, logFile });
+        try {
+          await spawnDetachedExecutable('notepad.exe', [logFile], { windowsHide: false });
+          json(res, 200, { ok: true, action, logFile });
+        } catch (error) {
+          json(res, 500, { error: `Could not open logs: ${error.message}` });
+        }
         return;
       }
       const launchPlans = {
         explorer: ['explorer.exe', [component.cwd]],
-        terminal: ['cmd.exe', ['/d', '/k', 'cd', '/d', component.cwd]],
+        terminal: ['cmd.exe', []],
         vscode: ['code.cmd', [component.cwd]],
       };
       const plan = launchPlans[action];
@@ -1570,14 +1554,13 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       try {
-        const child = spawn(plan[0], plan[1], {
+        const args = action === 'terminal'
+          ? ['/d', '/k', `cd /d "${component.cwd}"`]
+          : plan[1];
+        await spawnDetachedExecutable(plan[0], args, {
           cwd: component.cwd,
-          detached: true,
-          stdio: 'ignore',
           windowsHide: false,
         });
-        child.on('error', () => {});
-        child.unref();
         json(res, 200, { ok: true, action, cwd: component.cwd });
       } catch (error) {
         json(res, 500, { error: `Could not open ${action}: ${error.message}` });
@@ -1684,7 +1667,7 @@ const server = http.createServer(async (req, res) => {
           projects: [...current.value.projects, ...additions],
         };
       }
-      runtimeConfig.projects.write({ $schema: './projects.schema.json', ...next });
+      runtimeConfig.projects.write({ ...next, $schema: './projects.schema.json' });
       void refreshGitAttention(loadProjects());
       void refreshDoctor();
       json(res, 200, { ok: true, projects: next.projects.length });
