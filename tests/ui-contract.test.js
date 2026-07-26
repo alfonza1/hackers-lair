@@ -2,9 +2,34 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+
+test('a raw app shell fails closed with an actionable stale-server message', () => {
+  const bootstrapScript = html.match(/<script[^>]*>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(bootstrapScript);
+  const context = {
+    URLSearchParams,
+    document: {
+      documentElement: {
+        classList: { add() {} },
+        dataset: {},
+        style: { setProperty() {} },
+      },
+    },
+    localStorage: { getItem: () => null },
+    location: { search: '' },
+    window: {},
+  };
+
+  assert.doesNotThrow(() => vm.runInNewContext(bootstrapScript, context));
+  assert.throws(
+    () => context.window.__LAIR_BOOTSTRAP__.token,
+    /outdated Hacker's Lair process.*reopen Hacker's Lair/i,
+  );
+});
 
 test('UI omits N/A placeholders and ships the curated preference surface', () => {
   assert.doesNotMatch(html, /\bN\/A\b/);
