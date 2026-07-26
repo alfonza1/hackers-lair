@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+## [2.1.0-beta.2] - 2026-07-26
+
 ### Added
 
 - Channel-aware update notices and Squirrel-only automatic update downloads.
@@ -22,6 +24,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ### Changed
 
+- Moved the public repository, Pages site, release URLs, updater, and install
+  channels to the product-owned `hackerslairhq` organization.
 - Runtime configuration now carries an ordered migration version.
 - Release automation uses immutable action revisions and audits the full npm
   dependency tree.
@@ -50,5 +54,6 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - Added Host validation, JSON-only mutations, restrictive CSP, origin-checked
   desktop IPC, action locks, and last-known-good config behavior.
 
-[Unreleased]: https://github.com/alfonza1/hackers-lair/compare/v2.1.0-beta.1...HEAD
-[2.1.0-beta.1]: https://github.com/alfonza1/hackers-lair/releases/tag/v2.1.0-beta.1
+[Unreleased]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.2...HEAD
+[2.1.0-beta.2]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.1...v2.1.0-beta.2
+[2.1.0-beta.1]: https://github.com/hackerslairhq/desktop/releases/tag/v2.1.0-beta.1

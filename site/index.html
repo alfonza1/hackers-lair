@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Hacker's Lair — Local developer process control</title>
   <meta name="description" content="Start, stop, inspect, and recover local development projects from one offline-first desktop console for Windows and Linux.">
-  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/">
+  <link rel="canonical" href="https://hackerslairhq.github.io/desktop/">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Hacker's Lair — Local developer process control">
   <meta property="og:description" content="One desktop console for local projects, ports, processes, logs, and recovery.">
-  <meta property="og:url" content="https://alfonza1.github.io/hackers-lair/">
-  <meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png">
+  <meta property="og:url" content="https://hackerslairhq.github.io/desktop/">
+  <meta property="og:image" content="https://hackerslairhq.github.io/desktop/assets/og-card.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Hacker's Lair">
   <meta name="twitter:description" content="Local developer process control for Windows and Linux.">
-  <meta name="twitter:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png">
+  <meta name="twitter:image" content="https://hackerslairhq.github.io/desktop/assets/og-card.png">
   <link rel="icon" href="./assets/icon.png" type="image/png">
   <link rel="stylesheet" href="./assets/site.css">
   <script src="./assets/site.js" defer></script>
@@ -61,7 +61,7 @@
           <span class="terminal-title">lair://console_boot</span>
         </div>
         <div class="terminal-body" aria-live="off">
-          <p class="terminal-line command" data-terminal-line><span class="prompt">$</span> winget install hackerslair.desktop</p>
+          <p class="terminal-line command" data-terminal-line><span class="prompt">PS&gt;</span> irm https://hackerslairhq.github.io/desktop/install.ps1 | iex</p>
           <p class="terminal-line ok" data-terminal-line>CONSOLE_BOOT  mode=process_control node=local</p>
           <p class="terminal-line signal" data-terminal-line>TARGET_REGISTRY_SYNCED  count=4</p>
           <p class="terminal-line ok" data-terminal-line>&gt; 3 targets running · 1 dormant</p>
@@ -89,10 +89,9 @@
           <button class="platform-tab" type="button" role="tab" data-platform-tab="linux" aria-selected="false">Linux</button>
         </div>
         <section class="install-panel" data-platform-panel="windows" aria-label="Windows installation">
-          <p class="detected-signal">Signal detected: <span data-detected-platform>windows_x64</span> · Winget</p>
-          <pre class="command-block"><code>winget install --id hackerslair.desktop --exact</code></pre>
-          <p>Before the Winget community manifest is approved, use the checksum-verifying installer:</p>
-          <pre class="command-block"><code>irm https://alfonza1.github.io/hackers-lair/install.ps1 | iex</code></pre>
+          <p class="detected-signal">Signal detected: <span data-detected-platform>windows_x64</span> · checksum-verified PowerShell</p>
+          <pre class="command-block"><code>irm https://hackerslairhq.github.io/desktop/install.ps1 | iex</code></pre>
+          <p>Winget is prepared but remains pending community approval. Scoop is available now through the public <code>hackerslairhq/scoop</code> bucket.</p>
           <ul class="install-notes">
             <li>Per-user install</li>
             <li>No Node.js required</li>
@@ -101,7 +100,7 @@
         </section>
         <section class="install-panel" data-platform-panel="linux" aria-label="Linux installation">
           <p class="detected-signal">Signal detected: <span data-detected-platform>linux_x64</span> · Debian / Ubuntu</p>
-          <pre class="command-block"><code>curl -LO https://github.com/alfonza1/hackers-lair/releases/latest/download/hackers-lair_amd64.deb &amp;&amp; sudo apt install ./hackers-lair_amd64.deb</code></pre>
+          <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_amd64.deb &amp;&amp; sudo apt install ./hackers-lair_amd64.deb</code></pre>
           <p>Fedora and RHEL packages, plus a distro-neutral tarball, are documented alongside checksum verification.</p>
           <a href="./docs/#linux">View every Linux command →</a>
         </section>
@@ -168,8 +167,8 @@
           <p>Hacker's Lair is built in the open. If you care about desktop process control, cross-platform tooling, or dependable local developer infrastructure, there is useful work to own.</p>
         </div>
         <div class="contributor-actions" aria-label="Contribution links">
-          <a class="button" href="https://github.com/alfonza1/hackers-lair/blob/main/CONTRIBUTING.md">Contribution guide</a>
-          <a class="button secondary" href="https://github.com/alfonza1/hackers-lair/issues">Open issues</a>
+          <a class="button" href="https://github.com/hackerslairhq/desktop/blob/main/CONTRIBUTING.md">Contribution guide</a>
+          <a class="button secondary" href="https://github.com/hackerslairhq/desktop/issues">Open issues</a>
         </div>
       </div>
 
@@ -208,7 +207,7 @@
       <div class="section-heading">
         <div class="section-index">04 // release</div>
         <h2 id="release-title">Current release signal.</h2>
-        <p><span data-release-version>v2.1.0-beta.1</span> · <span data-release-date>July 2026</span></p>
+        <p><span data-release-version>v2.1.0-beta.2</span> · <span data-release-date>July 2026</span></p>
       </div>
       <div class="feature-rows">
         <article class="feature-row">
@@ -222,11 +221,11 @@
 
   <footer class="site-footer">
     <div class="footer-inner">
-      <span>Version <span data-release-version>v2.1.0-beta.1</span></span>
+      <span>Version <span data-release-version>v2.1.0-beta.2</span></span>
       <span>MIT</span>
       <span>Local-only</span>
       <span>No telemetry</span>
-      <a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a>
+      <a href="https://github.com/hackerslairhq/desktop/releases">GitHub releases for advanced users</a>
     </div>
   </footer>
 </body>

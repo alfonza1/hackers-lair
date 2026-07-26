@@ -164,8 +164,8 @@ single source checkout.
 
 ### Owner-controlled distribution channels
 
-1. Create the public `alfonza1/hackers-lair-scoop` repository, add a
-   repository-scoped token as `SCOOP_BUCKET_TOKEN`, then re-run the **Update
-   Scoop bucket** job from release run `30195506471`.
+1. Confirm the public `hackerslairhq/scoop` bucket's **Update manifest**
+   workflow succeeds against the latest release. It runs daily and can also be
+   dispatched manually without a cross-repository token.
 2. Submit the generated Winget folder using `distribution/WINGET.md`, then
    confirm the community validation and per-user install after approval.

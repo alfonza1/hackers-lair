@@ -20,7 +20,7 @@ function write(file, content) {
 }
 
 function releaseUrl(version, filename) {
-  return `https://github.com/alfonza1/hackers-lair/releases/download/v${version}/${filename}`;
+  return `https://github.com/hackerslairhq/desktop/releases/download/v${version}/${filename}`;
 }
 
 function wingetManifests(version, installerHash) {
@@ -62,19 +62,19 @@ PackageIdentifier: hackerslair.desktop
 PackageVersion: ${version}
 PackageLocale: en-US
 Publisher: Hacker's Lair contributors
-PublisherUrl: https://github.com/alfonza1
-PublisherSupportUrl: https://github.com/alfonza1/hackers-lair/issues
+PublisherUrl: https://github.com/hackerslairhq
+PublisherSupportUrl: https://github.com/hackerslairhq/desktop/issues
 PackageName: Hacker's Lair
-PackageUrl: https://alfonza1.github.io/hackers-lair/
+PackageUrl: https://hackerslairhq.github.io/desktop/
 License: MIT
-LicenseUrl: https://github.com/alfonza1/hackers-lair/blob/v${version}/LICENSE
+LicenseUrl: https://github.com/hackerslairhq/desktop/blob/v${version}/LICENSE
 ShortDescription: Local-first desktop console for coding projects, processes, ports, and logs.
 Description: Start and stop complete local development projects, inspect localhost listeners, read logs, resolve port conflicts, and recover config without an account or cloud service.
 Tags:
   - developer-tools
   - localhost
   - process-manager
-ReleaseNotesUrl: https://github.com/alfonza1/hackers-lair/releases/tag/v${version}
+ReleaseNotesUrl: https://github.com/hackerslairhq/desktop/releases/tag/v${version}
 ManifestType: defaultLocale
 ManifestVersion: 1.12.0
 `],
@@ -86,7 +86,7 @@ function scoopManifest(version, archiveHash) {
   return JSON.stringify({
     version,
     description: "Local-first desktop console for coding projects, processes, ports, and logs.",
-    homepage: 'https://alfonza1.github.io/hackers-lair/',
+    homepage: 'https://hackerslairhq.github.io/desktop/',
     license: 'MIT',
     architecture: {
       '64bit': {
@@ -97,12 +97,12 @@ function scoopManifest(version, archiveHash) {
     bin: 'lair.cmd',
     shortcuts: [['HackersLair.exe', "Hacker's Lair"]],
     checkver: {
-      github: 'https://github.com/alfonza1/hackers-lair',
+      github: 'https://github.com/hackerslairhq/desktop',
     },
     autoupdate: {
       architecture: {
         '64bit': {
-          url: 'https://github.com/alfonza1/hackers-lair/releases/download/v$version/hackers-lair-win32-x64.zip',
+          url: 'https://github.com/hackerslairhq/desktop/releases/download/v$version/hackers-lair-win32-x64.zip',
         },
       },
     },

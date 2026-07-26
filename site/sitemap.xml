@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://alfonza1.github.io/hackers-lair/</loc></url>
-  <url><loc>https://alfonza1.github.io/hackers-lair/getting-started/</loc></url>
-  <url><loc>https://alfonza1.github.io/hackers-lair/docs/</loc></url>
-  <url><loc>https://alfonza1.github.io/hackers-lair/docs/configuration.html</loc></url>
-  <url><loc>https://alfonza1.github.io/hackers-lair/docs/detection.html</loc></url>
-  <url><loc>https://alfonza1.github.io/hackers-lair/docs/troubleshooting.html</loc></url>
-  <url><loc>https://alfonza1.github.io/hackers-lair/docs/faq.html</loc></url>
-  <url><loc>https://alfonza1.github.io/hackers-lair/docs/uninstall.html</loc></url>
+  <url><loc>https://hackerslairhq.github.io/desktop/</loc></url>
+  <url><loc>https://hackerslairhq.github.io/desktop/getting-started/</loc></url>
+  <url><loc>https://hackerslairhq.github.io/desktop/docs/</loc></url>
+  <url><loc>https://hackerslairhq.github.io/desktop/docs/configuration.html</loc></url>
+  <url><loc>https://hackerslairhq.github.io/desktop/docs/detection.html</loc></url>
+  <url><loc>https://hackerslairhq.github.io/desktop/docs/troubleshooting.html</loc></url>
+  <url><loc>https://hackerslairhq.github.io/desktop/docs/faq.html</loc></url>
+  <url><loc>https://hackerslairhq.github.io/desktop/docs/uninstall.html</loc></url>
 </urlset>

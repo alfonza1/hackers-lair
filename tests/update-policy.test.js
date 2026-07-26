@@ -22,6 +22,7 @@ test('update state enables internal updates only for Squirrel', () => {
   }, '2.1.0');
   assert.equal(squirrel.mode, 'internal');
   assert.equal(squirrel.status, 'checking');
+  assert.equal(squirrel.releaseUrl, 'https://github.com/hackerslairhq/desktop/releases');
 
   const scoop = updateStateForChannel('scoop', {
     label: 'Scoop',

@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'Programs\HackersLair'),
-    [string]$ReleaseApi = 'https://api.github.com/repos/alfonza1/hackers-lair/releases/latest',
+    [string]$ReleaseApi = 'https://api.github.com/repos/hackerslairhq/desktop/releases/latest',
     [switch]$NoLaunch,
     [switch]$NoStartup,
     [switch]$NoShortcut,

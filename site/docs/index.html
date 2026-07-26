@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Installation — Hacker's Lair Docs</title>
   <meta name="description" content="Command-first Hacker's Lair installation for Winget, PowerShell, Scoop, Debian, Ubuntu, Fedora, RHEL, and other Linux systems.">
-  <link rel="canonical" href="https://alfonza1.github.io/hackers-lair/docs/">
+  <link rel="canonical" href="https://hackerslairhq.github.io/desktop/docs/">
   <meta property="og:type" content="article">
   <meta property="og:title" content="Installation — Hacker's Lair Docs">
   <meta property="og:description" content="Verified command channels for Windows and Linux.">
-  <meta property="og:image" content="https://alfonza1.github.io/hackers-lair/assets/og-card.png">
+  <meta property="og:image" content="https://hackerslairhq.github.io/desktop/assets/og-card.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="../assets/icon.png" type="image/png">
   <link rel="stylesheet" href="../assets/site.css">
@@ -55,23 +55,23 @@ winget uninstall --id hackerslair.desktop --exact</code></pre>
 
       <h3>Checksum-verifying PowerShell channel</h3>
       <p>This channel works directly from GitHub Releases. The script resolves the latest release, downloads the portable ZIP and <code>checksums.txt</code>, verifies SHA256, and only then unblocks and extracts it to <code>%LOCALAPPDATA%\Programs\HackersLair</code>.</p>
-      <pre class="command-block"><code>irm https://alfonza1.github.io/hackers-lair/install.ps1 | iex</code></pre>
+      <pre class="command-block"><code>irm https://hackerslairhq.github.io/desktop/install.ps1 | iex</code></pre>
       <p>Re-running the command updates the installation in place. It creates a Start menu shortcut but leaves launch-at-login off; that preference is controlled inside the desktop app.</p>
 
       <h3>Scoop</h3>
-      <pre class="command-block"><code>scoop bucket add hackerslair https://github.com/alfonza1/hackers-lair-scoop
+      <pre class="command-block"><code>scoop bucket add hackerslair https://github.com/hackerslairhq/scoop
 scoop install hackerslair</code></pre>
       <p>The bucket manifest consumes the same portable ZIP and release checksum as the PowerShell channel.</p>
 
       <h2 id="linux">Linux</h2>
       <h3>Debian / Ubuntu</h3>
-      <pre class="command-block"><code>curl -LO https://github.com/alfonza1/hackers-lair/releases/latest/download/hackers-lair_amd64.deb &amp;&amp; sudo apt install ./hackers-lair_amd64.deb</code></pre>
+      <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_amd64.deb &amp;&amp; sudo apt install ./hackers-lair_amd64.deb</code></pre>
 
       <h3>Fedora / RHEL</h3>
-      <pre class="command-block"><code>curl -LO https://github.com/alfonza1/hackers-lair/releases/latest/download/hackers-lair_x86_64.rpm &amp;&amp; sudo rpm -i ./hackers-lair_x86_64.rpm</code></pre>
+      <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_x86_64.rpm &amp;&amp; sudo rpm -i ./hackers-lair_x86_64.rpm</code></pre>
 
       <h3>Distro-neutral tarball</h3>
-      <pre class="command-block"><code>curl -LO https://github.com/alfonza1/hackers-lair/releases/latest/download/hackers-lair-linux-x64.tar.gz
+      <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair-linux-x64.tar.gz
 mkdir -p "$HOME/.local/opt/hackers-lair"
 tar -xzf hackers-lair-linux-x64.tar.gz -C "$HOME/.local/opt/hackers-lair" --strip-components=1
 "$HOME/.local/opt/hackers-lair/HackersLair"</code></pre>
@@ -88,7 +88,7 @@ if ($Actual -ne $Expected.ToLowerInvariant()) { throw "SHA256 mismatch" }</code>
 
       <h2 id="provenance">Verify build provenance</h2>
       <p>GitHub Actions also creates a signed build-provenance attestation for every release artifact. With the GitHub CLI installed, verify that a downloaded file came from this repository's release workflow:</p>
-      <pre class="command-block"><code>gh attestation verify &lt;file&gt; -R alfonza1/hackers-lair</code></pre>
+      <pre class="command-block"><code>gh attestation verify &lt;file&gt; -R hackerslairhq/desktop</code></pre>
       <p>Use the attestation and <code>checksums.txt</code> together: the checksum detects changed bytes, while the attestation ties those bytes to an authenticated GitHub Actions build for this repository.</p>
 
       <div class="docs-callout"><strong>Signing status:</strong> provenance attestation is not Windows publisher code signing and does not remove SmartScreen reputation prompts. Release packages are checksum-published but not currently code-signed. Hacker's Lair never instructs you to disable SmartScreen or other security controls.</div>
@@ -104,6 +104,6 @@ if ($Actual -ne $Expected.ToLowerInvariant()) { throw "SHA256 mismatch" }</code>
     </article>
   </main>
 
-  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.1</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/alfonza1/hackers-lair/releases">GitHub releases for advanced users</a></div></footer>
+  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.2</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/hackerslairhq/desktop/releases">GitHub releases for advanced users</a></div></footer>
 </body>
 </html>

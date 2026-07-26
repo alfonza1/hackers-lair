@@ -9,7 +9,7 @@ Install Node.js 22.12 or newer, then use the repository path. End-user
 installers do not require Node; this section is only for contributors.
 
 ```powershell
-git clone https://github.com/alfonza1/hackers-lair.git
+git clone https://github.com/hackerslairhq/desktop.git
 Set-Location hackers-lair
 npm ci
 npm test
@@ -19,7 +19,7 @@ npm start
 On Linux:
 
 ```bash
-git clone https://github.com/alfonza1/hackers-lair.git
+git clone https://github.com/hackerslairhq/desktop.git
 cd hackers-lair
 npm ci
 npm test
