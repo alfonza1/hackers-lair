@@ -14,7 +14,10 @@ const {
 } = require('../lib/desktop-service');
 const forgeConfig = require('../forge.config');
 const { ignoreNonRuntimePath } = forgeConfig;
-const { packagedLaunchArguments } = require('../scripts/smoke-packaged-lifecycle');
+const {
+  packagedLaunchArguments,
+  packagedLifecycleAttempts,
+} = require('../scripts/smoke-packaged-lifecycle');
 
 test('desktop data follows Electron userData unless explicitly overridden', () => {
   const app = { getPath: (name) => name === 'userData' ? 'C:\\AppData\\HackersLair' : '' };
@@ -91,6 +94,7 @@ test('desktop supervision publishes backend state and reloads after recovery', (
   assert.match(desktop, /startServiceHealthChecks/);
   assert.match(desktop, /applyServerIdentity\(server, \{ reload: true \}\)/);
   assert.match(desktop, /app:backend-state/);
+  assert.match(desktop, /signalSmokeDesktopReady/);
   assert.match(preload, /getBackendState/);
   assert.match(preload, /onBackendState/);
 });
@@ -135,4 +139,10 @@ test('the Linux package smoke disables Chromium sandboxing only when explicitly 
     packagedLaunchArguments('linux', { LAIR_SMOKE_DISABLE_SANDBOX: '1' }),
     ['--no-sandbox'],
   );
+});
+
+test('the packaged lifecycle retries only the headless Linux smoke', () => {
+  assert.equal(packagedLifecycleAttempts('linux'), 2);
+  assert.equal(packagedLifecycleAttempts('win32'), 1);
+  assert.equal(packagedLifecycleAttempts('darwin'), 1);
 });
