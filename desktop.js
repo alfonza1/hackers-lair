@@ -8,14 +8,20 @@ const {
   screen,
   Tray,
 } = require('electron');
+if (require('electron-squirrel-startup')) app.quit();
+
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { APP_NAME, APP_USER_MODEL_ID } = require('./app-config');
 const { performPowerAction } = require('./lib/app-power');
+const {
+  APP_ID,
+  desktopDataDirectory,
+  readIdentityRecord,
+  stopManagedChild,
+} = require('./lib/desktop-service');
 
-const APP_ID = 'hackers-lair';
 let appOrigin = '';
 let apiToken = '';
 
@@ -24,6 +30,9 @@ const MIN_SIZE = { width: 900, height: 620 };
 
 app.setName(APP_NAME);
 app.setAppUserModelId(APP_USER_MODEL_ID);
+if (process.env.PROJECT_MANAGER_DATA_DIR) {
+  app.setPath('userData', path.resolve(process.env.PROJECT_MANAGER_DATA_DIR));
+}
 
 const hasLock = app.requestSingleInstanceLock();
 if (!hasLock) app.quit();
@@ -31,28 +40,17 @@ if (!hasLock) app.quit();
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
+let serviceProcess = null;
+let serviceStopped = false;
+let quitAfterServiceStops = false;
 
 function identityPath() {
-  const dataDirectory = process.env.PROJECT_MANAGER_DATA_DIR
-    || (process.env.APPDATA
-      ? path.join(process.env.APPDATA, 'HackersLair')
-      : path.join(os.homedir(), 'AppData', 'Roaming', 'HackersLair'));
-  return path.join(dataDirectory, 'api-token');
+  return path.join(desktopDataDirectory(app), 'api-token');
 }
 
 async function verifiedServerIdentity() {
-  const record = JSON.parse(fs.readFileSync(identityPath(), 'utf8'));
-  const port = Number(record.port);
-  if (
-    record.app !== APP_ID
-    || !record.token
-    || !record.nonce
-    || !Number.isInteger(port)
-    || port < 1
-    || port > 65535
-  ) {
-    throw new Error('The local identity record is invalid.');
-  }
+  const record = readIdentityRecord(identityPath(), serviceProcess?.pid ?? null);
+  const { port } = record;
 
   const origin = `http://127.0.0.1:${port}`;
   const response = await fetch(`${origin}/api/identity`, {
@@ -68,22 +66,32 @@ async function verifiedServerIdentity() {
 }
 
 function startLocalService() {
-  const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
-    detached: true,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+  const dataDirectory = desktopDataDirectory(app);
+  fs.mkdirSync(dataDirectory, { recursive: true });
+  try { fs.unlinkSync(identityPath()); } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  serviceStopped = false;
+  serviceProcess = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: '1',
+      PROJECT_MANAGER_DATA_DIR: dataDirectory,
+      LAIR_INSTALL_CHANNEL: app.isPackaged ? 'desktop' : 'source',
+    },
     stdio: 'ignore',
     windowsHide: true,
   });
-  child.on('error', () => {});
-  child.unref();
+  serviceProcess.once('exit', () => {
+    serviceStopped = true;
+  });
+  serviceProcess.once('error', (error) => {
+    console.error(`Could not start the local service: ${error.message}`);
+  });
 }
 
 async function ensureServerIdentity() {
-  try {
-    return await verifiedServerIdentity();
-  } catch {
-    startLocalService();
-  }
+  startLocalService();
 
   const deadline = Date.now() + 12_000;
   let lastError;
@@ -98,13 +106,30 @@ async function ensureServerIdentity() {
   throw lastError || new Error('The local service did not start.');
 }
 
+async function stopLocalService() {
+  const child = serviceProcess;
+  serviceProcess = null;
+  await stopManagedChild(child);
+  serviceStopped = true;
+  try { fs.unlinkSync(identityPath()); } catch (error) {
+    if (error.code !== 'ENOENT') console.warn(`Could not remove the local identity file: ${error.message}`);
+  }
+}
+
 function senderBelongsToApplication(event) {
-  const senderUrl = event.senderFrame?.url || '';
-  return Boolean(appOrigin) && senderUrl.startsWith(`${appOrigin}/`);
+  try {
+    return Boolean(appOrigin) && new URL(event.senderFrame?.url || '').origin === appOrigin;
+  } catch {
+    return false;
+  }
 }
 
 function statePath() {
   return path.join(app.getPath('userData'), 'window-state.json');
+}
+
+function applicationIconPath() {
+  return path.join(__dirname, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
 }
 
 function loadWindowState() {
@@ -237,7 +262,7 @@ async function refreshTrayMenu() {
 }
 
 function installDesktopControls() {
-  tray = new Tray(path.join(__dirname, 'icon.ico'));
+  tray = new Tray(applicationIconPath());
   tray.setToolTip("Hacker's Lair");
   tray.on('click', showMainWindow);
   void refreshTrayMenu();
@@ -267,7 +292,7 @@ async function createWindow() {
   const savedState = loadWindowState();
   const windowOptions = {
     title: "Hacker's Lair",
-    icon: path.join(__dirname, 'icon.ico'),
+    icon: applicationIconPath(),
     width: Math.max(savedState.width || DEFAULT_BOUNDS.width, MIN_SIZE.width),
     height: Math.max(savedState.height || DEFAULT_BOUNDS.height, MIN_SIZE.height),
     minWidth: MIN_SIZE.width,
@@ -346,6 +371,39 @@ ipcMain.on('app:power', (event, action) => {
   performPowerAction(action, app);
 });
 
+ipcMain.handle('dialog:workspace-folders', async (event) => {
+  if (!senderBelongsToApplication(event)) return [];
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  if (!owner || owner !== mainWindow) return [];
+  const result = await dialog.showOpenDialog(owner, {
+    title: 'Choose development workspaces',
+    buttonLabel: 'Scan folders',
+    properties: ['openDirectory', 'multiSelections', 'dontAddToRecent'],
+  });
+  return result.canceled ? [] : result.filePaths;
+});
+
+ipcMain.handle('app:get-launch-at-login', (event) => {
+  if (!senderBelongsToApplication(event) || process.platform !== 'win32') {
+    return { supported: false, enabled: false };
+  }
+  return {
+    supported: true,
+    enabled: app.getLoginItemSettings().openAtLogin,
+  };
+});
+
+ipcMain.handle('app:launch-at-login', (event, enabled) => {
+  if (!senderBelongsToApplication(event) || process.platform !== 'win32') {
+    return { supported: false, enabled: false };
+  }
+  app.setLoginItemSettings({ openAtLogin: Boolean(enabled) });
+  return {
+    supported: true,
+    enabled: app.getLoginItemSettings().openAtLogin,
+  };
+});
+
 app.on('second-instance', () => {
   showMainWindow();
 });
@@ -354,8 +412,20 @@ app.whenReady().then(async () => {
   if (!hasLock) return;
   await createWindow();
   if (appOrigin) installDesktopControls();
+  const smokeExitAfterMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_MS);
+  if (Number.isFinite(smokeExitAfterMs) && smokeExitAfterMs > 0) {
+    setTimeout(() => app.quit(), smokeExitAfterMs).unref?.();
+  }
 });
 app.on('activate', showMainWindow);
-app.on('before-quit', () => { isQuitting = true; });
+app.on('before-quit', (event) => {
+  isQuitting = true;
+  if (serviceStopped || !serviceProcess || quitAfterServiceStops) return;
+  event.preventDefault();
+  quitAfterServiceStops = true;
+  void stopLocalService().finally(() => {
+    app.quit();
+  });
+});
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => {});

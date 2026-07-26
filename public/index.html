@@ -600,6 +600,13 @@
     font: 11px var(--mono);
   }
 
+  .preference-field input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--green);
+    justify-self: start;
+  }
+
   .preferences-sync {
     min-height: 15px;
     color: var(--dim);
@@ -2292,6 +2299,9 @@
               <option value="110">110%</option>
             </select>
           </label>
+          <label class="preference-field" id="launchAtLoginField" hidden>Launch at login
+            <input id="launchAtLogin" type="checkbox">
+          </label>
           <span class="preferences-sync" id="preferencesSync" role="status"></span>
         </div>
       </div>
@@ -2390,6 +2400,7 @@
           <p class="setup-copy">Find runnable Node, Docker Compose, Maven, and Gradle projects. Nothing is written until you review and import selected entries.</p>
           <div class="scan-controls">
             <input id="scanFolder" type="text" autocomplete="off" placeholder="C:\Code">
+            <button class="utility" id="browseScanFolders" type="button">Browse</button>
             <button class="utility" id="scanProjects" type="button">Scan</button>
           </div>
           <div class="discovery-list" id="discoveryList">
@@ -3704,6 +3715,18 @@
     }
   }
 
+  async function syncDesktopSettings() {
+    const desktop = window.hackerLairWindow;
+    if (!desktop?.getLaunchAtLogin) return;
+    try {
+      const setting = await desktop.getLaunchAtLogin();
+      $('launchAtLoginField').hidden = !setting.supported;
+      $('launchAtLogin').checked = Boolean(setting.enabled);
+    } catch {
+      $('launchAtLoginField').hidden = true;
+    }
+  }
+
   function renderDoctor() {
     const report = state.doctor;
     if (!report) return;
@@ -3879,6 +3902,28 @@
       pushFeed('DISCOVERY_FAILED', `reason=${error.message}`, 'error');
     } finally {
       button.disabled = false;
+    }
+  }
+
+  async function browseScanFolders() {
+    const desktop = window.hackerLairWindow;
+    if (!desktop?.chooseWorkspaceFolders) {
+      $('scanFolder').focus();
+      toast('Paste an absolute workspace folder, then select Scan.');
+      return;
+    }
+    try {
+      const folders = await desktop.chooseWorkspaceFolders();
+      if (!folders.length) return;
+      state.workspaceFolders = [...new Set([
+        ...state.workspaceFolders,
+        ...folders,
+      ])].slice(-10);
+      localStorage.setItem(WORKSPACE_FOLDERS_KEY, JSON.stringify(state.workspaceFolders));
+      $('scanFolder').value = folders[0];
+      await scanProjects();
+    } catch (error) {
+      toast(`Folder picker unavailable: ${error.message}`, true);
     }
   }
 
@@ -4512,6 +4557,7 @@
   });
 
   $('scanProjects').addEventListener('click', scanProjects);
+  $('browseScanFolders').addEventListener('click', browseScanFolders);
   $('scanFolder').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') scanProjects();
   });
@@ -4563,6 +4609,16 @@
   $('densityPreference').addEventListener('change', (event) => setUiPreference('density', event.target.value));
   $('motionPreference').addEventListener('change', (event) => setUiPreference('motion', event.target.value));
   $('fontScalePreference').addEventListener('change', (event) => setUiPreference('fontScale', event.target.value));
+  $('launchAtLogin').addEventListener('change', async (event) => {
+    try {
+      const setting = await window.hackerLairWindow.setLaunchAtLogin(event.target.checked);
+      event.target.checked = Boolean(setting.enabled);
+      toast(setting.enabled ? 'Launch at login enabled.' : 'Launch at login disabled.');
+    } catch (error) {
+      event.target.checked = !event.target.checked;
+      toast(`Could not update launch at login: ${error.message}`, true);
+    }
+  });
   window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => {
     applyUiPreferences(state.uiPreferences);
   });
@@ -4593,7 +4649,7 @@
       pushFeed('CONSOLE_BOOT', 'mode=process_control node=local', 'info');
       pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
     }
-    await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools()]);
+    await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings()]);
     setInterval(() => {
       if (document.hidden) return;
       loadSystem();
