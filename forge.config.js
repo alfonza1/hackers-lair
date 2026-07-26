@@ -11,6 +11,33 @@ const windowsSigning = (
   }
   : null;
 
+const PACKAGED_RUNTIME_PATHS = new Set([
+  'app-config.js',
+  'bin',
+  'desktop.js',
+  'icon.ico',
+  'icon.png',
+  'lib',
+  'LICENSE',
+  'package.json',
+  'preload.js',
+  'projects.example.json',
+  'public',
+  'schemas',
+  'scripts.example.json',
+  'server.js',
+  'settings.example.json',
+]);
+
+function ignoreNonRuntimePath(file) {
+  if (!file) return false;
+  const topLevelPath = file
+    .replaceAll('\\', '/')
+    .replace(/^\/+/, '')
+    .split('/')[0];
+  return !PACKAGED_RUNTIME_PATHS.has(topLevelPath);
+}
+
 function writeCliCompanion({ platform, outputPaths }) {
   for (const outputPath of outputPaths) {
     if (platform === 'win32') {
@@ -40,17 +67,7 @@ module.exports = {
       : path.resolve(__dirname, 'icon.png'),
     executableName: 'HackersLair',
     ...(windowsSigning ? { windowsSign: windowsSigning } : {}),
-    ignore: [
-      /^\/\.git(?:\/|$)/,
-      /^\/docs(?:\/|$)/,
-      /^\/tests(?:\/|$)/,
-      /^\/out(?:\/|$)/,
-      /^\/projects\.json$/,
-      /^\/scripts\.json$/,
-      /^\/settings\.json$/,
-      /^\/(?:started|stopped|project-activity)\.json$/,
-      /^\/logs(?:\/|$)/,
-    ],
+    ignore: ignoreNonRuntimePath,
   },
   makers: [
     {
@@ -108,3 +125,5 @@ module.exports = {
     },
   },
 };
+
+module.exports.ignoreNonRuntimePath = ignoreNonRuntimePath;

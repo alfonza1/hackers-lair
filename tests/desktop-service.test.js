@@ -10,6 +10,7 @@ const {
   readIdentityRecord,
   stopManagedChild,
 } = require('../lib/desktop-service');
+const { ignoreNonRuntimePath } = require('../forge.config');
 
 test('desktop data follows Electron userData unless explicitly overridden', () => {
   const app = { getPath: (name) => name === 'userData' ? 'C:\\AppData\\HackersLair' : '' };
@@ -55,4 +56,24 @@ test('managed child is terminated and awaited', async () => {
   const child = new FakeChild();
   await stopManagedChild(child);
   assert.deepEqual(child.signals, ['SIGTERM']);
+});
+
+test('packaging excludes repository-only files and keeps runtime files', () => {
+  for (const runtimePath of [
+    '/desktop.js',
+    '/lib/platform/linux.js',
+    '/public/index.html',
+    '/schemas/projects.schema.json',
+  ]) {
+    assert.equal(ignoreNonRuntimePath(runtimePath), false, runtimePath);
+  }
+  for (const repositoryPath of [
+    '/.github/workflows/release.yml',
+    '/docs/screenshots/targets.png',
+    '/node_modules/electron/index.js',
+    '/site/index.html',
+    '/tests/server-security.test.js',
+  ]) {
+    assert.equal(ignoreNonRuntimePath(repositoryPath), true, repositoryPath);
+  }
 });

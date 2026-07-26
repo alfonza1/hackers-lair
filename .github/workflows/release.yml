@@ -74,6 +74,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run make
+      - name: Verify packaged Linux lifecycle
+        run: xvfb-run -a npm run smoke:package
       - name: Normalize artifact names
         shell: bash
         run: |

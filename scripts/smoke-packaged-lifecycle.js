@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const { listPackage } = require('@electron/asar');
 
 const root = path.resolve(__dirname, '..');
 const platformFolder = process.platform === 'win32'
@@ -10,7 +11,8 @@ const platformFolder = process.platform === 'win32'
   : "Hacker's Lair-linux-x64";
 const executable = process.platform === 'win32'
   ? path.join(root, 'out', platformFolder, 'HackersLair.exe')
-  : path.join(root, 'out', platformFolder, 'hackers-lair');
+  : path.join(root, 'out', platformFolder, 'HackersLair');
+const appArchive = path.join(root, 'out', platformFolder, 'resources', 'app.asar');
 const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'hackers-lair-packaged-smoke-'));
 const identityFile = path.join(dataDirectory, 'api-token');
 
@@ -52,6 +54,26 @@ async function waitForExit(child, deadline) {
 
 async function main() {
   assert.equal(fs.existsSync(executable), true, `Package the app first; missing ${executable}`);
+  const packagedFiles = listPackage(appArchive).map((file) => file.replaceAll('\\', '/'));
+  const forbiddenRoots = [
+    '/.github',
+    '/distribution',
+    '/docs',
+    '/install.ps1',
+    '/node_modules',
+    '/scripts',
+    '/site',
+    '/TESTING.md',
+    '/tests',
+    '/uninstall.ps1',
+  ];
+  for (const forbiddenRoot of forbiddenRoots) {
+    assert.equal(
+      packagedFiles.some((file) => file === forbiddenRoot || file.startsWith(`${forbiddenRoot}/`)),
+      false,
+      `Packaged runtime contains repository-only path ${forbiddenRoot}.`,
+    );
+  }
   const child = spawn(executable, [], {
     env: {
       ...process.env,
