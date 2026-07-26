@@ -4,7 +4,11 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const { JsonConfigStore, createRuntimeConfig } = require('../lib/runtime-config');
+const {
+  compareBackupNamesNewestFirst,
+  createRuntimeConfig,
+  JsonConfigStore,
+} = require('../lib/runtime-config');
 const { DEFAULT_UI_PREFERENCES } = require('../lib/ui-preferences');
 
 test('initializes sanitized runtime configuration outside the repository', (t) => {
@@ -109,6 +113,21 @@ test('validates nested project fields and retains ten restorable backups', (t) =
   assert.equal(backups.length, 10);
   const restored = runtime.projects.restore(backups.at(-1).name);
   assert.match(restored.projects[0].name, /^version-/);
+});
+
+test('orders same-millisecond backup collisions by their write sequence', () => {
+  const names = [
+    '2026-07-26T08-00-00-000Z-2.json',
+    '2026-07-26T08-00-00-000Z.json',
+    '2026-07-26T08-00-00-000Z-11.json',
+    '2026-07-26T08-00-00-001Z.json',
+  ];
+  assert.deepEqual(names.sort(compareBackupNamesNewestFirst), [
+    '2026-07-26T08-00-00-001Z.json',
+    '2026-07-26T08-00-00-000Z-11.json',
+    '2026-07-26T08-00-00-000Z-2.json',
+    '2026-07-26T08-00-00-000Z.json',
+  ]);
 });
 
 test('keeps the last known-good value when JSON becomes invalid', (t) => {
