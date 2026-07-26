@@ -55,4 +55,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y fakeroot rpm xvfb
       - run: npm ci
       - run: npm run make
-      - run: xvfb-run -a npm run smoke:package
+      - name: Verify packaged Linux lifecycle
+        env:
+          # Forge's raw output cannot carry the root-owned setuid helper used by installed packages.
+          LAIR_SMOKE_DISABLE_SANDBOX: "1"
+        run: xvfb-run -a npm run smoke:package

@@ -13,6 +13,7 @@ const {
 } = require('../lib/desktop-service');
 const forgeConfig = require('../forge.config');
 const { ignoreNonRuntimePath } = forgeConfig;
+const { packagedLaunchArguments } = require('../scripts/smoke-packaged-lifecycle');
 
 test('desktop data follows Electron userData unless explicitly overridden', () => {
   const app = { getPath: (name) => name === 'userData' ? 'C:\\AppData\\HackersLair' : '' };
@@ -103,4 +104,13 @@ test('Linux package makers target the custom packaged executable name', () => {
     assert.equal(maker.config.options.name, 'hackers-lair');
     assert.equal(maker.config.options.bin, 'HackersLair');
   }
+});
+
+test('the Linux package smoke disables Chromium sandboxing only when explicitly requested', () => {
+  assert.deepEqual(packagedLaunchArguments('linux', {}), []);
+  assert.deepEqual(packagedLaunchArguments('win32', { LAIR_SMOKE_DISABLE_SANDBOX: '1' }), []);
+  assert.deepEqual(
+    packagedLaunchArguments('linux', { LAIR_SMOKE_DISABLE_SANDBOX: '1' }),
+    ['--no-sandbox'],
+  );
 });

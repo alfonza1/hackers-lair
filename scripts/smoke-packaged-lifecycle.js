@@ -13,14 +13,19 @@ const executable = process.platform === 'win32'
   ? path.join(root, 'out', platformFolder, 'HackersLair.exe')
   : path.join(root, 'out', platformFolder, 'HackersLair');
 const appArchive = path.join(root, 'out', platformFolder, 'resources', 'app.asar');
-const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'hackers-lair-packaged-smoke-'));
-const identityFile = path.join(dataDirectory, 'api-token');
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function waitForIdentity(deadline, child, output) {
+function packagedLaunchArguments(platform = process.platform, environment = process.env) {
+  if (platform === 'linux' && environment.LAIR_SMOKE_DISABLE_SANDBOX === '1') {
+    return ['--no-sandbox'];
+  }
+  return [];
+}
+
+async function waitForIdentity(deadline, child, output, identityFile) {
   let lastError;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
@@ -95,8 +100,10 @@ async function main() {
       `Packaged runtime contains repository-only path ${forbiddenRoot}.`,
     );
   }
+  const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'hackers-lair-packaged-smoke-'));
+  const identityFile = path.join(dataDirectory, 'api-token');
   const output = { text: '' };
-  const child = spawn(executable, [], {
+  const child = spawn(executable, packagedLaunchArguments(), {
     env: {
       ...process.env,
       PROJECT_MANAGER_DATA_DIR: dataDirectory,
@@ -111,7 +118,7 @@ async function main() {
     });
   }
   try {
-    const record = await waitForIdentity(Date.now() + 15_000, child, output);
+    const record = await waitForIdentity(Date.now() + 15_000, child, output, identityFile);
     assert.equal(record.pid > 0, true);
     assert.equal(await waitForExit(child, Date.now() + 15_000), 0);
     await delay(250);
@@ -126,7 +133,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.stack || error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { packagedLaunchArguments };

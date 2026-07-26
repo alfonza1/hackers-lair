@@ -75,6 +75,9 @@ jobs:
       - run: npm test
       - run: npm run make
       - name: Verify packaged Linux lifecycle
+        env:
+          # Forge's raw output cannot carry the root-owned setuid helper used by installed packages.
+          LAIR_SMOKE_DISABLE_SANDBOX: "1"
         run: xvfb-run -a npm run smoke:package
       - name: Normalize artifact names
         shell: bash
