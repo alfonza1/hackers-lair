@@ -84,6 +84,8 @@ test('onboarding and project management never require hand-edited JSON', () => {
     assert.match(html, new RegExp(`data-editor-field="${field}"`));
   }
   assert.match(html, /class="setup-recommendation"[^>]*>Recommended</);
+  assert.match(html, /error\.data\?\.portConflicts/);
+  assert.match(server, /findProjectPortConflicts/);
 });
 
 test('project setup can cancel safely and browse outside the Electron host', () => {

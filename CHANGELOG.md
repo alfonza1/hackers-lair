@@ -17,6 +17,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
   in-app clear action.
 - Headless Playwright coverage for empty, live, dormant, palette, theme, and
   minimum-window states.
+- Project setup warnings that identify the application and PID already using a
+  newly configured port before the project is saved.
 
 ### Changed
 

@@ -163,6 +163,36 @@ def assert_project_editor_controls(page, selected_folder: Path) -> None:
     page.unroute("**/api/dialog/workspace-folders")
 
 
+def assert_project_port_conflict(
+    page,
+    selected_folder: Path,
+    occupied_port: int,
+    console_errors: list[str],
+) -> None:
+    page.get_by_role("button", name="Add Project").click()
+    editor = page.locator("#projectEditor")
+    editor.locator("#editorProjectName").fill("Occupied Port Fixture")
+    editor.locator('[data-editor-field="name"]').fill("web")
+    editor.locator('[data-editor-field="cwd"]').fill(str(selected_folder))
+    editor.locator('[data-editor-field="command"]').fill("npm run dev")
+    editor.locator('[data-editor-field="ports"]').fill(str(occupied_port))
+    editor.get_by_role("button", name="Save Project").click()
+
+    conflict = editor.locator("#projectEditorError")
+    expect(conflict).to_contain_text(f"Port {occupied_port} is occupied by")
+    expect(conflict).to_contain_text("PID")
+    expect(editor).to_be_visible()
+    editor.get_by_role("button", name="Cancel").click()
+    expect(editor).to_be_hidden()
+    expected_network_errors = [
+        error
+        for error in console_errors
+        if "Failed to load resource" in error and "409" in error
+    ]
+    assert len(expected_network_errors) == 1
+    console_errors.remove(expected_network_errors[0])
+
+
 def assert_target_states(page, live_port: int, dormant_port: int) -> None:
     page.reload(wait_until="networkidle")
     live = page.locator('[data-card-kind="project"][data-name="Live Fixture"]')
@@ -253,6 +283,12 @@ def run() -> None:
             page.goto(origin, wait_until="networkidle")
             assert_empty_state(page)
             assert_project_editor_controls(page, data_directory / "chosen-folder")
+            assert_project_port_conflict(
+                page,
+                live_directory,
+                live_listener.port,
+                console_errors,
+            )
 
             dormant_port = free_port()
             write_projects(
@@ -278,7 +314,10 @@ def run() -> None:
             assert not console_errors, f"Browser console errors: {console_errors}"
             browser.close()
             browser = None
-        print("Playwright UI smoke passed: empty state, target states, palette, theme, and 900x620.")
+        print(
+            "Playwright UI smoke passed: empty state, port conflict warning, target states, "
+            "palette, theme, and 900x620."
+        )
     except Exception:
         OUTPUT_DIRECTORY.mkdir(exist_ok=True)
         try:
