@@ -133,10 +133,11 @@ test('protects localhost mutations and verifies the bound service identity', asy
 
   const scanRoot = path.join(dataDirectory, 'scan-root');
   const scanProject = path.join(scanRoot, 'free-tool');
+  const discoveredPort = await freePort();
   fs.mkdirSync(scanProject, { recursive: true });
   fs.writeFileSync(path.join(scanProject, 'package.json'), JSON.stringify({
     name: 'free-tool',
-    scripts: { dev: 'vite --port 4173' },
+    scripts: { dev: `vite --port ${discoveredPort}` },
   }));
   const authorizedHeaders = {
     'Content-Type': 'application/json',
@@ -225,9 +226,53 @@ test('protects localhost mutations and verifies the bound service identity', asy
       cwd: scanProject,
       command: 'npm run dev',
       match: scanProject,
-      port: 4190,
+      port: await freePort(),
     }],
   };
+  const occupiedServer = net.createServer();
+  await new Promise((resolve, reject) => {
+    occupiedServer.once('error', reject);
+    occupiedServer.listen(0, '127.0.0.1', resolve);
+  });
+  t.after(() => new Promise((resolve) => occupiedServer.close(resolve)));
+  const occupiedPort = occupiedServer.address().port;
+  const conflictingProject = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/projects/configure',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      project: {
+        ...configuredProject,
+        name: 'occupied-project',
+        components: [{ ...configuredProject.components[0], port: occupiedPort }],
+      },
+    }),
+  });
+  assert.equal(conflictingProject.status, 409);
+  const conflictPayload = JSON.parse(conflictingProject.body);
+  assert.equal(conflictPayload.portConflicts[0].port, occupiedPort);
+  assert.equal(conflictPayload.portConflicts[0].pid, process.pid);
+  assert.match(conflictPayload.error, new RegExp(`port ${occupiedPort}`, 'i'));
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(dataDirectory, 'projects.json'))).projects
+      .some((project) => project.name === 'occupied-project'),
+    false,
+  );
+  const occupiedTemplate = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/templates/apply',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      templateId: 'vite',
+      name: 'occupied-template',
+      folder: scanProject,
+      port: occupiedPort,
+    }),
+  });
+  assert.equal(occupiedTemplate.status, 409);
+  assert.equal(JSON.parse(occupiedTemplate.body).portConflicts[0].port, occupiedPort);
   const createProject = await request({
     port,
     method: 'POST',
@@ -246,7 +291,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
       project: {
         ...configuredProject,
         name: 'editor-project-renamed',
-        components: [{ ...configuredProject.components[0], port: 4191 }],
+        components: [{ ...configuredProject.components[0], port: await freePort() }],
       },
     }),
   });
@@ -285,7 +330,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
     templateId: 'vite',
     name: 'templated-project',
     folder: scanProject,
-    port: 4180,
+    port: await freePort(),
   });
   const templateResponse = await request({
     port,
@@ -312,7 +357,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
       templateId: 'vite',
       name: 'port-conflict',
       folder: scanProject,
-      port: 4173,
+      port: discoveredPort,
     }),
   });
   assert.equal(conflictingTemplate.status, 409);

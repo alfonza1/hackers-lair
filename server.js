@@ -19,6 +19,10 @@ const {
   updateProjectConfig,
 } = require('./lib/project-config');
 const {
+  describeProjectPortConflicts,
+  findProjectPortConflicts,
+} = require('./lib/project-port-conflicts');
+const {
   detectedUrlsFromLog,
   isZombieComponent,
   splitTargetUrls,
@@ -375,6 +379,35 @@ async function getListeners() {
   // User processes first, then by lowest port.
   result.sort((a, b) => (a.system - b.system) || (a.ports[0].port - b.ports[0].port));
   return result;
+}
+
+async function liveProjectPortConflicts(projects, originalProjects = []) {
+  if (!projects.length) return [];
+  const listeners = await getListeners();
+  const originalsByName = new Map(originalProjects.map((project) => (
+    [String(project.name).toLowerCase(), project]
+  )));
+  const conflicts = projects.flatMap((project) => {
+    const originalProject = originalsByName.get(String(project.name).toLowerCase())
+      || (projects.length === 1 && originalProjects.length === 1 ? originalProjects[0] : undefined);
+    return findProjectPortConflicts({ project, originalProject, listeners });
+  });
+  const seen = new Set();
+  return conflicts.filter((conflict) => {
+    const key = `${conflict.port}:${conflict.pid ?? 'unknown'}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function rejectProjectPortConflicts(res, conflicts) {
+  if (!conflicts.length) return false;
+  json(res, 409, {
+    error: describeProjectPortConflicts(conflicts),
+    portConflicts: conflicts,
+  });
+  return true;
 }
 
 // ---- Coding projects (projects.json) ---------------------------------------
@@ -1129,6 +1162,9 @@ const server = http.createServer(async (req, res) => {
           return;
         }
         let next;
+        const originalProject = (current.value.projects || []).find((project) => (
+          project.name.toLowerCase() === String(input.originalName || '').trim().toLowerCase()
+        ));
         try {
           next = updateProjectConfig(current.value, {
             originalName: input.originalName,
@@ -1139,12 +1175,17 @@ const server = http.createServer(async (req, res) => {
           json(res, 400, { error: error.message });
           return;
         }
-        runtimeConfig.projects.write(next);
-        void refreshGitAttention(next.projects);
-        void refreshDoctor();
         const saved = next.projects.find((project) => (
           project.name.toLowerCase() === String(input.project?.name || '').trim().toLowerCase()
         ));
+        const portConflicts = await liveProjectPortConflicts(
+          [saved],
+          originalProject ? [originalProject] : [],
+        );
+        if (rejectProjectPortConflicts(res, portConflicts)) return;
+        runtimeConfig.projects.write(next);
+        void refreshGitAttention(next.projects);
+        void refreshDoctor();
         json(res, 200, { ok: true, project: saved });
       } finally {
         actionLocks.delete(actionKey);
@@ -1634,10 +1675,13 @@ const server = http.createServer(async (req, res) => {
           json(res, /already|configured by/i.test(error.message) ? 409 : 400, { error: error.message });
           return;
         }
+        const saved = next.projects.at(-1);
+        const portConflicts = await liveProjectPortConflicts([saved]);
+        if (rejectProjectPortConflicts(res, portConflicts)) return;
         runtimeConfig.projects.write(next);
         void refreshGitAttention(next.projects);
         void refreshDoctor();
-        json(res, 200, { ok: true, project: next.projects.at(-1) });
+        json(res, 200, { ok: true, project: saved });
       } finally {
         actionLocks.delete(actionKey);
       }
@@ -1693,6 +1737,11 @@ const server = http.createServer(async (req, res) => {
             projects: [...current.value.projects, ...additions],
           };
         }
+        const portConflicts = await liveProjectPortConflicts(
+          next.projects,
+          current.value.projects,
+        );
+        if (rejectProjectPortConflicts(res, portConflicts)) return;
         runtimeConfig.projects.write({ ...next, $schema: './projects.schema.json' });
         void refreshGitAttention(loadProjects());
         void refreshDoctor();
@@ -1808,9 +1857,12 @@ const server = http.createServer(async (req, res) => {
           folders.forEach((folder) => existingFolders.add(folder));
           added.push(proposal);
         }
+        const projectsToAdd = added.map(({ discoveredFrom, confidence, note, ...project }) => project);
+        const portConflicts = await liveProjectPortConflicts(projectsToAdd);
+        if (rejectProjectPortConflicts(res, portConflicts)) return;
         runtimeConfig.projects.write({
           ...config.value,
-          projects: [...existing, ...added.map(({ discoveredFrom, confidence, note, ...project }) => project)],
+          projects: [...existing, ...projectsToAdd],
         });
         const settings = runtimeConfig.settings.read();
         if (!settings.error) {

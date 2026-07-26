@@ -2687,9 +2687,9 @@
           <input id="editorProjectType" type="text" maxlength="80" autocomplete="off" placeholder="Vite, FastAPI, Compose…">
         </label>
       </div>
+      <p class="editor-error" id="projectEditorError" role="alert"></p>
       <div id="componentEditorList"></div>
       <button class="utility" id="addEditorComponent" type="button">Add Component</button>
-      <p class="editor-error" id="projectEditorError" role="alert"></p>
     </div>
     <div class="dialog-actions">
       <button class="utility remove-project" id="removeProject" type="button" hidden>Remove Project</button>
@@ -4393,7 +4393,13 @@
       pushFeed('TARGET_CONFIG_SAVED', `target=${slug(result.project.name)}`, 'info');
       await Promise.all([loadProjects(true), loadOnboarding(), loadDoctor(), loadOfflineTools()]);
     } catch (error) {
-      $('projectEditorError').textContent = error.message;
+      const conflicts = error.data?.portConflicts || [];
+      $('projectEditorError').textContent = conflicts.length
+        ? conflicts.map((conflict) => {
+          const pid = conflict.pid === null ? '' : ` (PID ${conflict.pid})`;
+          return `Port ${conflict.port} is occupied by ${conflict.name}${pid}.`;
+        }).join(' ')
+        : error.message;
     } finally {
       button.disabled = false;
     }
