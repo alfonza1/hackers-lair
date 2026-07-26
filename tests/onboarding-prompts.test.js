@@ -25,6 +25,8 @@ const fixtures = process.platform === 'win32'
 test('offers complete and focused prompts when nothing is configured', () => {
   const prompts = configurationPrompts({
     projectsFile: fixtures.projectsFile,
+    projectsSchemaFile: fixtures.schemaFile,
+    projectsSchemaUrl: 'http://localhost:4951/api/schema/projects',
     skillsDirectory: fixtures.skillsDirectory,
     projectCount: 0,
     personalSkillCount: 0,
@@ -34,6 +36,16 @@ test('offers complete and focused prompts when nothing is configured', () => {
   assert.match(prompts[0].prompt, /Inspect the config and candidate folders read-only first/);
   assert.match(prompts[1].prompt, /absolute cwd/);
   assert.match(prompts[2].prompt, /without overwriting any real directory/);
+});
+
+test('project prompts require the live runtime schema URL', () => {
+  assert.throws(() => configurationPrompts({
+    projectsFile: fixtures.projectsFile,
+    projectsSchemaFile: fixtures.schemaFile,
+    skillsDirectory: fixtures.skillsDirectory,
+    projectCount: 0,
+    personalSkillCount: 0,
+  }), /projectsSchemaUrl is required/);
 });
 
 test('project prompt includes live config, schema, a valid example, and CLI verification', () => {
