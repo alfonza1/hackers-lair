@@ -68,11 +68,14 @@ let updateStop = null;
 let installUpdateAfterStop = false;
 let serviceRestartTimer = null;
 let serviceHealthTimer = null;
+let smokeExitTimer = null;
 let serviceHealthCheckInFlight = false;
 let serviceRestartAttempts = 0;
 const MAX_SERVICE_RESTARTS = 5;
 const SERVICE_HEALTH_INTERVAL_MS = 5_000;
 const SERVICE_RESTART_STABILITY_MS = 30_000;
+const smokeExitAfterMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_MS);
+const smokeExitAfterRecoveryMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_RECOVERY_MS);
 let serviceHealthySince = 0;
 let backendState = {
   status: 'starting',
@@ -114,6 +117,22 @@ function publishBackendState(patch = {}) {
   backendState = { ...backendState, ...patch };
   sendToRenderer('app:backend-state', backendState);
   return backendState;
+}
+
+function scheduleSmokeExit(delayMs = smokeExitAfterMs) {
+  if (!Number.isFinite(delayMs) || delayMs <= 0) return;
+  if (smokeExitTimer) clearTimeout(smokeExitTimer);
+  smokeExitTimer = setTimeout(() => app.quit(), delayMs);
+  smokeExitTimer.unref?.();
+}
+
+function signalSmokeDesktopReady() {
+  if (!Number.isFinite(smokeExitAfterMs) || smokeExitAfterMs <= 0) return;
+  fs.writeFileSync(
+    path.join(app.getPath('userData'), 'desktop-smoke-ready'),
+    JSON.stringify({ pid: process.pid, readyAt: new Date().toISOString() }),
+    'utf8',
+  );
 }
 
 async function runningManagedTargets() {
@@ -408,6 +427,7 @@ function applyServerIdentity(server, { reload = false } = {}) {
   });
   if (reload && mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.loadURL(server.url);
+    scheduleSmokeExit(smokeExitAfterRecoveryMs);
   } else if (previousOrigin && previousOrigin !== server.origin) {
     void refreshTrayMenu();
   }
@@ -867,14 +887,16 @@ app.whenReady().then(async () => {
     startServiceHealthChecks();
   }
   initializeUpdates();
-  const smokeExitAfterMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_MS);
-  if (Number.isFinite(smokeExitAfterMs) && smokeExitAfterMs > 0) {
-    setTimeout(() => app.quit(), smokeExitAfterMs).unref?.();
-  }
+  signalSmokeDesktopReady();
+  scheduleSmokeExit();
 });
 app.on('activate', showMainWindow);
 app.on('before-quit', (event) => {
   isQuitting = true;
+  if (smokeExitTimer) {
+    clearTimeout(smokeExitTimer);
+    smokeExitTimer = null;
+  }
   if (quitAfterServiceStops) return;
   event.preventDefault();
   if (quitSequenceStarted) return;
