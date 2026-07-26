@@ -293,6 +293,59 @@ test('declared ports keep a service stoppable after its tracked wrapper exits', 
   assert.equal(fs.readFileSync(stopMarker, 'utf8').trim(), 'stopped');
 });
 
+test('an app-launched detached component can run its stop command without ports', async (t) => {
+  const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'project-manager-detached-stop-'));
+  const configPath = path.join(tempDirectory, 'projects.json');
+  const stopMarker = path.join(tempDirectory, 'detached-stop.txt');
+  const launcher = path.join(tempDirectory, 'launcher.js');
+  fs.writeFileSync(launcher, "process.stdout.write('detached service started\\n');");
+  fs.writeFileSync(configPath, JSON.stringify({
+    projects: [{
+      name: 'Detached fixture',
+      type: 'docker',
+      components: [{
+        name: 'stack',
+        role: 'fullstack',
+        cwd: tempDirectory,
+        command: `${quotedCommandArgument(process.execPath)} ${quotedCommandArgument(launcher)}`,
+        stopCommand: stopFixtureCommand(tempDirectory, stopMarker, { value: 'stopped' }),
+        track: 'process',
+        match: 'detached-service-without-a-host-process',
+      }],
+    }],
+  }));
+
+  const port = await freePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const manager = spawn(process.execPath, [path.join(ROOT, 'server.js')], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      PROJECTS_FILE: configPath,
+      PROJECT_MANAGER_DATA_DIR: tempDirectory,
+    },
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  t.after(async () => {
+    await stopChild(manager);
+    await removeDirectoryWithRetry(tempDirectory);
+  });
+
+  await waitFor(async () => (await fetch(`${baseUrl}/api/projects`)).ok, 'server did not start');
+  const started = await postJson(`${baseUrl}/api/projects/start`, { name: 'Detached fixture' }, tempDirectory);
+  assert.deepEqual(started.started, ['stack']);
+  await waitFor(async () => {
+    const payload = await fetch(`${baseUrl}/api/projects`).then((response) => response.json());
+    return payload.projects[0].errored;
+  }, 'detached launcher exit was not observed');
+
+  const stopped = await postJson(`${baseUrl}/api/projects/stop`, { name: 'Detached fixture' }, tempDirectory);
+  assert.deepEqual(stopped.commandsRun, ['stack']);
+  assert.equal(fs.readFileSync(stopMarker, 'utf8').trim(), 'stopped');
+});
+
 test('does not report success while configured ports remain live', async (t) => {
   const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'project-manager-stop-verify-'));
   const configPath = path.join(tempDirectory, 'projects.json');

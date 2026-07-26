@@ -27,16 +27,18 @@ function wingetManifests(version, installerHash) {
   const relative = path.join('winget', 'manifests', 'a', 'Alfonza1', 'HackersLair', version);
   return new Map([
     [path.join(relative, 'Alfonza1.HackersLair.yaml'), `
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json
 PackageIdentifier: Alfonza1.HackersLair
 PackageVersion: ${version}
 DefaultLocale: en-US
 ManifestType: version
-ManifestVersion: 1.9.0
+ManifestVersion: 1.12.0
 `],
     [path.join(relative, 'Alfonza1.HackersLair.installer.yaml'), `
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
 PackageIdentifier: Alfonza1.HackersLair
 PackageVersion: ${version}
-InstallerType: squirrel
+InstallerType: exe
 Scope: user
 InstallModes:
   - interactive
@@ -52,9 +54,10 @@ Installers:
       Silent: --silent
       SilentWithProgress: --silent
 ManifestType: installer
-ManifestVersion: 1.9.0
+ManifestVersion: 1.12.0
 `],
     [path.join(relative, 'Alfonza1.HackersLair.locale.en-US.yaml'), `
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 PackageIdentifier: Alfonza1.HackersLair
 PackageVersion: ${version}
 PackageLocale: en-US
@@ -73,7 +76,7 @@ Tags:
   - process-manager
 ReleaseNotesUrl: https://github.com/alfonza1/hackers-lair/releases/tag/v${version}
 ManifestType: defaultLocale
-ManifestVersion: 1.9.0
+ManifestVersion: 1.12.0
 `],
   ]);
 }

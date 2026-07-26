@@ -23,6 +23,8 @@ test('project editor creates and updates schema-backed entries', () => {
   const projectWithRecovery = project('demo', '/work/demo', 5173);
   projectWithRecovery.components[0].maxRestarts = 6;
   projectWithRecovery.components[0].zombieAfterHours = 12;
+  projectWithRecovery.components[0].uiPorts = [5173];
+  projectWithRecovery.components[0].backendPorts = [4100];
   const created = updateProjectConfig(base, {
     project: projectWithRecovery,
   }, { exists: () => true });
@@ -30,6 +32,8 @@ test('project editor creates and updates schema-backed entries', () => {
   assert.equal(created.projects[0].components[0].port, 5173);
   assert.equal(created.projects[0].components[0].maxRestarts, 6);
   assert.equal(created.projects[0].components[0].zombieAfterHours, 12);
+  assert.deepEqual(created.projects[0].components[0].uiPorts, [5173]);
+  assert.deepEqual(created.projects[0].components[0].backendPorts, [4100]);
 
   const updated = updateProjectConfig(created, {
     originalName: 'demo',

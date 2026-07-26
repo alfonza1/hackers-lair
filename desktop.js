@@ -19,6 +19,7 @@ const {
   desktopDataDirectory,
   readIdentityRecord,
   stopManagedChild,
+  writeManagedCliShim,
 } = require('./lib/desktop-service');
 
 let appOrigin = '';
@@ -129,13 +130,21 @@ function shellQuote(value) {
 
 function installLinuxCli() {
   if (process.platform !== 'linux' || !app.isPackaged) return;
-  const binDirectory = path.join(require('os').homedir(), '.local', 'bin');
-  fs.mkdirSync(binDirectory, { recursive: true });
-  fs.writeFileSync(path.join(binDirectory, 'lair'), [
-    '#!/bin/sh',
-    `ELECTRON_RUN_AS_NODE=1 ${shellQuote(process.execPath)} ${shellQuote(path.join(__dirname, 'bin', 'lair.js'))} "$@"`,
-    '',
-  ].join('\n'), { encoding: 'utf8', mode: 0o755 });
+  try {
+    const binDirectory = path.join(require('os').homedir(), '.local', 'bin');
+    const marker = "# Hacker's Lair managed CLI";
+    const installed = writeManagedCliShim(path.join(binDirectory, 'lair'), [
+      '#!/bin/sh',
+      marker,
+      `ELECTRON_RUN_AS_NODE=1 ${shellQuote(process.execPath)} ${shellQuote(path.join(__dirname, 'bin', 'lair.js'))} "$@"`,
+      '',
+    ].join('\n'), marker);
+    if (!installed) {
+      console.warn('Skipped CLI installation because ~/.local/bin/lair is owned by another tool.');
+    }
+  } catch (error) {
+    console.warn(`Could not install the optional Linux CLI companion: ${error.message}`);
+  }
 }
 
 async function stopInstalledSquirrelProcesses() {

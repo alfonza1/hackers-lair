@@ -92,6 +92,19 @@ function findProject(projects, query) {
   return matches[0];
 }
 
+function projectOpenUrl(project) {
+  const components = Array.isArray(project?.components) ? project.components : [];
+  const detectedUrl = components.flatMap((component) => component.detectedUrls || [])[0];
+  if (detectedUrl) return detectedUrl;
+  const configuredPort = components.flatMap((component) => [
+    ...(component.uiPorts || []),
+    ...(component.ports || []),
+    component.port,
+    ...(component.backendPorts || []),
+  ]).map(Number).find((port) => Number.isInteger(port) && port > 0 && port <= 65535);
+  return configuredPort ? `http://localhost:${configuredPort}/` : '';
+}
+
 async function main() {
   const [command = 'help', ...args] = process.argv.slice(2);
   if (['help', '--help', '-h'].includes(command)) {
@@ -144,9 +157,8 @@ async function main() {
     return;
   }
   if (command === 'open') {
-    const url = project.components.flatMap((component) => component.detectedUrls || [])[0]
-      || `http://localhost:${project.components.flatMap((component) => component.uiPorts || component.ports || [])[0]}/`;
-    if (!url || url.includes('undefined')) throw new Error(`${project.name} has no detected UI URL.`);
+    const url = projectOpenUrl(project);
+    if (!url) throw new Error(`${project.name} has no detected or configured UI URL.`);
     await request('/api/open-url', { url });
     console.log(`Opened ${url}`);
     return;
@@ -160,4 +172,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { defaultDataDirectory, findProject };
+module.exports = { defaultDataDirectory, findProject, projectOpenUrl };

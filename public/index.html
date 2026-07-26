@@ -2220,7 +2220,7 @@
     width: min(920px, calc(100vw - 32px));
     max-height: calc(100vh - 32px);
     padding: 0;
-    overflow: auto;
+    overflow: hidden;
     border: 1px solid var(--line-bright);
     border-radius: 5px;
     color: var(--text);
@@ -2229,10 +2229,14 @@
   }
 
   .lair-dialog::backdrop { background: rgba(var(--shadow-rgb), .78); }
+  .lair-dialog > form {
+    display: grid;
+    max-height: calc(100vh - 34px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
 
   .dialog-head,
   .dialog-actions {
-    position: sticky;
     z-index: 2;
     display: flex;
     gap: 12px;
@@ -2243,11 +2247,9 @@
     background: var(--panel);
   }
 
-  .dialog-head { top: 0; }
   .dialog-head h2 { margin-top: 4px; }
-  .dialog-body { padding: 18px; }
+  .dialog-body { overflow: auto; padding: 18px; }
   .dialog-actions {
-    bottom: 0;
     justify-content: flex-end;
     border-top: 1px solid var(--line);
     border-bottom: 0;
@@ -3985,14 +3987,20 @@
       stopCommand: '',
       match: '',
       ports: [],
+      uiPorts: [],
+      backendPorts: [],
       track: '',
       detectByPort: false,
       autoRestart: false,
+      maxRestarts: '',
+      zombieAfterHours: '',
     };
   }
 
   function editorComponentMarkup(component, index) {
-    const ports = configuredPorts(component).join(', ');
+    const ports = (component.ports || []).join(', ');
+    const uiPorts = (component.uiPorts || []).join(', ');
+    const backendPorts = (component.backendPorts || []).join(', ');
     const knownRoles = ['frontend', 'backend', 'fullstack', 'service', 'worker', 'headless'];
     const roles = component.role && !knownRoles.includes(component.role)
       ? [...knownRoles, component.role]
@@ -4025,8 +4033,14 @@
           <label class="editor-field wide">Distinctive process match
             <input data-editor-field="match" type="text" value="${esc(component.match || component.cwd || '')}" autocomplete="off">
           </label>
-          <label class="editor-field">Ports
+          <label class="editor-field">All ports
             <input data-editor-field="ports" type="text" value="${esc(ports)}" inputmode="numeric" placeholder="5173, 4100">
+          </label>
+          <label class="editor-field">UI ports
+            <input data-editor-field="uiPorts" type="text" value="${esc(uiPorts)}" inputmode="numeric" placeholder="5173">
+          </label>
+          <label class="editor-field">Backend ports
+            <input data-editor-field="backendPorts" type="text" value="${esc(backendPorts)}" inputmode="numeric" placeholder="4100">
           </label>
           <label class="editor-field">Tracking
             <select data-editor-field="track">
@@ -4036,6 +4050,12 @@
           </label>
           <label class="editor-field checkbox-field"><input data-editor-field="detectByPort" type="checkbox" ${component.detectByPort ? 'checked' : ''}> Require configured ports</label>
           <label class="editor-field checkbox-field"><input data-editor-field="autoRestart" type="checkbox" ${component.autoRestart ? 'checked' : ''}> Auto-restart crashes</label>
+          <label class="editor-field">Max restarts
+            <input data-editor-field="maxRestarts" type="number" min="1" max="10" step="1" value="${esc(component.maxRestarts || '')}" placeholder="3">
+          </label>
+          <label class="editor-field">Dormant warning (hours)
+            <input data-editor-field="zombieAfterHours" type="number" min="1" max="720" step="1" value="${esc(component.zombieAfterHours || '')}" placeholder="8">
+          </label>
         </div>
       </section>
     `;
@@ -4049,10 +4069,17 @@
 
   function syncEditorComponentsFromForm() {
     editorState.components = [...document.querySelectorAll('[data-editor-component]')].map((section) => {
-      const previous = editorState.components[Number(section.dataset.editorComponent)] || {};
       const value = (field) => section.querySelector(`[data-editor-field="${field}"]`);
-      const portTokens = value('ports').value.split(/[,\s]+/).filter(Boolean);
-      const ports = portTokens.map(Number);
+      const portValues = (field) => {
+        const tokens = value(field).value.split(/[,\s]+/).filter(Boolean);
+        return {
+          tokens,
+          ports: tokens.map(Number),
+        };
+      };
+      const general = portValues('ports');
+      const ui = portValues('uiPorts');
+      const backend = portValues('backendPorts');
       return {
         name: value('name').value.trim(),
         role: value('role').value,
@@ -4060,15 +4087,17 @@
         command: value('command').value.trim(),
         stopCommand: value('stopCommand').value.trim(),
         match: value('match').value.trim(),
-        ports,
-        invalidPorts: portTokens.some((token, index) => (
-          !Number.isInteger(ports[index])
+        ports: general.ports,
+        uiPorts: ui.ports,
+        backendPorts: backend.ports,
+        invalidPorts: [general, ui, backend].some((group) => (
+          group.tokens.some((_token, index) => !Number.isInteger(group.ports[index]))
         )),
         track: value('track').value,
         detectByPort: value('detectByPort').checked,
         autoRestart: value('autoRestart').checked,
-        maxRestarts: previous.maxRestarts,
-        zombieAfterHours: previous.zombieAfterHours,
+        maxRestarts: value('maxRestarts').value.trim(),
+        zombieAfterHours: value('zombieAfterHours').value.trim(),
       };
     });
   }
@@ -4083,7 +4112,9 @@
         command: component.command || '',
         stopCommand: component.stopCommand || '',
         match: component.match || component.cwd || '',
-        ports: configuredPorts(component),
+        ports: component.ports?.length ? component.ports : [component.port].filter(Boolean),
+        uiPorts: component.uiPorts || [],
+        backendPorts: component.backendPorts || [],
         track: component.track || '',
         detectByPort: component.detectByPort === true,
         autoRestart: component.autoRestart === true,
@@ -4108,6 +4139,8 @@
       type: $('editorProjectType').value.trim(),
       components: editorState.components.map((component) => {
         const ports = component.ports.filter((port) => Number.isInteger(port));
+        const uiPorts = component.uiPorts.filter((port) => Number.isInteger(port));
+        const backendPorts = component.backendPorts.filter((port) => Number.isInteger(port));
         return {
           name: component.name,
           role: component.role,
@@ -4117,13 +4150,15 @@
           match: component.match || component.cwd,
           ...(ports.length === 1 ? { port: ports[0] } : {}),
           ...(ports.length > 1 ? { ports } : {}),
+          ...(uiPorts.length ? { uiPorts } : {}),
+          ...(backendPorts.length ? { backendPorts } : {}),
           ...(component.track === 'process' ? { track: 'process' } : {}),
           ...(component.detectByPort ? { detectByPort: true } : {}),
           ...(component.autoRestart ? { autoRestart: true } : {}),
-          ...(Number.isInteger(Number(component.maxRestarts))
+          ...(component.maxRestarts !== '' && Number.isInteger(Number(component.maxRestarts))
             ? { maxRestarts: Number(component.maxRestarts) }
             : {}),
-          ...(Number.isFinite(Number(component.zombieAfterHours))
+          ...(component.zombieAfterHours !== '' && Number.isFinite(Number(component.zombieAfterHours))
             ? { zombieAfterHours: Number(component.zombieAfterHours) }
             : {}),
         };
@@ -4138,6 +4173,22 @@
       }
       const sourceComponent = editorState.components[componentIndex];
       if (sourceComponent?.invalidPorts) throw new Error(`${component.name}: ports must be whole numbers.`);
+      if (
+        sourceComponent.maxRestarts
+        && (!Number.isInteger(Number(sourceComponent.maxRestarts))
+          || Number(sourceComponent.maxRestarts) < 1
+          || Number(sourceComponent.maxRestarts) > 10)
+      ) {
+        throw new Error(`${component.name}: max restarts must be a whole number from 1 to 10.`);
+      }
+      if (
+        sourceComponent.zombieAfterHours
+        && (!Number.isFinite(Number(sourceComponent.zombieAfterHours))
+          || Number(sourceComponent.zombieAfterHours) < 1
+          || Number(sourceComponent.zombieAfterHours) > 720)
+      ) {
+        throw new Error(`${component.name}: dormant warning must be from 1 to 720 hours.`);
+      }
       for (const port of configuredPorts(component)) {
         if (port < 1 || port > 65535) throw new Error(`Port ${port} is outside 1–65535.`);
         if (seenPorts.has(port)) throw new Error(`Port ${port} is duplicated in this project.`);
@@ -5244,6 +5295,21 @@
     location.reload();
   });
 
+  let pollInFlight = false;
+  async function pollVisibleView() {
+    if (pollInFlight || document.hidden) return;
+    pollInFlight = true;
+    try {
+      const registryPoll = state.view === 'projects' ? loadProjects(true)
+        : state.view === 'scripts' ? loadScripts(true)
+        : state.view === 'skills' ? loadSkills(true)
+        : Promise.all([loadProjects(true), loadProcesses(true)]);
+      await Promise.all([loadSystem(), registryPoll]);
+    } finally {
+      pollInFlight = false;
+    }
+  }
+
   async function boot() {
     updateClock();
     setInterval(updateClock, 1000);
@@ -5253,17 +5319,7 @@
       pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
     }
     await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings()]);
-    setInterval(() => {
-      if (document.hidden) return;
-      loadSystem();
-      if (state.view === 'projects') loadProjects(true);
-      else if (state.view === 'scripts') loadScripts(true);
-      else if (state.view === 'skills') loadSkills(true);
-      else {
-        loadProjects(true);
-        loadProcesses(true);
-      }
-    }, 3500);
+    setInterval(() => void pollVisibleView(), 3500);
   }
 
   installWindowControls();

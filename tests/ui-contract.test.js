@@ -14,6 +14,7 @@ test('UI omits N/A placeholders and ships the curated preference surface', () =>
     assert.match(html, new RegExp(`id="${preference}"`));
   }
   assert.match(html, /\/api\/settings\/preferences/);
+  assert.match(html, /if \(pollInFlight \|\| document\.hidden\) return/);
 });
 
 test('target cards expose compact details and truthful port groups', () => {
@@ -43,5 +44,8 @@ test('onboarding and project management never require hand-edited JSON', () => {
     'data-edit-project',
   ]) {
     assert.match(html, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  for (const field of ['uiPorts', 'backendPorts', 'maxRestarts', 'zombieAfterHours']) {
+    assert.match(html, new RegExp(`data-editor-field="${field}"`));
   }
 });

@@ -34,6 +34,12 @@ both packaged smoke tests. Tagged builds run Forge on both operating systems,
 normalize artifact names, generate checksums and Winget/Scoop manifests from
 the final bytes, and publish one GitHub Release.
 
+Local release-candidate verification on 2026-07-26 passed all 60 tests,
+JavaScript syntax checks, the packaged lifecycle, and the checksum installer
+smoke test. The generated three-file Winget bundle also passed
+`winget validate` with Windows Package Manager 1.29.280. The release workflow
+uses the same manifest generator against the final installer bytes.
+
 ## Static site checks
 
 Serve the committed static directory without a generator:
@@ -70,6 +76,11 @@ On the second Windows run, Lighthouse wrote a complete report and then emitted
 an `EPERM` while removing its temporary Chrome profile. The scores above come
 from the successfully parsed report; no page audit failed.
 
+The app UI was also exercised with empty and sanitized demo configurations at
+1440x900 and the 900x620 minimum window size. Dormant/live card density,
+truthful port chips, all five themes, the state-filtered command palette, and
+the scrolling project editor rendered without console or layout errors.
+
 ## Manual clean-machine checks
 
 These steps require disposable VMs and cannot be proven by a source checkout.
@@ -102,9 +113,12 @@ Record the VM image, release tag, and result in the release notes.
 3. Scan and control dummy npm and Python projects.
 4. Verify listeners through `ss`, then quit and confirm the control service
    exits.
-5. Remove the package, test retained user data, then delete
+5. Remove the package and the ownership-marked `~/.local/bin/lair` shim using
+   the documented command. Confirm an unrelated file at that path is never
+   overwritten or deleted.
+6. Test retained user data, then delete
    `${XDG_CONFIG_HOME:-$HOME/.config}/HackersLair`.
-6. Extract the tarball on a third clean snapshot and run both `HackersLair`
+7. Extract the tarball on a third clean snapshot and run both `HackersLair`
    and the bundled `lair` companion.
 
 ### Public GitHub checks

@@ -47,3 +47,27 @@ test('discovers Python web entry points with portable commands', (t) => {
   assert.equal(proposal.components[0].port, 8000);
   assert.match(proposal.components[0].command, /uvicorn main:app/);
 });
+
+test('discovers Maven and Gradle wrappers with executable Linux paths', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-build-discovery-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const maven = path.join(root, 'maven-api');
+  const gradle = path.join(root, 'gradle-api');
+  fs.mkdirSync(maven);
+  fs.mkdirSync(gradle);
+  fs.writeFileSync(path.join(maven, 'pom.xml'), '<project/>');
+  fs.writeFileSync(path.join(maven, process.platform === 'win32' ? 'mvnw.cmd' : 'mvnw'), '');
+  fs.writeFileSync(path.join(gradle, 'build.gradle'), '');
+  fs.writeFileSync(path.join(gradle, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew'), '');
+
+  const proposals = discoverProjects(root);
+  const expectedPrefix = process.platform === 'win32' ? '' : './';
+  assert.equal(
+    proposals.find((proposal) => proposal.name === 'maven-api').components[0].command,
+    `${expectedPrefix}${process.platform === 'win32' ? 'mvnw.cmd' : 'mvnw'} spring-boot:run`,
+  );
+  assert.equal(
+    proposals.find((proposal) => proposal.name === 'gradle-api').components[0].command,
+    `${expectedPrefix}${process.platform === 'win32' ? 'gradlew.bat' : 'gradlew'} bootRun`,
+  );
+});

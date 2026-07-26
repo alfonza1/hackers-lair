@@ -44,6 +44,11 @@
       <h3>Distro-neutral tarball</h3>
       <pre class="command-block"><code>rm -rf -- "$HOME/.local/opt/hackers-lair"</code></pre>
       <p>If you created a desktop entry manually, remove that specific file from <code>~/.local/share/applications</code>.</p>
+      <h3>Managed CLI companion</h3>
+      <pre class="command-block"><code>if grep -Fq "# Hacker's Lair managed CLI" "$HOME/.local/bin/lair" 2&gt;/dev/null; then
+  rm -f -- "$HOME/.local/bin/lair"
+fi</code></pre>
+      <p>The ownership-marker check preserves an unrelated command that happens to use the same <code>lair</code> name.</p>
 
       <h3>Optional Linux user-data cleanup</h3>
       <pre class="command-block"><code>rm -rf -- "${XDG_CONFIG_HOME:-$HOME/.config}/HackersLair"</code></pre>

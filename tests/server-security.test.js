@@ -286,6 +286,19 @@ test('protects localhost mutations and verifies the bound service identity', asy
     body: templateBody,
   });
   assert.equal(duplicateTemplate.status, 409);
+  const conflictingTemplate = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/templates/apply',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      templateId: 'vite',
+      name: 'port-conflict',
+      folder: scanProject,
+      port: 4173,
+    }),
+  });
+  assert.equal(conflictingTemplate.status, 409);
 
   const exportResponse = await request({
     port,

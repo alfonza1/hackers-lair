@@ -187,7 +187,7 @@ function deriveCwd(cmd, exePath) {
     if (m) return m[1]; // the project folder that owns node_modules
   }
   for (const arg of splitArgs(cmd).slice(1)) {
-    if (/\.(mjs|cjs|jsx?|tsx?|py)$/i.test(arg) && /^[a-zA-Z]:[\\/]/.test(arg)) {
+    if (/\.(mjs|cjs|jsx?|tsx?|py)$/i.test(arg) && path.isAbsolute(arg)) {
       return path.dirname(arg); // absolute script path -> its directory
     }
   }
@@ -1298,10 +1298,11 @@ const server = http.createServer(async (req, res) => {
         const proj = loadProjects().find((p) => p.name === name);
         if (!proj) { json(res, 404, { error: `No project named "${name}"` }); return; }
 
-      // Some managed services (notably Docker Compose stacks) need a graceful,
-      // service-aware shutdown. Run an explicitly configured stop command only
-      // for components currently detected as live, then clean up any remaining
-      // wrapper/listener processes below.
+      // Some managed services (notably detached Docker Compose stacks) need a
+      // service-aware shutdown after their launcher has exited. A launch record
+      // proves the user started that component here, so its explicit stop
+      // command is safe to run even when it has no detectable host process or
+      // configured port.
       const listenersBeforeStop = await getListeners();
       const trackedBeforeStop = await getTrackedProcesses([proj]);
       const wasDetectedLive = (proj.components || []).some((c) => {
@@ -1314,7 +1315,8 @@ const server = http.createServer(async (req, res) => {
         if (!c.stopCommand) continue;
         const pool = c.track === 'process' ? trackedBeforeStop : listenersBeforeStop;
         const detectedByPort = anyConfiguredPortDetected(c, listenersBeforeStop);
-        if (!listenersFor(c, pool).length && !detectedByPort) continue;
+        const launchedHere = launches.has(launchKey(name, c.name));
+        if (!listenersFor(c, pool).length && !detectedByPort && !launchedHere) continue;
         if (!c.cwd || !fs.existsSync(c.cwd)) {
           stopFailures.push(`${c.name}: missing folder ${c.cwd || '(no cwd)'}`);
           continue;
@@ -1371,7 +1373,7 @@ const server = http.createServer(async (req, res) => {
 
       // Forget launch state only after every configured live signal disappears.
       for (const c of proj.components || []) launches.delete(launchKey(name, c.name));
-      if (wasDetectedLive) recordProjectActivity(name);
+      if (wasDetectedLive || stoppedByCommand.length) recordProjectActivity(name);
         json(res, 200, {
           ok: true,
           name,
@@ -1622,33 +1624,40 @@ const server = http.createServer(async (req, res) => {
       let input;
       try { input = JSON.parse(await readBody(req)); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
-      let project;
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
+        return;
+      }
+      actionLocks.add(actionKey);
       try {
-        project = instantiateTemplate(input);
-      } catch (error) {
-        json(res, 400, { error: error.message });
-        return;
+        let project;
+        try {
+          project = instantiateTemplate(input);
+        } catch (error) {
+          json(res, 400, { error: error.message });
+          return;
+        }
+        const current = runtimeConfig.projects.read();
+        if (current.error) {
+          json(res, 409, { error: `Fix the current configuration first: ${current.error}` });
+          return;
+        }
+        let next;
+        try {
+          next = updateProjectConfig(current.value, { project });
+          runtimeConfig.projects.validate(next);
+        } catch (error) {
+          json(res, /already|configured by/i.test(error.message) ? 409 : 400, { error: error.message });
+          return;
+        }
+        runtimeConfig.projects.write(next);
+        void refreshGitAttention(next.projects);
+        void refreshDoctor();
+        json(res, 200, { ok: true, project: next.projects.at(-1) });
+      } finally {
+        actionLocks.delete(actionKey);
       }
-      if (!fs.existsSync(project.components[0].cwd)) {
-        json(res, 400, { error: 'Project folder does not exist.' });
-        return;
-      }
-      const current = runtimeConfig.projects.read();
-      if (current.error) {
-        json(res, 409, { error: `Fix the current configuration first: ${current.error}` });
-        return;
-      }
-      if (current.value.projects.some((item) => item.name.toLowerCase() === project.name.toLowerCase())) {
-        json(res, 409, { error: `A project named "${project.name}" already exists.` });
-        return;
-      }
-      runtimeConfig.projects.write({
-        ...current.value,
-        projects: [...current.value.projects, project],
-      });
-      void refreshGitAttention(loadProjects());
-      void refreshDoctor();
-      json(res, 200, { ok: true, project });
       return;
     }
 
@@ -1680,24 +1689,34 @@ const server = http.createServer(async (req, res) => {
         json(res, 400, { error: `Imported configuration is invalid: ${error.message}` });
         return;
       }
-      const current = runtimeConfig.projects.read();
-      if (current.error) {
-        json(res, 409, { error: `Fix the current configuration before importing: ${current.error}` });
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
         return;
       }
-      let next = imported;
-      if (input.mode === 'merge') {
-        const existingNames = new Set(current.value.projects.map((project) => project.name.toLowerCase()));
-        const additions = imported.projects.filter((project) => !existingNames.has(project.name.toLowerCase()));
-        next = {
-          ...current.value,
-          projects: [...current.value.projects, ...additions],
-        };
+      actionLocks.add(actionKey);
+      try {
+        const current = runtimeConfig.projects.read();
+        if (current.error) {
+          json(res, 409, { error: `Fix the current configuration before importing: ${current.error}` });
+          return;
+        }
+        let next = imported;
+        if (input.mode === 'merge') {
+          const existingNames = new Set(current.value.projects.map((project) => project.name.toLowerCase()));
+          const additions = imported.projects.filter((project) => !existingNames.has(project.name.toLowerCase()));
+          next = {
+            ...current.value,
+            projects: [...current.value.projects, ...additions],
+          };
+        }
+        runtimeConfig.projects.write({ ...next, $schema: './projects.schema.json' });
+        void refreshGitAttention(loadProjects());
+        void refreshDoctor();
+        json(res, 200, { ok: true, projects: next.projects.length });
+      } finally {
+        actionLocks.delete(actionKey);
       }
-      runtimeConfig.projects.write({ ...next, $schema: './projects.schema.json' });
-      void refreshGitAttention(loadProjects());
-      void refreshDoctor();
-      json(res, 200, { ok: true, projects: next.projects.length });
       return;
     }
 
@@ -1705,6 +1724,12 @@ const server = http.createServer(async (req, res) => {
       let name;
       try { name = String(JSON.parse(await readBody(req)).name || ''); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = 'config:projects';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'Project configuration is already being updated.' });
+        return;
+      }
+      actionLocks.add(actionKey);
       try {
         const restored = runtimeConfig.projects.restore(name);
         void refreshGitAttention(loadProjects());
@@ -1712,6 +1737,8 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, { ok: true, projects: restored.projects.length });
       } catch (error) {
         json(res, 400, { error: error.message });
+      } finally {
+        actionLocks.delete(actionKey);
       }
       return;
     }

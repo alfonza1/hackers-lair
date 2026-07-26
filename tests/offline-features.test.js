@@ -5,7 +5,7 @@ const test = require('node:test');
 
 const { instantiateTemplate, PROJECT_TEMPLATES } = require('../lib/project-templates');
 const { redactText, redactValue } = require('../lib/redaction');
-const { defaultDataDirectory, findProject } = require('../bin/lair');
+const { defaultDataDirectory, findProject, projectOpenUrl } = require('../bin/lair');
 const {
   extractLocalUrls,
   isZombieComponent,
@@ -24,6 +24,16 @@ test('project templates produce portable offline launch entries', () => {
   assert.equal(project.components[0].cwd, folder);
   assert.equal(project.components[0].port, 4173);
   assert.match(project.components[0].command, /4173/);
+  const fastApi = instantiateTemplate({
+    templateId: 'fastapi',
+    name: 'Fixture API',
+    folder,
+    port: 8000,
+  });
+  assert.match(
+    fastApi.components[0].command,
+    new RegExp(`^${process.platform === 'win32' ? 'python' : 'python3'} `),
+  );
   assert.deepEqual(
     PROJECT_TEMPLATES.map((template) => template.id),
     ['vite', 'nextjs', 'spring-boot', 'fastapi', 'compose'],
@@ -81,6 +91,19 @@ test('runtime intelligence accepts local announced URLs and rejects unsafe or in
     establishedConnections: 1,
     thresholdHours: 8,
   }), false);
+});
+
+test('CLI open prefers a detected URL and falls back to every configured port shape', () => {
+  assert.equal(projectOpenUrl({
+    components: [{ detectedUrls: ['http://localhost:5173/dashboard'], port: 3000 }],
+  }), 'http://localhost:5173/dashboard');
+  assert.equal(projectOpenUrl({
+    components: [{ uiPorts: [], ports: [], port: 4100 }],
+  }), 'http://localhost:4100/');
+  assert.equal(projectOpenUrl({
+    components: [{ backendPorts: [8000] }],
+  }), 'http://localhost:8000/');
+  assert.equal(projectOpenUrl({ components: [] }), '');
 });
 
 test('CLI identity follows platform user-data conventions', () => {

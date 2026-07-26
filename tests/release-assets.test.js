@@ -43,6 +43,9 @@ test('release finalization hashes every package and generates channel manifests'
     'utf8',
   );
   assert.match(installer, /Scope: user/);
+  assert.match(installer, /InstallerType: exe/);
+  assert.match(installer, /winget-manifest\.installer\.1\.12\.0\.schema\.json/);
+  assert.match(installer, /ManifestVersion: 1\.12\.0/);
   assert.match(installer, /InstallerSha256: [A-F0-9]{64}/);
   assert.match(installer, /HackersLair-2\.1\.0-beta\.1-Setup\.exe/);
 

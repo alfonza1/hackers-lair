@@ -9,6 +9,7 @@ const {
   desktopDataDirectory,
   readIdentityRecord,
   stopManagedChild,
+  writeManagedCliShim,
 } = require('../lib/desktop-service');
 const { ignoreNonRuntimePath } = require('../forge.config');
 
@@ -21,8 +22,9 @@ test('desktop data follows Electron userData unless explicitly overridden', () =
   );
 });
 
-test('identity records must belong to the managed child process', () => {
+test('identity records must belong to the managed child process', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-desktop-identity-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const file = path.join(directory, 'api-token');
   fs.writeFileSync(file, JSON.stringify({
     app: 'hackers-lair',
@@ -34,6 +36,19 @@ test('identity records must belong to the managed child process', () => {
 
   assert.equal(readIdentityRecord(file, 4321).port, 4951);
   assert.throws(() => readIdentityRecord(file, 1234), /invalid/);
+});
+
+test('managed CLI installation preserves a command owned by another tool', (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-cli-shim-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const file = path.join(directory, 'lair');
+  const marker = "# Hacker's Lair managed CLI";
+  fs.writeFileSync(file, '#!/bin/sh\necho unrelated\n');
+  assert.equal(writeManagedCliShim(file, `${marker}\necho managed\n`, marker), false);
+  assert.match(fs.readFileSync(file, 'utf8'), /unrelated/);
+  fs.writeFileSync(file, `${marker}\necho old\n`);
+  assert.equal(writeManagedCliShim(file, `${marker}\necho updated\n`, marker), true);
+  assert.match(fs.readFileSync(file, 'utf8'), /updated/);
 });
 
 test('managed child is terminated and awaited', async () => {
