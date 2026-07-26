@@ -1386,6 +1386,22 @@
   }
 
   .onboarding-path .section-kicker { margin-bottom: -4px; }
+  .onboarding-path .setup-path-kicker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
+  }
+  .setup-recommendation {
+    padding: 2px 6px;
+    border: 1px solid rgba(var(--accent-rgb), .42);
+    border-radius: 999px;
+    color: var(--green);
+    background: rgba(var(--accent-rgb), .08);
+    font-size: 8px;
+    line-height: 1.2;
+    letter-spacing: .09em;
+  }
   .onboarding-path h3 {
     margin: 0;
     color: var(--text);
@@ -3726,7 +3742,10 @@
     const projectSetup = state.view === 'projects';
     const agentPath = `
       <section class="onboarding-path agent">
-        <div class="section-kicker">Agent-assisted</div>
+        <div class="section-kicker setup-path-kicker">
+          <span>Agent-assisted</span>
+          ${projectSetup ? '<span class="setup-recommendation" title="Fastest if you already use a coding agent">Recommended</span>' : ''}
+        </div>
         <h3>Copy prompt for your AI agent</h3>
         <p>Use the generated machine-aware prompt with any coding agent. It includes live config and schema locations, safety rules, and verification commands.</p>
         ${prompts.map((prompt) => `

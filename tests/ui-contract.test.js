@@ -57,4 +57,5 @@ test('onboarding and project management never require hand-edited JSON', () => {
   for (const field of ['uiPorts', 'backendPorts', 'maxRestarts', 'zombieAfterHours']) {
     assert.match(html, new RegExp(`data-editor-field="${field}"`));
   }
+  assert.match(html, /class="setup-recommendation"[^>]*>Recommended</);
 });
