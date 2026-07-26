@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const test = require('node:test');
+const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const site = path.join(root, 'site');
@@ -62,6 +63,18 @@ test('public branding uses the product-owned Winget identity', () => {
   assert.doesNotMatch(visibleProse, /alfonza/i);
 });
 
+test('landing page gives engineers a concrete contribution path', () => {
+  const landing = fs.readFileSync(path.join(site, 'index.html'), 'utf8');
+
+  assert.match(landing, /id="contribute"/);
+  assert.match(landing, /Engineers: take a subsystem\./);
+  assert.match(landing, /Where help matters/);
+  assert.match(landing, /Your first patch/);
+  assert.match(landing, /href="https:\/\/github\.com\/alfonza1\/hackers-lair\/blob\/main\/CONTRIBUTING\.md"/);
+  assert.match(landing, /href="https:\/\/github\.com\/alfonza1\/hackers-lair\/issues"/);
+  assert.ok(landing.indexOf('id="contribute"') < landing.indexOf('id="release-title"'));
+});
+
 test('site scripts stay self-contained and installer mirrors stay exact', () => {
   const javascript = fs.readFileSync(path.join(site, 'assets', 'site.js'), 'utf8');
   assert.equal((javascript.match(/\bfetch\(/g) || []).length, 1);
@@ -74,6 +87,43 @@ test('site scripts stay self-contained and installer mirrors stay exact', () => 
     fs.readFileSync(path.join(root, 'uninstall.ps1'), 'utf8'),
     fs.readFileSync(path.join(site, 'uninstall.ps1'), 'utf8'),
   );
+});
+
+test('live release notes omit GitHub identities and raw URLs', async () => {
+  const javascript = fs.readFileSync(path.join(site, 'assets', 'site.js'), 'utf8');
+  const releaseNotes = { textContent: '' };
+  const selectors = new Map([
+    ['[data-release-version]', [{ textContent: '' }]],
+    ['[data-release-notes]', [releaseNotes]],
+    ['[data-release-date]', [{ textContent: '' }]],
+  ]);
+  const context = {
+    console,
+    Date,
+    document: {
+      documentElement: { classList: { add() {} } },
+      querySelectorAll(selector) {
+        return selectors.get(selector) || [];
+      },
+    },
+    fetch: async () => ({
+      ok: true,
+      json: async () => [{
+        tag_name: 'v2.1.0-beta.1',
+        published_at: '2026-07-26T00:00:00Z',
+        body: "## What's Changed\nDesktop polish by @private-owner in https://github.com/private-owner/project/pull/10\n**Full Changelog**: https://github.com/private-owner/project/compare/v1...v2",
+      }],
+    }),
+    matchMedia: () => ({ matches: true }),
+    setTimeout,
+  };
+
+  vm.runInNewContext(javascript, context);
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.match(releaseNotes.textContent, /Desktop polish/);
+  assert.doesNotMatch(releaseNotes.textContent, /private-owner|github\.com|https?:\/\//i);
 });
 
 test('landing page transfer stays below 500 KB before optional release metadata', () => {

@@ -83,6 +83,18 @@ async function typeTerminal() {
   }
 }
 
+function releaseSummary(body) {
+  return String(body || '')
+    .replace(/\s+by\s+@[a-z0-9-]+(?=\s|$)/gi, ' ')
+    .replace(/(^|\s)@[a-z0-9-]+(?=\s|$)/gi, ' ')
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\bFull Changelog\b\s*:?\s*/gi, ' ')
+    .replace(/[`#>*_[\]-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 420);
+}
+
 async function refreshReleaseMetadata() {
   const nodes = [...document.querySelectorAll('[data-release-version]')];
   const notes = [...document.querySelectorAll('[data-release-notes]')];
@@ -96,11 +108,7 @@ async function refreshReleaseMetadata() {
     if (!release) return;
     if (!/^v\d+\.\d+\.\d+/.test(release.tag_name || '')) return;
     nodes.forEach((node) => { node.textContent = release.tag_name; });
-    const summary = String(release.body || '')
-      .replace(/[`#>*_[\]-]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 420);
+    const summary = releaseSummary(release.body);
     if (summary) notes.forEach((node) => { node.textContent = summary; });
     document.querySelectorAll('[data-release-date]').forEach((node) => {
       node.textContent = new Date(release.published_at).toLocaleDateString(undefined, {
