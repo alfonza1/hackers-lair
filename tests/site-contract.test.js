@@ -76,3 +76,10 @@ test('landing page transfer stays below 500 KB before optional release metadata'
   ), 0);
   assert.ok(bytes < 500 * 1024, `Landing transfer is ${bytes} bytes.`);
 });
+
+test('getting started presents the recommended agent path before guided setup', () => {
+  const guide = fs.readFileSync(path.join(site, 'getting-started', 'index.html'), 'utf8');
+  assert.ok(guide.indexOf('id="agent-setup"') < guide.indexOf('id="wizard"'));
+  assert.match(guide, /recommended first option/i);
+  assert.doesNotMatch(guide, /second empty-state path/i);
+});

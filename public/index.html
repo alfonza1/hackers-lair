@@ -3785,9 +3785,10 @@
       <div class="onboarding">
         <div class="onboarding-intro">
           <strong>${projectSetup ? 'Choose your setup path' : 'Configuration needed'}</strong>
-          <span>${projectSetup ? 'Use the guided setup or hand the same job to your preferred coding agent. Both paths preserve existing configuration.' : 'Copy a machine-aware prompt to configure this optional local feature safely.'}</span>
+          <span>${projectSetup ? 'Hand the setup to your preferred coding agent, or configure it yourself with the guided wizard. Both paths preserve existing configuration.' : 'Copy a machine-aware prompt to configure this optional local feature safely.'}</span>
         </div>
         <div class="onboarding-paths">
+          ${agentPath}
           ${projectSetup ? `
           <section class="onboarding-path wizard">
             <div class="section-kicker">Guided setup</div>
@@ -3796,7 +3797,6 @@
             <button class="utility" type="button" data-onboarding-wizard>Open setup wizard</button>
           </section>
           ` : ''}
-          ${agentPath}
         </div>
       </div>
     `;
