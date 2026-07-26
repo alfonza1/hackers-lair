@@ -64,5 +64,10 @@
   },
   "dependencies": {
     "update-electron-app": "^3.3.0"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8",
+    "tar": "7.5.22",
+    "tmp": "0.2.7"
   }
 }

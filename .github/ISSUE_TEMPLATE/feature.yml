@@ -33,4 +33,3 @@ body:
           required: true
         - label: I have described any new process-control or configuration risk.
           required: true
-

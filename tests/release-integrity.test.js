@@ -20,9 +20,11 @@ test('GitHub Actions are pinned and release artifacts receive provenance', () =>
   const release = fs.readFileSync(path.join(workflowDirectory, 'release.yml'), 'utf8');
   assert.match(release, /actions\/attest-build-provenance@[0-9a-f]{40}/);
   assert.match(release, /subject-path:\s*release-assets\/\*/);
-  assert.match(release, /npm audit --omit=dev --audit-level=high/g);
+  assert.equal((release.match(/npm audit --audit-level=high/g) || []).length, 2);
   assert.match(release, /npm run test:coverage/g);
   assert.match(release, /npm run test:ui/);
+  assert.match(release, /npm run smoke:package/);
+  assert.match(release, /npm run smoke:install/);
   assert.match(release, /RELEASES/);
   assert.match(release, /\*-full\.nupkg/);
 });
@@ -30,6 +32,7 @@ test('GitHub Actions are pinned and release artifacts receive provenance', () =>
 test('CI reports coverage and runs the browser UI smoke', () => {
   const ci = fs.readFileSync(path.join(workflowDirectory, 'ci.yml'), 'utf8');
   assert.match(ci, /name:\s*UI smoke \/ Playwright/);
+  assert.match(ci, /npm audit --audit-level=high/);
   assert.match(ci, /npm run test:coverage/);
   assert.match(ci, /npm run test:ui/);
   assert.match(ci, /playwright install --with-deps --only-shell chromium/);

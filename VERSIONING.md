@@ -45,4 +45,3 @@ input requires a major version or a migration and deprecation period.
 When practical, a behavior is documented as deprecated in at least one minor
 release before removal. The changelog names affected config fields, CLI
 commands, and API routes explicitly.
-

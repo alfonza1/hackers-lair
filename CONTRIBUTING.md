@@ -85,4 +85,3 @@ configuration and Getting Started docs.
 Use a focused branch and the pull request template. Explain the user-visible
 outcome, security or persistence implications, and verification evidence.
 Generated release assets and dependency directories do not belong in commits.
-

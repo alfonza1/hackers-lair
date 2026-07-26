@@ -35,12 +35,27 @@ test('project editor creates and updates schema-backed entries', () => {
   assert.deepEqual(created.projects[0].components[0].uiPorts, [5173]);
   assert.deepEqual(created.projects[0].components[0].backendPorts, [4100]);
 
-  const updated = updateProjectConfig(created, {
+  const futureConfig = {
+    ...created,
+    futureRoot: { retained: true },
+    projects: [{
+      ...created.projects[0],
+      futureProject: 'retained',
+      components: [{
+        ...created.projects[0].components[0],
+        futureComponent: ['retained'],
+      }],
+    }],
+  };
+  const updated = updateProjectConfig(futureConfig, {
     originalName: 'demo',
     project: project('demo-renamed', '/work/demo', 4173),
   }, { exists: () => true });
   assert.deepEqual(updated.projects.map((item) => item.name), ['demo-renamed']);
   assert.equal(updated.projects[0].components[0].port, 4173);
+  assert.deepEqual(updated.futureRoot, { retained: true });
+  assert.equal(updated.projects[0].futureProject, 'retained');
+  assert.deepEqual(updated.projects[0].components[0].futureComponent, ['retained']);
 });
 
 test('project editor rejects duplicate names, ports, and missing folders', () => {

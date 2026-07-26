@@ -54,4 +54,3 @@ body:
       label: Relevant sanitized logs
       description: Remove usernames, absolute paths, tokens, secrets, and personal project details.
       render: text
-

@@ -19,4 +19,3 @@ cross-platform implications. State `None` only after checking each category.
       generated release artifacts are included.
 - [ ] No telemetry, analytics, account requirement, or unapproved outbound
       request was introduced.
-

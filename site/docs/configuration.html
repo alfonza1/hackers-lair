@@ -24,11 +24,13 @@
         <tr><td>Windows</td><td><code>%APPDATA%\HackersLair\projects.json</code></td></tr>
         <tr><td>Linux</td><td><code>$XDG_CONFIG_HOME/HackersLair/projects.json</code>, or <code>~/.config/HackersLair/projects.json</code></td></tr>
       </tbody></table></div>
-      <p><code>PROJECT_MANAGER_DATA_DIR</code> overrides the entire data directory. <code>PROJECT_MANAGER_PROJECTS_FILE</code> overrides only the project file. The app copies <code>projects.schema.json</code> beside the config and reads changes on refresh without a restart.</p>
+      <p><code>PROJECT_MANAGER_DATA_DIR</code> overrides the entire data directory. <code>PROJECTS_FILE</code> overrides only the project file. The app copies <code>projects.schema.json</code> beside the config and reads changes on refresh without a restart.</p>
       <pre class="command-block"><code>{
+  "configVersion": 1,
   "$schema": "./projects.schema.json",
   "projects": []
 }</code></pre>
+      <p><code>configVersion</code> is managed by the app. Ordered migrations create a backup before changing older files; newer versions are left intact so an older app can ignore fields it does not recognize.</p>
 
       <h2 id="project-fields">Project fields</h2>
       <div class="docs-table-wrap"><table><thead><tr><th>Field</th><th>Required</th><th>Meaning</th></tr></thead><tbody>

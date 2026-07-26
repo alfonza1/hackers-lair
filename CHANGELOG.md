@@ -21,8 +21,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 ### Changed
 
 - Runtime configuration now carries an ordered migration version.
-- Release automation uses immutable action revisions and audits production
-  dependencies.
+- Release automation uses immutable action revisions and audits the full npm
+  dependency tree.
 - Desktop shutdown requests a graceful service flush before the forced-stop
   fallback.
 - CI and release jobs now print built-in Node test coverage and run the same UI

@@ -37,7 +37,8 @@ capabilities:
 - its service binds only to `127.0.0.1`;
 - mutation requests require a per-launch random token;
 - every request must use the exact bound `localhost` or `127.0.0.1` Host;
-- desktop and CLI clients verify the service nonce and process identity;
+- desktop and CLI clients verify the service nonce, and the desktop also
+  checks the recorded service process identity;
 - it can start and stop commands explicitly configured by the local user.
 
 The token and Host checks protect the localhost control surface; they do not
@@ -59,4 +60,3 @@ gh attestation verify <file> -R alfonza1/hackers-lair
 ```
 
 Provenance is not Windows publisher signing and does not bypass SmartScreen.
-

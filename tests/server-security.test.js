@@ -348,7 +348,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
 
   const icon = await request({ port, pathname: '/icon.ico' });
   assert.equal(icon.status, 200);
-  assert.match(icon.headers['cache-control'], /max-age=86400/);
+  assert.equal(icon.headers['cache-control'], 'public, max-age=31536000, immutable');
 
   const shutdownExit = new Promise((resolve) => child.once('exit', (code) => resolve(code)));
   const shutdown = await request({

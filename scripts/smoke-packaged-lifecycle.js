@@ -14,6 +14,7 @@ const executable = process.platform === 'win32'
   ? path.join(root, 'out', platformFolder, 'HackersLair.exe')
   : path.join(root, 'out', platformFolder, 'HackersLair');
 const appArchive = path.join(root, 'out', platformFolder, 'resources', 'app.asar');
+const chromiumNotices = path.join(root, 'out', platformFolder, 'LICENSES.chromium.html');
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -98,7 +99,16 @@ async function removeDirectoryWithRetry(directory) {
 
 async function main() {
   assert.equal(fs.existsSync(executable), true, `Package the app first; missing ${executable}`);
+  assert.equal(
+    fs.existsSync(chromiumNotices),
+    true,
+    'The package must include Chromium third-party notices.',
+  );
   const packagedFiles = listPackage(appArchive).map((file) => file.replaceAll('\\', '/'));
+  assert.ok(
+    packagedFiles.includes('/THIRD_PARTY_NOTICES.txt'),
+    'The package must include JavaScript dependency notices.',
+  );
   const forbiddenRoots = [
     '/.github',
     '/distribution',

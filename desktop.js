@@ -151,6 +151,7 @@ function initializeUpdates() {
   if (installChannel !== 'squirrel' || !app.isPackaged) return;
   const { UpdateSourceType, updateElectronApp } = require('update-electron-app');
   autoUpdater.on('error', (error) => {
+    if (['ready', 'blocked', 'applying'].includes(updateState.status)) return;
     publishUpdateState({
       status: 'error',
       message: `Update check unavailable: ${error.message}`,
@@ -164,12 +165,16 @@ function initializeUpdates() {
     updateInterval: '1 hour',
     notifyUser: true,
     onNotifyUser: (info) => {
-      const version = releaseVersion(info.releaseName, 'New version');
+      const version = releaseVersion(info.releaseName);
       publishUpdateState({
         status: 'ready',
         version,
-        message: `v${version} ready — restart to apply.`,
-        releaseUrl: info.updateURL || updateState.releaseUrl,
+        message: version
+          ? `v${version} ready — restart to apply.`
+          : 'An update is ready — restart to apply.',
+        releaseUrl: version
+          ? `https://github.com/alfonza1/hackers-lair/releases/tag/v${version}`
+          : updateState.releaseUrl,
         managedTargets: [],
       });
     },
@@ -647,7 +652,9 @@ async function refreshTrayMenu() {
     { label: "Open Hacker's Lair", click: showMainWindow },
     ...(updateState.status === 'ready' || updateState.status === 'blocked'
       ? [{
-        label: `Restart to apply v${updateState.version}`,
+        label: updateState.version
+          ? `Restart to apply v${updateState.version}`
+          : 'Restart to apply update',
         click: () => void requestUpdateApply(),
       }, {
         label: 'View release notes',

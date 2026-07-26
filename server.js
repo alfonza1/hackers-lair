@@ -773,7 +773,7 @@ function launchProjectComponent(project, component, options = {}) {
           rec.nextRestartAt = Date.now() + delay;
           const crashEvent = rec.crashEvent;
           setTimeout(() => {
-            if (!actionLocks.has(`project:${project.name}`)) {
+            if (!shuttingDown && !actionLocks.has(`project:${project.name}`)) {
               launchProjectComponent(project, component, { restartCount: nextAttempt, crashEvent });
             }
           }, delay).unref?.();
@@ -1037,7 +1037,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (req.method === 'GET' && pathname === '/icon.ico') {
-      res.writeHead(200, { 'Content-Type': 'image/x-icon', 'Cache-Control': 'public, max-age=86400' });
+      res.writeHead(200, {
+        'Content-Type': 'image/x-icon',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      });
       res.end(fs.readFileSync(path.join(__dirname, 'icon.ico')));
       return;
     }

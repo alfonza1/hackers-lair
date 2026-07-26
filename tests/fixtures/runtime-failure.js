@@ -11,4 +11,3 @@ if (mode === 'exception') {
     throw new Error('runtime exception fixture');
   }, 500);
 }
-
