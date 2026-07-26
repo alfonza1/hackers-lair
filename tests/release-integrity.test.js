@@ -35,6 +35,7 @@ test('CI reports coverage and runs the browser UI smoke', () => {
   assert.match(ci, /npm audit --audit-level=high/);
   assert.match(ci, /npm run test:coverage/);
   assert.match(ci, /npm run test:ui/);
+  assert.match(ci, /cache-dependency-path:\s*requirements-test\.txt/);
   assert.match(ci, /playwright install --with-deps --only-shell chromium/);
 });
 
