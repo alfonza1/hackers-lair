@@ -139,6 +139,9 @@ def assert_empty_state(page) -> None:
     expect(empty_state.get_by_text("Set up with wizard")).to_be_visible()
     expect(empty_state.get_by_text("Copy prompt for your AI agent")).to_be_visible()
     expect(empty_state.get_by_text("Recommended", exact=True)).to_be_visible()
+    setup_paths = empty_state.locator(".onboarding-paths > .onboarding-path")
+    expect(setup_paths.nth(0)).to_contain_text("Agent-assisted")
+    expect(setup_paths.nth(1)).to_contain_text("Guided setup")
 
 
 def assert_project_editor_controls(page, selected_folder: Path) -> None:
