@@ -108,6 +108,29 @@ def write_projects(data_directory: Path, projects: list[dict]) -> None:
     )
 
 
+def write_script_fixture(data_directory: Path) -> str:
+    scripts_directory = data_directory / "script-fixtures"
+    scripts_directory.mkdir()
+    script_name = "ui-smoke-script.au3"
+    (scripts_directory / script_name).write_text(
+        "; Compact action tray UI fixture.\n",
+        encoding="utf-8",
+    )
+    config = {
+        "configVersion": 1,
+        "scriptsDir": str(scripts_directory),
+        "autoItExe": "",
+        "descriptions": {
+            script_name: "Verify the compact Scripts action tray.",
+        },
+    }
+    (data_directory / "scripts.json").write_text(
+        json.dumps(config, indent=2),
+        encoding="utf-8",
+    )
+    return script_name
+
+
 def project_fixture(
     *,
     name: str,
@@ -206,7 +229,152 @@ def assert_target_states(page, live_port: int, dormant_port: int) -> None:
     expect(dormant.get_by_text("PORTS", exact=True)).to_be_visible()
     expect(dormant.locator(".configured-port-chip")).to_have_text(f":{dormant_port}")
     expect(dormant.get_by_text("DETECTED", exact=True)).to_have_count(0)
+
+    live_actions = live.locator(".action-cluster .action")
+    expect(live_actions).to_have_count(1)
+    expect(live_actions).to_have_text("TERMINATE")
+    expect(live_actions).to_be_enabled()
+    expect(live.get_by_role("button", name="INITIATE", exact=True)).to_have_count(0)
+
+    dormant_actions = dormant.locator(".action-cluster .action")
+    expect(dormant_actions).to_have_count(1)
+    expect(dormant_actions).to_have_text("INITIATE")
+    expect(dormant_actions).to_be_enabled()
+    expect(dormant.get_by_role("button", name="TERMINATE", exact=True)).to_have_count(0)
+
+    for card, actions in ((live, live_actions), (dormant, dormant_actions)):
+        tray_box = card.locator(".action-cluster").bounding_box()
+        action_box = actions.bounding_box()
+        assert tray_box is not None and action_box is not None
+        assert tray_box["width"] <= action_box["width"] + 20
+
     assert "N/A" not in page.locator("body").inner_text()
+
+
+def assert_port_signal_action_tray(page, live_port: int) -> None:
+    page.get_by_role("tab", name="Port Signals", exact=True).click()
+    signal = page.locator('[data-card-kind="process"]').filter(
+        has_text=f":{live_port}"
+    )
+    expect(signal).to_be_visible(timeout=15_000)
+    actions = signal.locator(".action-cluster .action")
+    expect(actions).to_have_count(1)
+    expect(actions).to_have_text("TERMINATE")
+    tray_box = signal.locator(".action-cluster").bounding_box()
+    action_box = actions.bounding_box()
+    assert tray_box is not None and action_box is not None
+    assert tray_box["width"] <= action_box["width"] + 20
+    page.get_by_role("tab", name="Targets", exact=True).click()
+
+
+def assert_script_action_tray(page, script_name: str) -> None:
+    page.get_by_role("tab", name="Scripts", exact=True).click()
+    script = page.locator('[data-card-kind="script"]').filter(
+        has_text=script_name.removesuffix(".au3")
+    )
+    expect(script).to_be_visible(timeout=15_000)
+    actions = script.locator(".action-cluster .action")
+    expect(actions).to_have_count(1)
+    expect(actions).to_have_text("INITIATE")
+    tray_box = script.locator(".action-cluster").bounding_box()
+    action_box = actions.bounding_box()
+    assert tray_box is not None and action_box is not None
+    assert tray_box["width"] <= action_box["width"] + 20
+    page.get_by_role("tab", name="Targets", exact=True).click()
+
+
+def assert_minimal_update_controls(page) -> None:
+    expect(page.locator("#updateBanner")).to_have_count(0)
+    update_trigger = page.locator("#updateAvailableTrigger")
+    expect(update_trigger).to_be_hidden()
+    release_notes = page.get_by_role("button", name="Release notes")
+    expect(release_notes).to_be_hidden()
+
+    page.evaluate("window.__lairUpdateListener(window.__availableUpdate)")
+    expect(update_trigger).to_be_visible()
+    expect(update_trigger).to_contain_text("v2.1.0-beta.3")
+    update_trigger.click()
+
+    dialog = page.get_by_role("dialog", name="Update available")
+    expect(dialog).to_be_visible()
+    expect(dialog).to_contain_text(
+        "v2.1.0-beta.3 is available."
+    )
+    expect(dialog.locator("#updateCommand")).to_have_text(
+        "irm https://hackerslairhq.github.io/desktop/install.ps1 | iex"
+    )
+    expect(dialog.locator("#releaseNotesBody")).to_have_count(0)
+    expect(dialog.locator("#updateCurrentVersion")).to_have_count(0)
+    expect(dialog.locator("#updateChannel")).to_have_count(0)
+    expect(dialog.locator("#updateStatus")).to_have_count(0)
+    dialog.get_by_role("button", name="Copy command").click()
+    expect(page.locator("#toast")).to_have_text("Update command copied.")
+    dialog.get_by_role("button", name="Close", exact=True).click()
+    expect(dialog).to_be_hidden()
+
+    page.set_viewport_size({"width": 900, "height": 620})
+    update_trigger.click()
+    dialog_box = dialog.bounding_box()
+    assert dialog_box is not None
+    assert dialog_box["x"] >= 0 and dialog_box["y"] >= 0
+    assert dialog_box["x"] + dialog_box["width"] <= 900
+    assert dialog_box["y"] + dialog_box["height"] <= 620
+    page.keyboard.press("Escape")
+    expect(dialog).to_be_hidden()
+    page.set_viewport_size({"width": 1440, "height": 900})
+
+
+def assert_launch_on_startup_setting(page) -> None:
+    settings = page.get_by_role("button", name="Settings", exact=True)
+    expect(settings).to_be_visible()
+    settings.click()
+
+    popover = page.locator("#settingsPopover")
+    expect(popover).to_be_visible()
+    expect(page.locator("#themePreference")).to_have_value("phosphor")
+    page.locator("#themePreference").select_option("ice")
+    expect(page.locator("html")).to_have_attribute("data-theme", "ice")
+    expect(page.locator("#densityPreference")).to_have_value("comfortable")
+    page.locator("#densityPreference").select_option("compact")
+    expect(page.locator("html")).to_have_attribute("data-density", "compact")
+    page.locator("#motionPreference").select_option("reduced")
+    expect(page.locator("html")).to_have_attribute("data-motion", "reduced")
+    page.locator("#fontScalePreference").select_option("110")
+    expect(page.locator("html")).to_have_attribute("style", re.compile(r"--font-scale:\s*110%"))
+    expect(page.locator("#settingsSync")).to_have_text("Saved")
+
+    launch = page.get_by_role("switch", name=re.compile(r"Launch on startup"))
+    expect(launch).not_to_be_checked()
+    expect(page.locator("#launchOnStartupStatus")).to_have_text("Disabled")
+
+    launch.check()
+    expect(launch).to_be_checked()
+    expect(page.locator("#launchOnStartupStatus")).to_have_text("Enabled")
+    assert page.evaluate("window.__launchOnStartup") is True
+
+    launch.uncheck()
+    expect(launch).not_to_be_checked()
+    expect(page.locator("#launchOnStartupStatus")).to_have_text("Disabled")
+    assert page.evaluate("window.__launchOnStartup") is False
+
+    release_notes = page.get_by_role("button", name="Release notes")
+    expect(release_notes).to_be_visible()
+    release_notes.click()
+    assert page.evaluate("window.__releaseNotesOpened") is True
+    expect(popover).to_be_hidden()
+    settings.click()
+    expect(popover).to_be_visible()
+
+    page.set_viewport_size({"width": 900, "height": 620})
+    popover_box = popover.bounding_box()
+    assert popover_box is not None
+    assert popover_box["x"] >= 0 and popover_box["y"] >= 0
+    assert popover_box["x"] + popover_box["width"] <= 900
+    assert popover_box["y"] + popover_box["height"] <= 620
+
+    page.keyboard.press("Escape")
+    expect(popover).to_be_hidden()
+    page.set_viewport_size({"width": 1440, "height": 900})
 
 
 def assert_palette_and_theme(page) -> None:
@@ -246,6 +414,7 @@ def run() -> None:
     live_directory.mkdir()
     dormant_directory.mkdir()
     write_projects(data_directory, [])
+    script_name = write_script_fixture(data_directory) if os.name == "nt" else None
 
     environment = {
         **os.environ,
@@ -270,6 +439,10 @@ def run() -> None:
         with ListeningFixture() as live_listener, sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
             page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.context.grant_permissions(
+                ["clipboard-read", "clipboard-write"],
+                origin=origin.rstrip("/"),
+            )
             page.on(
                 "console",
                 lambda message: console_errors.append(message.text)
@@ -278,7 +451,59 @@ def run() -> None:
             )
             page.on("pageerror", lambda error: console_errors.append(str(error)))
             page.add_init_script(
-                "localStorage.setItem('hackersLair.cinematicSeen', '1');"
+                """
+                localStorage.setItem('hackersLair.cinematicSeen', '1');
+                window.__availableUpdate = {
+                  channel: 'powershell',
+                  channelLabel: 'PowerShell portable',
+                  currentVersion: '2.1.0-beta.2',
+                  mode: 'manual',
+                  status: 'available',
+                  version: '2.1.0-beta.3',
+                  message: 'v2.1.0-beta.3 is available. Update when convenient with the PowerShell portable install command.',
+                  upgradeCommand: 'irm https://hackerslairhq.github.io/desktop/install.ps1 | iex',
+                  releaseUrl: 'https://github.com/hackerslairhq/desktop/releases/tag/v2.1.0-beta.3',
+                  releaseNotes: '### Fixed\\n\\n- Portable update fixture notes.',
+                  managedTargets: [],
+                };
+                window.hackerLairWindow = {
+                  minimize: () => {},
+                  toggleMaximize: () => {},
+                  close: () => {},
+                  restart: () => {},
+                  shutdown: () => {},
+                  onMaximizeChange: () => () => {},
+                  getLaunchAtLogin: async () => ({
+                    supported: true,
+                    enabled: Boolean(window.__launchOnStartup),
+                  }),
+                  setLaunchAtLogin: async (enabled) => {
+                    window.__launchOnStartup = Boolean(enabled);
+                    return { supported: true, enabled: window.__launchOnStartup };
+                  },
+                  getUpdateState: async () => ({
+                    channel: 'powershell',
+                    channelLabel: 'PowerShell portable',
+                    currentVersion: '2.1.0-beta.2',
+                    mode: 'manual',
+                    status: 'manual',
+                    version: '',
+                    message: 'Updates use the PowerShell portable install channel.',
+                    upgradeCommand: 'irm https://hackerslairhq.github.io/desktop/install.ps1 | iex',
+                    releaseUrl: 'https://github.com/hackerslairhq/desktop/releases',
+                    releaseNotes: '### Fixed\\n\\n- Current release fixture notes.',
+                    managedTargets: [],
+                  }),
+                  onUpdateState: (callback) => {
+                    window.__lairUpdateListener = callback;
+                    return () => {};
+                  },
+                  openUpdateNotes: async () => {
+                    window.__releaseNotesOpened = true;
+                    return true;
+                  },
+                };
+                """
             )
             page.goto(origin, wait_until="networkidle")
             assert_empty_state(page)
@@ -309,6 +534,11 @@ def run() -> None:
                 ],
             )
             assert_target_states(page, live_listener.port, dormant_port)
+            assert_port_signal_action_tray(page, live_listener.port)
+            if script_name:
+                assert_script_action_tray(page, script_name)
+            assert_minimal_update_controls(page)
+            assert_launch_on_startup_setting(page)
             assert_palette_and_theme(page)
             assert_responsive_layout(page)
             assert not console_errors, f"Browser console errors: {console_errors}"
@@ -316,6 +546,7 @@ def run() -> None:
             browser = None
         print(
             "Playwright UI smoke passed: empty state, port conflict warning, target states, "
+            "compact action trays, launch-on-startup setting, minimal update controls, "
             "palette, theme, and 900x620."
         )
     except Exception:

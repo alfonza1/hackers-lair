@@ -35,6 +35,7 @@
   "files": [
     "app-config.js",
     "bin/",
+    "CHANGELOG.md",
     "desktop.js",
     "forge.config.js",
     "icon.ico",

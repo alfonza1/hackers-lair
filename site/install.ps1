@@ -60,6 +60,90 @@ function Get-Sha256Hex([string]$File) {
     }
 }
 
+function Test-IsElevated {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function New-ApplicationShortcut(
+    [string]$ShortcutPath,
+    [string]$Executable,
+    [string]$WorkingDirectory,
+    $Shell
+) {
+    $parent = Split-Path -Parent $ShortcutPath
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    $shortcut = $Shell.CreateShortcut($ShortcutPath)
+    $shortcut.TargetPath = $Executable
+    $shortcut.Arguments = ''
+    $shortcut.WorkingDirectory = $WorkingDirectory
+    $shortcut.IconLocation = "$Executable,0"
+    $shortcut.Description = 'Local developer process control'
+    $shortcut.Save()
+}
+
+function Test-LegacyLauncherShortcut([string]$ShortcutPath, $Shell) {
+    if (-not (Test-Path -LiteralPath $ShortcutPath)) {
+        return $false
+    }
+    try {
+        $shortcut = $Shell.CreateShortcut($ShortcutPath)
+        $hostName = [System.IO.Path]::GetFileName($shortcut.TargetPath)
+        $usesScriptHost = $hostName -in @('wscript.exe', 'cscript.exe')
+        $usesRetiredLauncher = $shortcut.Arguments -match '(?i)(?:^|[\\/])launcher\.vbs(?:"|\s|$)'
+        return $usesScriptHost -and $usesRetiredLauncher
+    } catch {
+        return $false
+    }
+}
+
+function Backup-LegacyShortcut([string]$ShortcutPath, [string]$Label) {
+    $backupDirectory = Join-Path $env:APPDATA 'HackersLair\shortcut-backups'
+    New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
+    $backupName = '{0}-{1}.lnk' -f $Label, (Get-Date -Format 'yyyyMMdd-HHmmssfff')
+    Copy-Item -LiteralPath $ShortcutPath -Destination (Join-Path $backupDirectory $backupName) -Force
+}
+
+function Repair-LegacyShortcuts(
+    [string]$Executable,
+    [string]$WorkingDirectory,
+    $Shell
+) {
+    $taskbarShortcut = Join-Path $env:APPDATA "Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Hacker's Lair.lnk"
+    $desktopDirectory = if (
+        $env:LAIR_INSTALLER_SMOKE -eq '1' -and
+        $env:LAIR_DESKTOP_DIRECTORY
+    ) {
+        [IO.Path]::GetFullPath($env:LAIR_DESKTOP_DIRECTORY)
+    } else {
+        [Environment]::GetFolderPath('Desktop')
+    }
+    $repairTargets = @(
+        @{ Path = $taskbarShortcut; Label = 'taskbar' }
+    )
+    if ($desktopDirectory) {
+        $repairTargets += @{
+            Path = (Join-Path $desktopDirectory "Hacker's Lair.lnk")
+            Label = 'desktop'
+        }
+    }
+    foreach ($target in $repairTargets) {
+        if (Test-LegacyLauncherShortcut $target.Path $Shell) {
+            Backup-LegacyShortcut $target.Path $target.Label
+            New-ApplicationShortcut $target.Path $Executable $WorkingDirectory $Shell
+            Write-Output "Repaired legacy $($target.Label) shortcut."
+        }
+    }
+
+    $startupShortcut = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup\Hacker's Lair.lnk"
+    if (Test-LegacyLauncherShortcut $startupShortcut $Shell) {
+        Backup-LegacyShortcut $startupShortcut 'startup'
+        Remove-Item -LiteralPath $startupShortcut -Force
+        Write-Output 'Removed retired launch-at-login shortcut. Enable launch at login inside the app if wanted.'
+    }
+}
+
 if (-not $env:LOCALAPPDATA) {
     throw 'LOCALAPPDATA is unavailable. Hacker''s Lair installs per user on Windows.'
 }
@@ -152,15 +236,10 @@ try {
 
     if (-not $NoShortcut) {
         $programs = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
-        New-Item -ItemType Directory -Path $programs -Force | Out-Null
         $shortcutPath = Join-Path $programs "$ApplicationName.lnk"
         $shell = New-Object -ComObject WScript.Shell
-        $shortcut = $shell.CreateShortcut($shortcutPath)
-        $shortcut.TargetPath = $installedExecutable
-        $shortcut.WorkingDirectory = $installRoot
-        $shortcut.IconLocation = "$installedExecutable,0"
-        $shortcut.Description = 'Local developer process control'
-        $shortcut.Save()
+        New-ApplicationShortcut $shortcutPath $installedExecutable $installRoot $shell
+        Repair-LegacyShortcuts $installedExecutable $installRoot $shell
     }
 
     Write-Output ''
@@ -168,7 +247,12 @@ try {
     Write-Output 'Launch at login remains off; enable it inside the app if wanted.'
     Write-Output 'Open a new terminal and run "lair doctor".'
     if (-not $NoLaunch) {
-        Start-Process -FilePath $installedExecutable -WorkingDirectory $installRoot
+        if (Test-IsElevated) {
+            Write-Output 'Administrator PowerShell detected: automatic launch was skipped.'
+            Write-Output "Open $ApplicationName from the Start menu to run it without administrator privileges."
+        } else {
+            Start-Process -FilePath $installedExecutable -WorkingDirectory $installRoot
+        }
     }
 } finally {
     if (

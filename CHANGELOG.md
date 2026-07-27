@@ -7,6 +7,25 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+### Added
+
+- Packaged portable, Scoop, and Linux installs now check the official GitHub
+  releases feed hourly and show a quiet Settings badge when an update is
+  available; installation remains user-initiated through the detected channel.
+
+### Changed
+
+- Moved update channel commands and release notes from the Targets page into a
+  focused Settings dialog with one-click command copying.
+
+### Fixed
+
+- PowerShell installs now migrate retired `launcher.vbs` taskbar and desktop
+  shortcuts to the packaged executable and remove the obsolete forced-startup
+  shortcut after preserving backups.
+- PowerShell installs started from an administrator terminal no longer leave an
+  elevated tray process that blocks later normal-user launches.
+
 ## [2.1.0-beta.2] - 2026-07-26
 
 ### Added

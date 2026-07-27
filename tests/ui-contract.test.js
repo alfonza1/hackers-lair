@@ -31,13 +31,10 @@ test('a raw app shell fails closed with an actionable stale-server message', () 
   );
 });
 
-test('UI omits N/A placeholders and ships the curated preference surface', () => {
+test('UI omits N/A placeholders and keeps persisted preference behavior', () => {
   assert.doesNotMatch(html, /\bN\/A\b/);
   for (const theme of ['phosphor', 'amber', 'ice', 'crimson', 'ghost']) {
-    assert.match(html, new RegExp(`data-theme="${theme}"|value="${theme}"`));
-  }
-  for (const preference of ['themePreference', 'densityPreference', 'motionPreference', 'fontScalePreference']) {
-    assert.match(html, new RegExp(`id="${preference}"`));
+    assert.match(html, new RegExp(`data-theme="${theme}"|'${theme}'`));
   }
   assert.match(html, /\/api\/settings\/preferences/);
   assert.match(html, /if \(pollInFlight \|\| document\.hidden\) return/);
@@ -49,13 +46,44 @@ test('target cards expose compact details and truthful port groups', () => {
   assert.match(html, />PORTS</);
   assert.match(html, /port-detected/);
   assert.match(html, /points\.length < 5/);
+  assert.match(html, /<div class="action-cluster compact">\s*\$\{active\s*\?\s*actionButton\('project', 'terminate'/);
+  assert.doesNotMatch(html, /\$\{actionButton\('project', 'terminate'[^}]+}\s*\$\{actionButton\('project', 'initiate'/);
 });
 
-test('command palette includes setup and every preference family', () => {
-  for (const verb of ['ADD', 'SCAN', 'SETTINGS', 'THEME', 'DENSITY', 'MOTION', 'FONT']) {
+test('command palette includes setup, release, conditional update, and every preference family', () => {
+  for (const verb of ['ADD', 'SCAN', 'RELEASE', 'UPDATE', 'THEME', 'DENSITY', 'MOTION', 'FONT']) {
     assert.match(html, new RegExp(`verb: '${verb}'`));
   }
+  assert.doesNotMatch(html, /verb: 'SETTINGS'/);
+  assert.match(html, /Enable launch on startup/);
+  assert.doesNotMatch(html, /Enable launch at login/);
   assert.match(html, /component\.hasLog/);
+});
+
+test('update badge and Settings keep release controls minimal', () => {
+  assert.doesNotMatch(html, /id="updateBanner"/);
+  assert.match(html, /id="updateAvailableTrigger"/);
+  assert.match(html, /id="releaseNotesTrigger"/);
+  assert.match(html, /id="settingsPopover"[\s\S]+id="releaseNotesTrigger"/);
+  assert.match(html, /id="updateDialog"/);
+  assert.match(html, /id="copyUpdateCommand"/);
+  assert.doesNotMatch(html, /id="releaseNotesBody"/);
+  assert.doesNotMatch(html, /id="updateCurrentVersion"/);
+  assert.doesNotMatch(html, /id="updateChannel"/);
+  assert.doesNotMatch(html, /id="updateStatus"/);
+});
+
+test('Settings contains appearance, startup, and release controls', () => {
+  assert.match(html, /id="settingsTrigger"[^>]*>Settings</);
+  assert.match(html, /id="settingsPopover"[^>]*hidden/);
+  assert.match(html, /id="launchOnStartup"[^>]*role="switch"/);
+  assert.match(html, /<strong>Launch on startup<\/strong>/);
+  assert.doesNotMatch(html, /Launch at login/);
+  for (const preference of ['themePreference', 'densityPreference', 'motionPreference', 'fontScalePreference']) {
+    assert.match(html, new RegExp(`id="${preference}"`));
+  }
+  assert.match(html, /id="settingsSync"/);
+  assert.match(html, /<strong>Release notes<\/strong>/);
 });
 
 test('runtime resilience controls surface backend and log state', () => {

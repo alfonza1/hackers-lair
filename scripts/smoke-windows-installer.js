@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const fs = require('fs');
 const http = require('http');
@@ -46,6 +47,113 @@ function runAsync(command, args, options = {}) {
       ].filter(Boolean).join('\n')));
     });
   });
+}
+
+function currentProcessIsElevated() {
+  return run('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    [
+      '$identity = [Security.Principal.WindowsIdentity]::GetCurrent();',
+      '$principal = New-Object Security.Principal.WindowsPrincipal($identity);',
+      '$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)',
+    ].join(' '),
+  ]).trim() === 'True';
+}
+
+function installedProcessIds(executable) {
+  const output = run('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    [
+      '$target = [IO.Path]::GetFullPath($env:LAIR_SMOKE_EXECUTABLE);',
+      `$ids = Get-CimInstance Win32_Process -Filter "Name='HackersLair.exe'" |`,
+      'Where-Object {',
+      '$_.ExecutablePath -and',
+      '[IO.Path]::GetFullPath($_.ExecutablePath).Equals(',
+      '$target, [StringComparison]::OrdinalIgnoreCase',
+      ')',
+      '} | Select-Object -ExpandProperty ProcessId;',
+      '$ids -join ","',
+    ].join(' '),
+  ], {
+    env: {
+      ...process.env,
+      LAIR_SMOKE_EXECUTABLE: executable,
+    },
+  }).trim();
+  return output ? output.split(',').map(Number) : [];
+}
+
+function stopInstalledProcesses(executable) {
+  for (const processId of installedProcessIds(executable)) {
+    try {
+      process.kill(processId);
+    } catch (error) {
+      if (error.code !== 'ESRCH') throw error;
+    }
+  }
+}
+
+function createShortcut(shortcutPath, targetPath, args = '', workingDirectory = '') {
+  run('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    [
+      '$parent = Split-Path -Parent $env:LAIR_SHORTCUT_PATH;',
+      'New-Item -ItemType Directory -Path $parent -Force | Out-Null;',
+      '$shell = New-Object -ComObject WScript.Shell;',
+      '$shortcut = $shell.CreateShortcut($env:LAIR_SHORTCUT_PATH);',
+      '$shortcut.TargetPath = $env:LAIR_SHORTCUT_TARGET;',
+      '$shortcut.Arguments = $env:LAIR_SHORTCUT_ARGUMENTS;',
+      '$shortcut.WorkingDirectory = $env:LAIR_SHORTCUT_WORKING_DIRECTORY;',
+      '$shortcut.Save();',
+    ].join(' '),
+  ], {
+    env: {
+      ...process.env,
+      LAIR_SHORTCUT_PATH: shortcutPath,
+      LAIR_SHORTCUT_TARGET: targetPath,
+      LAIR_SHORTCUT_ARGUMENTS: args,
+      LAIR_SHORTCUT_WORKING_DIRECTORY: workingDirectory,
+    },
+  });
+}
+
+function readShortcut(shortcutPath) {
+  const output = run('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    [
+      '$shell = New-Object -ComObject WScript.Shell;',
+      '$shortcut = $shell.CreateShortcut($env:LAIR_SHORTCUT_PATH);',
+      '[pscustomobject]@{',
+      'TargetPath = $shortcut.TargetPath;',
+      'Arguments = $shortcut.Arguments;',
+      'WorkingDirectory = $shortcut.WorkingDirectory',
+      '} | ConvertTo-Json -Compress;',
+    ].join(' '),
+  ], {
+    env: {
+      ...process.env,
+      LAIR_SHORTCUT_PATH: shortcutPath,
+    },
+  });
+  return JSON.parse(output);
+}
+
+async function waitForInstalledProcessesToExit(executable, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (installedProcessIds(executable).length) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Timed out waiting for ${executable} to exit.`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 }
 
 async function main() {
@@ -131,23 +239,28 @@ async function main() {
       ],
     };
     const releaseBaseUrl = `http://127.0.0.1:${port}`;
-    const installerArguments = (releaseApi) => [
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      path.join(root, 'install.ps1'),
-      '-InstallDirectory',
-      installRoot,
-      '-ReleaseApi',
-      `${releaseBaseUrl}/${releaseApi}`,
-      '-ReleaseDownloadBase',
-      releaseBaseUrl,
-      '-NoLaunch',
-      '-NoStartup',
-      '-NoShortcut',
-      '-NoPath',
-    ];
+    const installerArguments = (
+      releaseApi,
+      { noLaunch = true, createShortcuts = false } = {},
+    ) => {
+      const args = [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        path.join(root, 'install.ps1'),
+        '-InstallDirectory',
+        installRoot,
+        '-ReleaseApi',
+        `${releaseBaseUrl}/${releaseApi}`,
+        '-ReleaseDownloadBase',
+        releaseBaseUrl,
+      ];
+      if (noLaunch) args.push('-NoLaunch');
+      args.push('-NoStartup', '-NoPath');
+      if (!createShortcuts) args.push('-NoShortcut');
+      return args;
+    };
 
     try {
       fs.writeFileSync(checksums, `${'0'.repeat(64)}  ${archiveName}\n`);
@@ -176,6 +289,109 @@ async function main() {
       });
       if (!cliOutput.includes("Hacker's Lair CLI")) throw new Error('Installed CLI did not start.');
 
+      const isolatedAppData = path.join(temporaryRoot, 'appdata');
+      const taskbarShortcut = path.join(
+        isolatedAppData,
+        'Microsoft',
+        'Internet Explorer',
+        'Quick Launch',
+        'User Pinned',
+        'TaskBar',
+        "Hacker's Lair.lnk",
+      );
+      const startupShortcut = path.join(
+        isolatedAppData,
+        'Microsoft',
+        'Windows',
+        'Start Menu',
+        'Programs',
+        'Startup',
+        "Hacker's Lair.lnk",
+      );
+      const startMenuShortcut = path.join(
+        isolatedAppData,
+        'Microsoft',
+        'Windows',
+        'Start Menu',
+        'Programs',
+        "Hacker's Lair.lnk",
+      );
+      const isolatedDesktop = path.join(temporaryRoot, 'desktop');
+      const desktopShortcut = path.join(isolatedDesktop, "Hacker's Lair.lnk");
+      const retiredLauncher = path.join(temporaryRoot, 'retired-source', 'launcher.vbs');
+      const scriptHost = path.join(process.env.SystemRoot, 'System32', 'wscript.exe');
+      createShortcut(
+        taskbarShortcut,
+        scriptHost,
+        `"${retiredLauncher}"`,
+        path.dirname(retiredLauncher),
+      );
+      createShortcut(
+        startupShortcut,
+        scriptHost,
+        `"${retiredLauncher}" boot`,
+        path.dirname(retiredLauncher),
+      );
+      createShortcut(
+        desktopShortcut,
+        scriptHost,
+        `"${retiredLauncher}"`,
+        path.dirname(retiredLauncher),
+      );
+      await runAsync(
+        'powershell',
+        installerArguments('release-unavailable', { createShortcuts: true }),
+        {
+          env: {
+            ...process.env,
+            APPDATA: isolatedAppData,
+            LAIR_INSTALLER_SMOKE: '1',
+            LAIR_DESKTOP_DIRECTORY: isolatedDesktop,
+          },
+        },
+      );
+      assert.equal(readShortcut(taskbarShortcut).TargetPath, installedExecutable);
+      assert.equal(readShortcut(desktopShortcut).TargetPath, installedExecutable);
+      assert.equal(readShortcut(startMenuShortcut).TargetPath, installedExecutable);
+      assert.equal(fs.existsSync(startupShortcut), false);
+      const shortcutBackups = fs.readdirSync(
+        path.join(isolatedAppData, 'HackersLair', 'shortcut-backups'),
+      );
+      for (const label of ['taskbar', 'desktop', 'startup']) {
+        assert.equal(
+          shortcutBackups.some((filename) => filename.startsWith(`${label}-`)),
+          true,
+          `Installer did not preserve the retired ${label} shortcut.`,
+        );
+      }
+
+      const elevatedLaunchFailures = [];
+      if (currentProcessIsElevated()) {
+        const launchOutput = await runAsync(
+          'powershell',
+          installerArguments('release-unavailable', { noLaunch: false }),
+          {
+            env: {
+              ...process.env,
+              PROJECT_MANAGER_DATA_DIR: path.join(temporaryRoot, 'user-data'),
+              LAIR_SMOKE_EXIT_AFTER_MS: '5000',
+            },
+          },
+        );
+        if (!launchOutput.includes('Administrator PowerShell detected: automatic launch was skipped.')) {
+          elevatedLaunchFailures.push(
+            'Elevated installer did not explain that automatic launch was skipped.',
+          );
+        }
+        if (installedProcessIds(installedExecutable).length) {
+          elevatedLaunchFailures.push(
+            'Elevated installer left an elevated desktop process running.',
+          );
+        }
+        stopInstalledProcesses(installedExecutable);
+        await waitForInstalledProcessesToExit(installedExecutable);
+      }
+
       run('powershell', [
         '-NoProfile',
         '-ExecutionPolicy',
@@ -189,13 +405,30 @@ async function main() {
         '-NoPath',
       ]);
       if (fs.existsSync(installRoot)) throw new Error('Uninstaller left the smoke install directory behind.');
+      if (elevatedLaunchFailures.length) {
+        throw new Error(elevatedLaunchFailures.join('\n'));
+      }
       console.log('Windows checksum installer, packaged CLI, and verified uninstaller smoke passed.');
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
   } finally {
-    if (fs.existsSync(installRoot)) fs.rmSync(installRoot, { recursive: true, force: true });
-    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    const installedExecutable = path.join(installRoot, 'HackersLair.exe');
+    if (fs.existsSync(installedExecutable)) stopInstalledProcesses(installedExecutable);
+    if (fs.existsSync(installRoot)) {
+      fs.rmSync(installRoot, {
+        recursive: true,
+        force: true,
+        maxRetries: 20,
+        retryDelay: 250,
+      });
+    }
+    fs.rmSync(temporaryRoot, {
+      recursive: true,
+      force: true,
+      maxRetries: 20,
+      retryDelay: 250,
+    });
   }
 }
 

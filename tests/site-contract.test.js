@@ -166,6 +166,18 @@ test('site scripts stay self-contained and installer mirrors stay exact', () => 
   );
 });
 
+test('Windows command instructions explicitly use a regular PowerShell window', () => {
+  for (const relativePath of [
+    'index.html',
+    'docs/index.html',
+    'getting-started/index.html',
+  ]) {
+    const page = fs.readFileSync(path.join(site, relativePath), 'utf8');
+    assert.match(page, /regular PowerShell window/i, relativePath);
+    assert.match(page, /administrator privileges are not needed/i, relativePath);
+  }
+});
+
 test('custom 404 uses project-root links that survive nested missing routes', () => {
   const notFound = fs.readFileSync(path.join(site, '404.html'), 'utf8');
   assert.match(notFound, /href="\/desktop\/assets\/site\.css"/);

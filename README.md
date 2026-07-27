@@ -37,6 +37,10 @@ Checksum-verifying PowerShell channel:
 irm https://hackerslairhq.github.io/desktop/install.ps1 | iex
 ```
 
+Run the command in a regular PowerShell window; administrator privileges are
+not needed. An elevated install completes without auto-launching the app, so
+the persistent tray process never inherits administrator privileges.
+
 Scoop:
 
 ```powershell

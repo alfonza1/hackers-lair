@@ -522,65 +522,66 @@
 
   .brand-copy { min-width: 0; }
 
-  .preferences-shell {
-    position: relative;
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
     flex: none;
     align-self: flex-start;
     margin-left: auto;
   }
 
-  .preferences-trigger {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
+  .settings-shell {
+    position: relative;
+    flex: none;
+  }
+
+  .header-action {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 12px;
     border: 1px solid var(--line-strong);
     border-radius: 4px;
     color: var(--cyan);
     background: rgba(var(--surface-strong-rgb), .72);
+    font: 800 9px/1 var(--mono);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    white-space: nowrap;
     cursor: pointer;
   }
 
-  .preferences-trigger:hover,
-  .preferences-trigger[aria-expanded="true"] {
-    border-color: var(--cyan);
-    color: var(--text);
-    background: rgba(var(--secondary-rgb), .08);
-  }
-
-  .preferences-trigger:focus-visible,
-  .preference-field select:focus-visible,
-  .density-toggle:focus-visible,
-  .card-toggle:focus-visible {
-    outline: 2px solid var(--cyan);
-    outline-offset: 2px;
-  }
-
-  .preferences-popover {
+  .settings-popover {
     position: absolute;
-    top: 42px;
-    right: 0;
+    inset: 52px 0 auto auto;
     z-index: 50;
     display: grid;
-    gap: 12px;
-    width: min(310px, calc(100vw - 32px));
+    gap: 11px;
+    width: min(320px, calc(100vw - 32px));
+    max-height: calc(100vh - 72px);
+    margin: 0;
     padding: 14px;
     border: 1px solid var(--line-strong);
     border-radius: 5px;
+    color: var(--text);
     background: var(--panel-solid);
     box-shadow: var(--shadow);
+    overflow-y: auto;
   }
 
-  .preferences-popover h2 {
-    color: var(--text);
-    font-size: 13px;
+  .settings-popover h2 {
+    font-size: 12px;
     letter-spacing: .08em;
     text-transform: uppercase;
   }
 
-  .preferences-popover > p {
+  .settings-intro {
     color: var(--muted);
     font-size: 10px;
+    line-height: 1.5;
   }
 
   .preference-field {
@@ -588,6 +589,7 @@
     grid-template-columns: minmax(90px, .7fr) minmax(0, 1fr);
     gap: 10px;
     align-items: center;
+    min-height: 44px;
     color: var(--muted);
     font-size: 10px;
     font-weight: 800;
@@ -597,25 +599,201 @@
 
   .preference-field select {
     min-width: 0;
+    min-height: 44px;
     padding: 7px 8px;
     border: 1px solid var(--line-strong);
     border-radius: 3px;
     color: var(--text);
     background: var(--panel-2);
     font: 11px var(--mono);
+    cursor: pointer;
   }
 
-  .preference-field input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--green);
-    justify-self: start;
+  .preference-field select:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
   }
 
-  .preferences-sync {
-    min-height: 15px;
+  .preference-field select:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .settings-sync {
+    min-height: 13px;
     color: var(--dim);
     font-size: 9px;
+  }
+
+  .settings-link {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    min-height: 54px;
+    padding: 9px 10px;
+    border: 1px solid rgba(var(--secondary-rgb), .28);
+    border-radius: 3px;
+    color: var(--text);
+    background: rgba(var(--secondary-rgb), .055);
+    font-family: var(--mono);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .settings-link strong {
+    color: var(--cyan);
+    font-size: 10px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .settings-link small {
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .settings-link:active {
+    border-color: var(--cyan);
+    background: rgba(var(--secondary-rgb), .14);
+  }
+
+  .settings-link:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+  }
+
+  .settings-link:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .startup-setting {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    min-height: 58px;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: rgba(var(--secondary-rgb), .04);
+    cursor: pointer;
+  }
+
+  .startup-setting:active {
+    border-color: var(--cyan);
+    background: rgba(var(--secondary-rgb), .12);
+  }
+
+  .startup-setting > span:first-child {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .startup-setting strong {
+    color: var(--text);
+    font-size: 10px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .startup-setting small {
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .startup-setting input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--green);
+    cursor: pointer;
+  }
+
+  .startup-setting input:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 3px;
+  }
+
+  .startup-setting:has(input:disabled) {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .startup-setting:has(input:disabled) input { cursor: not-allowed; }
+  .startup-setting.is-busy { border-style: dashed; }
+  .startup-setting.is-error { border-color: var(--red); }
+  .startup-setting.is-success { border-color: rgba(var(--accent-rgb), .42); }
+
+  .startup-status {
+    min-height: 13px;
+    color: var(--dim);
+    font-size: 9px;
+  }
+
+  .startup-setting.is-error + .startup-status { color: var(--red); }
+  .startup-setting.is-success + .startup-status { color: var(--green); }
+
+  .header-action:active {
+    border-color: var(--cyan);
+    color: var(--text);
+    background: rgba(var(--secondary-rgb), .14);
+  }
+
+  .header-action:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  .header-action:focus-visible,
+  .density-toggle:focus-visible,
+  .card-toggle:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+  }
+
+  .update-available-trigger {
+    border-color: rgba(var(--warning-rgb), .52);
+    color: var(--amber);
+    background: rgba(var(--warning-rgb), .06);
+  }
+
+  .update-available-trigger::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 8px rgba(var(--warning-rgb), .42);
+  }
+
+  @media (hover: hover) {
+    .header-action:hover {
+      border-color: var(--cyan);
+      color: var(--text);
+      background: rgba(var(--secondary-rgb), .08);
+    }
+
+    .update-available-trigger:hover {
+      border-color: var(--amber);
+      color: var(--text);
+      background: rgba(var(--warning-rgb), .11);
+    }
+
+    .startup-setting:hover {
+      border-color: var(--cyan);
+      background: rgba(var(--secondary-rgb), .08);
+    }
+
+    .preference-field select:hover,
+    .settings-link:hover {
+      border-color: var(--cyan);
+      background: rgba(var(--secondary-rgb), .1);
+    }
   }
 
   .eyebrow,
@@ -1235,6 +1413,10 @@
     border: 1px solid rgba(var(--accent-rgb), .1);
     border-radius: 6px;
     background: rgba(var(--shadow-rgb),.2);
+  }
+
+  .action-cluster.compact {
+    min-width: 0;
   }
 
   .action {
@@ -2040,6 +2222,16 @@
   @media (max-width: 500px) {
     .shell { padding: 8px; }
     .brand { display: block; }
+    .header-actions {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      margin-top: 12px;
+      margin-left: 0;
+    }
+    .settings-popover {
+      right: auto;
+      left: 0;
+    }
     h1 { font-size: 18px; line-height: 1.18; }
     .top-sub { max-width: 28ch; font-size: 11px; }
     .view-tabs { display: grid; grid-template-columns: 1fr; }
@@ -2402,6 +2594,39 @@
   .wizard-review .discovery-row { border: 1px solid var(--line); }
   .dialog-actions [hidden] { display: none; }
 
+  .update-dialog { width: min(580px, calc(100vw - 32px)); }
+  .update-section-label {
+    color: var(--dim);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+  .update-message {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  .update-command-panel {
+    display: grid;
+    gap: 9px;
+    margin-top: 16px;
+  }
+  .update-command-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .update-command-row code {
+    min-width: 0;
+    padding: 11px 12px;
+    overflow-wrap: anywhere;
+    border: 1px solid rgba(var(--secondary-rgb), .28);
+    color: var(--cyan);
+    background: rgba(var(--shadow-rgb), .3);
+    font: 700 10px/1.6 var(--mono);
+  }
   @media (max-width: 900px) {
     .template-controls { grid-template-columns: 1fr 1fr; }
     .template-controls .utility { grid-column: 1 / -1; }
@@ -2410,6 +2635,7 @@
     .schema-field-list { grid-template-columns: 1fr; }
     .component-fields,
     .editor-project-fields { grid-template-columns: 1fr; }
+    .update-command-row { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -2454,43 +2680,57 @@
         <h1 data-text="PROCESS CONTROL">Process Control<span class="cursor" aria-hidden="true"></span></h1>
         <p class="top-sub">Low-light command room for local targets, port signals, optional scripts, and machine diagnostics.</p>
       </div>
-      <div class="preferences-shell">
-        <button class="preferences-trigger" id="preferencesTrigger" type="button" aria-label="UI preferences" aria-expanded="false" aria-controls="preferencesPopover">⚙</button>
-        <div class="preferences-popover" id="preferencesPopover" hidden>
-          <h2>UI preferences</h2>
-          <p>Curated local presets. Saved across the desktop app and browser tabs.</p>
-          <label class="preference-field">Theme
-            <select id="themePreference">
-              <option value="phosphor">Phosphor</option>
-              <option value="amber">Amber</option>
-              <option value="ice">Ice</option>
-              <option value="crimson">Crimson</option>
-              <option value="ghost">Ghost</option>
-            </select>
-          </label>
-          <label class="preference-field">Density
-            <select id="densityPreference">
-              <option value="comfortable">Comfortable</option>
-              <option value="compact">Compact</option>
-            </select>
-          </label>
-          <label class="preference-field">Motion
-            <select id="motionPreference">
-              <option value="full">Full</option>
-              <option value="reduced">Reduced</option>
-            </select>
-          </label>
-          <label class="preference-field">Font scale
-            <select id="fontScalePreference">
-              <option value="90">90%</option>
-              <option value="100">100%</option>
-              <option value="110">110%</option>
-            </select>
-          </label>
-          <label class="preference-field" id="launchAtLoginField" hidden>Launch at login
-            <input id="launchAtLogin" type="checkbox">
-          </label>
-          <span class="preferences-sync" id="preferencesSync" role="status"></span>
+      <div class="header-actions" aria-label="Application links">
+        <button class="header-action update-available-trigger" id="updateAvailableTrigger" type="button" hidden>
+          <span id="updateAvailableLabel">Update available</span>
+        </button>
+        <div class="settings-shell" id="settingsShell">
+          <button class="header-action" id="settingsTrigger" type="button" aria-expanded="false" aria-controls="settingsPopover">Settings</button>
+          <div class="settings-popover" id="settingsPopover" hidden>
+            <h2>Settings</h2>
+            <p class="settings-intro">Appearance and desktop behavior. Saved across the app and browser tabs.</p>
+            <label class="preference-field">Theme
+              <select id="themePreference">
+                <option value="phosphor">Phosphor</option>
+                <option value="amber">Amber</option>
+                <option value="ice">Ice</option>
+                <option value="crimson">Crimson</option>
+                <option value="ghost">Ghost</option>
+              </select>
+            </label>
+            <label class="preference-field">Density
+              <select id="densityPreference">
+                <option value="comfortable">Comfortable</option>
+                <option value="compact">Compact</option>
+              </select>
+            </label>
+            <label class="preference-field">Motion
+              <select id="motionPreference">
+                <option value="full">Full</option>
+                <option value="reduced">Reduced</option>
+              </select>
+            </label>
+            <label class="preference-field">Font scale
+              <select id="fontScalePreference">
+                <option value="90">90%</option>
+                <option value="100">100%</option>
+                <option value="110">110%</option>
+              </select>
+            </label>
+            <span class="settings-sync" id="settingsSync" role="status" aria-live="polite"></span>
+            <label class="startup-setting" id="launchOnStartupField" for="launchOnStartup" hidden>
+              <span>
+                <strong>Launch on startup</strong>
+                <small>Open Hacker's Lair when you sign in to Windows.</small>
+              </span>
+              <input id="launchOnStartup" type="checkbox" role="switch">
+            </label>
+            <span class="startup-status" id="launchOnStartupStatus" role="status" aria-live="polite" hidden></span>
+            <button class="settings-link" id="releaseNotesTrigger" type="button">
+              <strong>Release notes</strong>
+              <small>Open the current release on GitHub.</small>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -2503,12 +2743,6 @@
   </header>
 
   <main class="console-layout">
-    <section class="update-banner" id="updateBanner" role="status" hidden>
-      <span class="update-message" id="updateMessage"></span>
-      <code id="updateCommand" hidden></code>
-      <button class="utility" id="applyUpdate" type="button" hidden>Restart to Apply</button>
-      <button class="utility" id="updateNotes" type="button">Release Notes</button>
-    </section>
     <section class="update-banner backend-banner" id="backendBanner" role="alert" hidden>
       <span class="update-message" id="backendMessage">Local service unavailable.</span>
     </section>
@@ -2720,6 +2954,31 @@
     </div>
   </form>
 </dialog>
+<dialog class="lair-dialog update-dialog" id="updateDialog" aria-labelledby="updatesDialogTitle">
+  <form method="dialog">
+    <div class="dialog-head">
+      <div>
+        <div class="section-kicker">Software update</div>
+        <h2 id="updatesDialogTitle">Update available</h2>
+      </div>
+      <button class="utility" value="cancel" type="submit" aria-label="Close update">Close</button>
+    </div>
+    <div class="dialog-body">
+      <p class="update-message" id="updateMessage">Update status is available in the installed desktop app.</p>
+      <section class="update-command-panel" id="updateCommandPanel" hidden>
+        <div class="update-section-label">Run this command to update</div>
+        <div class="update-command-row">
+          <code id="updateCommand"></code>
+          <button class="utility" id="copyUpdateCommand" type="button">Copy command</button>
+        </div>
+      </section>
+    </div>
+    <div class="dialog-actions">
+      <button class="utility" id="applyUpdate" type="button" hidden>Restart to apply</button>
+      <button class="utility" value="cancel" type="submit">Close</button>
+    </div>
+  </form>
+</dialog>
 <div class="command-palette" id="commandPalette" role="dialog" aria-modal="true" aria-labelledby="commandTitle" hidden>
   <div class="command-core">
     <div class="command-head">
@@ -2793,6 +3052,7 @@
     settings: null,
     update: null,
     backend: null,
+    launchAtLogin: { supported: false, enabled: false, busy: false, error: '' },
     discovery: null,
     uiPreferences: normalizeUiPreferences(loadJson(UI_PREFERENCES_KEY, {})),
     expandedCards: new Set(),
@@ -3091,23 +3351,16 @@
     const normalized = normalizeUiPreferences(nextPreferences);
     localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(normalized));
     applyUiPreferences(normalized);
-    $('preferencesSync').textContent = 'Saving to local settings…';
+    $('settingsSync').textContent = 'Saving…';
     try {
       const result = await postJson('/api/settings/preferences', normalized);
       state.settings = { ...(state.settings || {}), uiPreferences: result.uiPreferences };
-      $('preferencesSync').textContent = 'Saved';
+      $('settingsSync').textContent = 'Saved';
       pushFeed('UI_PREFERENCES_SAVED', `theme=${normalized.theme} density=${normalized.density} motion=${normalized.motion} font=${normalized.fontScale}`, 'info');
     } catch (error) {
-      $('preferencesSync').textContent = 'Saved in this browser only';
+      $('settingsSync').textContent = 'Saved in this tab; desktop sync failed.';
       toast(error.message, true);
     }
-  }
-
-  function setUiPreference(key, value) {
-    void saveUiPreferences({
-      ...state.uiPreferences,
-      [key]: key === 'fontScale' ? Number(value) : value,
-    });
   }
 
   function saveActions() {
@@ -3443,8 +3696,6 @@
       : '';
     const lastSignal = formatDateTime(lastActionFor(key, project.lastActionAt || project.lastStartedAt));
     const isBusy = state.busy.has(key);
-    const initiateDisabled = isBusy || status.key === 'live' || status.key === 'booting';
-    const terminateDisabled = isBusy || status.key === 'dormant';
     const detectedUrls = [...new Set(project.components.flatMap((component) => component.detectedUrls || []))].slice(0, 5);
     const portDetected = active && !pids && project.components.some((component) => (
       component.running && component.livePorts?.length
@@ -3524,9 +3775,10 @@
               <button class="micro-action" type="button" data-open-in="copy">COPY COMMAND</button>
             </div>
           </div>
-          <div class="action-cluster">
-            ${!['live', 'booting'].includes(status.key) ? actionButton('project', 'initiate', 'INITIATE', initiateDisabled) : ''}
-            ${status.key !== 'dormant' ? actionButton('project', 'terminate', 'TERMINATE', terminateDisabled) : ''}
+          <div class="action-cluster compact">
+            ${active
+              ? actionButton('project', 'terminate', 'TERMINATE', isBusy)
+              : actionButton('project', 'initiate', 'INITIATE', isBusy)}
           </div>
         </div>
       </article>
@@ -3578,7 +3830,7 @@
               ${field('Path', processPath, 'path')}
             </div>
           </div>
-          <div class="action-cluster">
+          <div class="action-cluster compact">
             ${stopped ? actionButton('stopped-process', 'initiate', 'INITIATE', initiateDisabled) : ''}
             ${active ? actionButton('process', 'terminate', confirm ? 'KILL SIGNAL' : 'TERMINATE', terminateDisabled, confirm ? 'confirm' : '') : ''}
             ${stopped ? '<button class="action icon-clear" type="button" data-action="forget" data-kind="stopped-process" title="Clear remembered signal">X</button>' : ''}
@@ -3625,7 +3877,7 @@
               ${field('File', script.file)}
             </div>
           </div>
-          <div class="action-cluster">
+          <div class="action-cluster compact">
             ${!active ? actionButton('script', 'initiate', 'INITIATE', initiateDisabled) : ''}
             ${active ? actionButton('script', 'terminate', 'TERMINATE', terminateDisabled) : ''}
           </div>
@@ -4016,32 +4268,84 @@
 
   async function syncDesktopSettings() {
     const desktop = window.hackerLairWindow;
-    if (!desktop?.getLaunchAtLogin) return;
+    if (!desktop?.getLaunchAtLogin) {
+      renderLaunchOnStartup();
+      return;
+    }
     try {
-      const setting = await desktop.getLaunchAtLogin();
-      $('launchAtLoginField').hidden = !setting.supported;
-      $('launchAtLogin').checked = Boolean(setting.enabled);
+      state.launchAtLogin = {
+        ...(await desktop.getLaunchAtLogin()),
+        busy: false,
+        error: '',
+      };
     } catch {
-      $('launchAtLoginField').hidden = true;
+      state.launchAtLogin = { supported: false, enabled: false, busy: false, error: '' };
+    }
+    renderLaunchOnStartup();
+  }
+
+  function renderLaunchOnStartup() {
+    const setting = state.launchAtLogin;
+    $('launchOnStartupField').hidden = !setting.supported;
+    $('launchOnStartupStatus').hidden = !setting.supported;
+    $('launchOnStartup').checked = Boolean(setting.enabled);
+    $('launchOnStartup').disabled = !setting.supported || Boolean(setting.busy);
+    $('launchOnStartup').setAttribute('aria-busy', String(Boolean(setting.busy)));
+    $('launchOnStartupField').classList.toggle('is-busy', Boolean(setting.busy));
+    $('launchOnStartupField').classList.toggle('is-error', Boolean(setting.error));
+    $('launchOnStartupField').classList.toggle(
+      'is-success',
+      setting.supported && setting.enabled && !setting.busy && !setting.error,
+    );
+    $('launchOnStartupStatus').textContent = setting.error
+      || (setting.busy ? 'Saving…' : setting.enabled ? 'Enabled' : 'Disabled');
+  }
+
+  async function updateLaunchOnStartup(enabled) {
+    const previous = { ...state.launchAtLogin };
+    state.launchAtLogin = { ...previous, enabled: Boolean(enabled), busy: true, error: '' };
+    renderLaunchOnStartup();
+    try {
+      const setting = await window.hackerLairWindow.setLaunchAtLogin(Boolean(enabled));
+      if (!setting?.supported) throw new Error('Launch on startup is unavailable on this system.');
+      state.launchAtLogin = { ...setting, busy: false, error: '' };
+      renderLaunchOnStartup();
+      pushFeed('STARTUP_PREFERENCE_SAVED', `enabled=${Boolean(setting.enabled)}`, 'info');
+      return true;
+    } catch (error) {
+      state.launchAtLogin = {
+        ...previous,
+        busy: false,
+        error: `Could not save: ${error.message}`,
+      };
+      renderLaunchOnStartup();
+      toast(state.launchAtLogin.error, true);
+      return false;
     }
   }
 
   function renderUpdateState(update) {
     state.update = update;
-    const banner = $('updateBanner');
-    if (!update) {
-      banner.hidden = true;
-      return;
-    }
-    const show = update.mode === 'manual'
-      || ['ready', 'blocked', 'applying', 'error'].includes(update.status);
-    banner.hidden = !show;
-    $('updateMessage').textContent = update.message || 'Update status unavailable.';
-    $('updateCommand').hidden = !update.upgradeCommand;
-    $('updateCommand').textContent = update.upgradeCommand || '';
-    $('applyUpdate').hidden = !['ready', 'blocked'].includes(update.status);
-    $('applyUpdate').disabled = update.status === 'applying';
-    $('updateNotes').hidden = !update.releaseUrl;
+    const updateAvailable = ['available', 'ready', 'blocked'].includes(update?.status);
+    $('updateAvailableTrigger').hidden = !updateAvailable;
+    $('updateAvailableLabel').textContent = update?.version
+      ? `Update available · v${update.version}`
+      : 'Update available';
+    $('updateAvailableTrigger').setAttribute(
+      'aria-label',
+      updateAvailable
+        ? `Update available${update?.version ? `: v${update.version}` : ''}`
+        : 'No update available',
+    );
+    $('releaseNotesTrigger').title = update?.version
+      ? `Open release notes for v${update.version}`
+      : 'Open Hacker’s Lair releases on GitHub';
+    $('updateMessage').textContent = update?.message
+      || 'Update status is available in the installed desktop app.';
+    $('updateCommandPanel').hidden = !update?.upgradeCommand;
+    $('updateCommand').textContent = update?.upgradeCommand || '';
+    $('applyUpdate').hidden = !['ready', 'blocked'].includes(update?.status);
+    $('applyUpdate').disabled = update?.status === 'applying';
   }
 
   function renderBackendState(backend) {
@@ -5061,10 +5365,31 @@
   let commandSelection = 0;
   let visibleCommands = [];
 
-  function setPreferencesOpen(open) {
-    $('preferencesPopover').hidden = !open;
-    $('preferencesTrigger').setAttribute('aria-expanded', String(open));
-    if (open) $('themePreference').focus();
+  function openUpdatesDialog() {
+    renderUpdateState(state.update);
+    $('updateDialog').showModal();
+  }
+
+  function setSettingsOpen(open) {
+    const popover = $('settingsPopover');
+    const trigger = $('settingsTrigger');
+    const shouldOpen = Boolean(open);
+    popover.hidden = !shouldOpen;
+    trigger.setAttribute('aria-expanded', String(shouldOpen));
+    if (shouldOpen) $('themePreference').focus();
+  }
+
+  function openReleaseNotes() {
+    setSettingsOpen(false);
+    const desktop = window.hackerLairWindow;
+    if (desktop?.openUpdateNotes) {
+      void desktop.openUpdateNotes();
+      return;
+    }
+    const releaseUrl = String(state.update?.releaseUrl || 'https://github.com/hackerslairhq/desktop/releases');
+    if (releaseUrl.startsWith('https://github.com/hackerslairhq/desktop/releases')) {
+      window.open(releaseUrl, '_blank', 'noopener,noreferrer');
+    }
   }
 
   function commandCatalog() {
@@ -5073,10 +5398,18 @@
       { verb: 'COPY', label: 'Copy redacted Doctor report', hint: 'support', run: copyDoctorReport },
       { verb: 'ADD', label: 'Add project', hint: 'schema-backed editor', run: () => openProjectEditor() },
       { verb: 'SCAN', label: 'Scan folder', hint: 'project discovery', run: openSetupWizard },
-      { verb: 'SETTINGS', label: 'Open UI preferences', hint: 'theme density motion font', run: () => setPreferencesOpen(true) },
+      { verb: 'RELEASE', label: 'Open release notes', hint: 'GitHub Releases', run: openReleaseNotes },
       { verb: 'CONFIG', label: 'Export redacted config', hint: 'backup', run: exportRedactedConfig },
       { verb: 'CONFIG', label: 'Restore previous config', hint: 'recovery', run: restorePreviousConfig },
     ];
+    if (['available', 'ready', 'blocked'].includes(state.update?.status)) {
+      commands.splice(4, 0, {
+        verb: 'UPDATE',
+        label: state.update?.version ? `Update to v${state.update.version}` : 'Update Hacker’s Lair',
+        hint: 'show update command',
+        run: openUpdatesDialog,
+      });
+    }
     UI_PREFERENCE_VALUES.theme.forEach((theme) => commands.push({
       verb: 'THEME',
       label: theme,
@@ -5101,15 +5434,12 @@
       hint: fontScale === state.uiPreferences.fontScale ? 'selected' : 'UI scale',
       run: () => saveUiPreferences({ ...state.uiPreferences, fontScale }),
     }));
-    if (!$('launchAtLoginField').hidden) {
+    if (state.launchAtLogin.supported) {
       commands.push({
         verb: 'STARTUP',
-        label: $('launchAtLogin').checked ? 'Disable launch at login' : 'Enable launch at login',
+        label: state.launchAtLogin.enabled ? 'Disable launch on startup' : 'Enable launch on startup',
         hint: 'desktop setting',
-        run: async () => {
-          const setting = await window.hackerLairWindow.setLaunchAtLogin(!$('launchAtLogin').checked);
-          $('launchAtLogin').checked = Boolean(setting.enabled);
-        },
+        run: () => updateLaunchOnStartup(!state.launchAtLogin.enabled),
       });
     }
     state.projects.forEach((project) => {
@@ -5428,37 +5758,53 @@
   $('commandPalette').addEventListener('click', (event) => {
     if (event.target === $('commandPalette')) closeCommandPalette();
   });
-  $('preferencesTrigger').addEventListener('click', () => {
-    setPreferencesOpen($('preferencesPopover').hidden);
+  $('updateAvailableTrigger').addEventListener('click', openUpdatesDialog);
+  $('releaseNotesTrigger').addEventListener('click', openReleaseNotes);
+  $('themePreference').addEventListener('change', (event) => {
+    void saveUiPreferences({ ...state.uiPreferences, theme: event.target.value });
   });
-  $('themePreference').addEventListener('change', (event) => setUiPreference('theme', event.target.value));
-  $('densityPreference').addEventListener('change', (event) => setUiPreference('density', event.target.value));
-  $('motionPreference').addEventListener('change', (event) => setUiPreference('motion', event.target.value));
-  $('fontScalePreference').addEventListener('change', (event) => setUiPreference('fontScale', event.target.value));
-  $('launchAtLogin').addEventListener('change', async (event) => {
-    try {
-      const setting = await window.hackerLairWindow.setLaunchAtLogin(event.target.checked);
-      event.target.checked = Boolean(setting.enabled);
-      toast(setting.enabled ? 'Launch at login enabled.' : 'Launch at login disabled.');
-    } catch (error) {
-      event.target.checked = !event.target.checked;
-      toast(`Could not update launch at login: ${error.message}`, true);
+  $('densityPreference').addEventListener('change', (event) => {
+    void saveUiPreferences({ ...state.uiPreferences, density: event.target.value });
+  });
+  $('motionPreference').addEventListener('change', (event) => {
+    void saveUiPreferences({ ...state.uiPreferences, motion: event.target.value });
+  });
+  $('fontScalePreference').addEventListener('change', (event) => {
+    void saveUiPreferences({ ...state.uiPreferences, fontScale: Number(event.target.value) });
+  });
+  $('launchOnStartup').addEventListener('change', (event) => {
+    void updateLaunchOnStartup(event.target.checked);
+  });
+  $('settingsTrigger').addEventListener('click', () => {
+    setSettingsOpen($('settingsPopover').hidden);
+  });
+  document.addEventListener('click', (event) => {
+    if (!$('settingsPopover').hidden && !$('settingsShell').contains(event.target)) {
+      setSettingsOpen(false);
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !$('settingsPopover').hidden) {
+      setSettingsOpen(false);
+      $('settingsTrigger').focus();
     }
   });
   $('applyUpdate').addEventListener('click', async () => {
     const update = await window.hackerLairWindow?.applyUpdate?.();
     if (update) renderUpdateState(update);
   });
-  $('updateNotes').addEventListener('click', () => {
-    void window.hackerLairWindow?.openUpdateNotes?.();
+  $('copyUpdateCommand').addEventListener('click', async () => {
+    const command = state.update?.upgradeCommand;
+    if (!command) return;
+    try {
+      await navigator.clipboard.writeText(command);
+      toast('Update command copied.');
+    } catch (error) {
+      toast(`Could not copy update command: ${error.message}`, true);
+    }
   });
   window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => {
     applyUiPreferences(state.uiPreferences);
-  });
-  document.addEventListener('click', (event) => {
-    if (!$('preferencesPopover').hidden && !event.target.closest('.preferences-shell')) {
-      setPreferencesOpen(false);
-    }
   });
   document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -5466,7 +5812,6 @@
       if ($('commandPalette').hidden) openCommandPalette();
       else closeCommandPalette();
     }
-    if (event.key === 'Escape' && !$('preferencesPopover').hidden) setPreferencesOpen(false);
   });
 
   $('replayIntro').addEventListener('click', () => {
