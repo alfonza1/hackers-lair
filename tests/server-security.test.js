@@ -71,16 +71,59 @@ test('protects localhost mutations and verifies the bound service identity', asy
     '# Verify',
     '',
   ].join('\n'));
-  fs.writeFileSync(path.join(agentsHome, 'usage-log.jsonl'), `${JSON.stringify({
-    type: 'skill',
-    name: 'verify',
-    project: dataDirectory,
-    ts: new Date().toISOString(),
-    source: 'manual',
-  })}\n`);
+  fs.writeFileSync(path.join(agentsHome, 'usage-log.jsonl'), [
+    {
+      type: 'skill',
+      name: 'verify',
+      project: dataDirectory,
+      ts: new Date().toISOString(),
+      source: 'manual',
+    },
+    {
+      type: 'agent',
+      name: 'reviewer',
+      project: dataDirectory,
+      ts: new Date().toISOString(),
+      source: 'manual',
+    },
+    {
+      type: 'command',
+      name: 'release/check',
+      project: dataDirectory,
+      ts: new Date().toISOString(),
+      source: 'manual',
+    },
+  ].map((event) => JSON.stringify(event)).join('\n') + '\n');
   fs.mkdirSync(claudeHome, { recursive: true });
+  fs.mkdirSync(path.join(claudeHome, 'agents'), { recursive: true });
+  fs.mkdirSync(path.join(claudeHome, 'commands', 'release'), { recursive: true });
+  fs.writeFileSync(path.join(claudeHome, 'agents', 'reviewer.md'), [
+    '---',
+    'name: reviewer',
+    'description: Review repository changes for correctness and security.',
+    'tools: Read, Grep',
+    'model: inherit',
+    '---',
+  ].join('\n'));
+  fs.writeFileSync(path.join(claudeHome, 'commands', 'release', 'check.md'), [
+    '---',
+    'description: Check whether a release is ready for publication.',
+    '---',
+  ].join('\n'));
   fs.writeFileSync(path.join(claudeHome, 'settings.json'), JSON.stringify({
     permissions: { allow: ['Read'] },
+    mcpServers: {
+      fixtureDocs: {
+        command: 'node',
+        env: { SECRET: 'must-not-leak' },
+      },
+    },
+    hooks: {
+      PreToolUse: [{
+        matcher: 'Bash',
+        hooks: [{ type: 'command', command: 'node fixture-check.js' }],
+      }],
+    },
   }));
   fs.writeFileSync(path.join(dataDirectory, 'AGENTS.md'), [
     '# Fixture instructions',
@@ -234,6 +277,20 @@ test('protects localhost mutations and verifies the bound service identity', asy
   const contextCostResponse = await request({ port, pathname: '/api/ai/context-cost' });
   assert.equal(contextCostResponse.status, 200);
   assert.ok(Number.isInteger(JSON.parse(contextCostResponse.body).totalTokens));
+
+  const agentOpsResponse = await request({ port, pathname: '/api/ai/ops' });
+  assert.equal(agentOpsResponse.status, 200);
+  const agentOps = JSON.parse(agentOpsResponse.body);
+  assert.equal(agentOps.agents.find((agent) => agent.name === 'reviewer').usage.count, 1);
+  assert.equal(
+    agentOps.commands.find((command) => command.name === 'release/check').usage.count,
+    1,
+  );
+  assert.equal(agentOps.mcpServers.find((server) => server.name === 'fixtureDocs').transport, 'stdio');
+  assert.equal(agentOps.permissions.rules.some((rule) => rule.rule === 'Read'), true);
+  assert.equal(agentOps.hooks.some((hook) => hook.matcher === 'Bash'), true);
+  assert.equal(agentOps.usageHook.installed, false);
+  assert.doesNotMatch(agentOpsResponse.body, /must-not-leak|SECRET/);
 
   const instructionResponse = await request({ port, pathname: '/api/ai/instructions' });
   assert.equal(instructionResponse.status, 200);

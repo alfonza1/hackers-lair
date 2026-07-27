@@ -119,6 +119,9 @@ JSON.
   a read-only Instructions view for known `AGENTS.md` and `CLAUDE.md` files.
   Drift checks validate referenced paths and commands only when requested;
   instruction editing stays in the user's normal editor.
+- Agent Ops inventories user/project subagents, slash commands, MCP definitions,
+  permission rules, and configured hooks behind the same opt-in Skills privacy
+  gate. It never launches an MCP server or edits these files.
 - Curated phosphor, ultraviolet, ice, volt, and high-contrast ghost themes.
 
 ![Hacker's Lair Targets view with fictional live and dormant projects](docs/screenshots/targets.png)

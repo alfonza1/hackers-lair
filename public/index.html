@@ -2028,6 +2028,64 @@
     margin-top: 11px;
   }
 
+  .agent-ops-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 12px;
+    padding: 7px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: rgba(var(--surface-rgb), .58);
+  }
+
+  .agent-ops-nav button {
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 8px 10px;
+    color: var(--muted);
+    background: transparent;
+    font: 800 9px/1 var(--mono);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .agent-ops-nav button:hover { color: var(--text); }
+  .agent-ops-nav button.active {
+    border-color: rgba(var(--secondary-rgb), .4);
+    color: var(--cyan);
+    background: rgba(var(--secondary-rgb), .08);
+  }
+
+  .agent-ops-card .machine-screen { grid-template-columns: minmax(0, 1fr); }
+
+  .ops-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .ops-chip {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 4px 6px;
+    color: var(--muted);
+    background: rgba(var(--surface-strong-rgb), .42);
+    font-size: 8px;
+  }
+
+  .ops-command {
+    margin: 10px 0 0;
+    padding: 8px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    background: var(--panel-2);
+    font: 10px/1.45 var(--mono);
+    overflow-wrap: anywhere;
+  }
+
   .context-breakdown {
     display: grid;
     gap: 7px;
@@ -3243,6 +3301,7 @@
             <button class="view-tab" id="scriptsTab" data-view="scripts" role="tab" aria-selected="false" hidden>Scripts</button>
             <button class="view-tab" id="skillsTab" data-view="skills" role="tab" aria-selected="false" hidden>Skills</button>
             <button class="view-tab" id="instructionsTab" data-view="instructions" role="tab" aria-selected="false" hidden>Instructions</button>
+            <button class="view-tab" id="agentOpsTab" data-view="agentOps" role="tab" aria-selected="false" hidden>Agent Ops</button>
           </div>
           <button class="utility" id="addProject" type="button">Add Project</button>
           <button class="utility" id="newSkill" type="button" hidden>+ New Skill</button>
@@ -3590,6 +3649,7 @@
     scripts: { title: 'Scripts', placeholder: 'filter scripts by name, file, or description', empty: 'No matching scripts detected.' },
     skills: { title: 'Skills', placeholder: 'filter skills by name, source, or description', empty: 'No matching skills detected.' },
     instructions: { title: 'Instructions', placeholder: 'filter AGENTS.md and CLAUDE.md by path', empty: 'No workspace instruction files detected.' },
+    agentOps: { title: 'Agent Ops', placeholder: 'filter agents, commands, MCP servers, permissions, or hooks', empty: 'No matching Agent Ops records detected.' },
   };
 
   const state = {
@@ -3610,6 +3670,16 @@
     instructionFindings: {},
     friction: { entries: [], groups: [] },
     skillRouteQuery: '',
+    agentOps: {
+      loaded: false,
+      filter: 'agents',
+      agents: [],
+      commands: [],
+      mcpServers: [],
+      permissions: { rules: [], findings: [] },
+      hooks: [],
+      usageHook: null,
+    },
     aiWorkflowBusy: false,
     onboarding: null,
     settings: null,
@@ -4786,6 +4856,161 @@
     `;
   }
 
+  const AGENT_OPS_FILTERS = Object.freeze([
+    ['agents', 'Subagents'],
+    ['commands', 'Commands'],
+    ['mcp', 'MCP'],
+    ['permissions', 'Permissions'],
+    ['hooks', 'Hooks'],
+  ]);
+
+  function agentOpsRows() {
+    const filter = state.agentOps.filter;
+    if (filter === 'agents') return state.agentOps.agents.map((record) => ({ ...record, kind: 'agent' }));
+    if (filter === 'commands') return state.agentOps.commands.map((record) => ({ ...record, kind: 'command' }));
+    if (filter === 'mcp') return state.agentOps.mcpServers.map((record) => ({ ...record, kind: 'mcp' }));
+    if (filter === 'permissions') {
+      return state.agentOps.permissions.rules.map((record, index) => ({
+        ...record,
+        id: `permission-${index}`,
+        name: record.rule,
+        kind: 'permission',
+      }));
+    }
+    return state.agentOps.hooks.map((record, index) => ({
+      ...record,
+      id: `hook-${index}`,
+      name: record.matcher || record.event,
+      kind: 'hook',
+    }));
+  }
+
+  function visibleAgentOps() {
+    const rows = agentOpsRows();
+    if (!state.query) return rows;
+    return rows.filter((row) => (
+      [
+        row.name,
+        row.description,
+        row.scope,
+        row.project,
+        row.model,
+        row.transport,
+        row.command,
+        row.action,
+        row.event,
+        row.matcher,
+        row.source,
+      ].join(' ').toLowerCase().includes(state.query)
+    ));
+  }
+
+  function agentOpsNavHtml() {
+    return `
+      <nav class="agent-ops-nav" aria-label="Agent Ops inventory">
+        ${AGENT_OPS_FILTERS.map(([filter, label]) => `
+          <button type="button" class="${filter === state.agentOps.filter ? 'active' : ''}" data-agent-ops-filter="${filter}" aria-pressed="${filter === state.agentOps.filter}">${label}</button>
+        `).join('')}
+      </nav>
+    `;
+  }
+
+  function opsUsageHtml(record) {
+    const usage = record.usage;
+    const sparkline = usage?.weeklyBuckets?.some((value) => value > 0)
+      ? skillSparkline(usage.weeklyBuckets)
+      : '';
+    return `
+      <div class="skill-usage">
+        <div class="skill-usage-copy">
+          <strong>${usage ? `${usage.count} use${usage.count === 1 ? '' : 's'}` : 'No usage data yet'}</strong>
+          <span>${usage?.lastUsedAt ? `last used ${relativeAge(usage.lastUsedAt)}` : 'waiting for local usage events'}</span>
+        </div>
+        ${sparkline}
+      </div>
+    `;
+  }
+
+  function agentOpsCard(record) {
+    const titlePrefix = {
+      agent: 'AGENT',
+      command: 'COMMAND',
+      mcp: 'MCP',
+      permission: record.action?.toUpperCase() || 'RULE',
+      hook: 'HOOK',
+    }[record.kind];
+    const typeLabel = record.kind === 'hook'
+      ? record.event
+      : record.transport || record.scope || record.kind;
+    const status = record.kind === 'permission' && record.action === 'deny'
+      ? { key: 'booting', label: 'DENY' }
+      : { key: 'live', label: record.cold ? 'COLD' : 'INDEXED' };
+    const findings = record.lint?.findings || [];
+    const description = record.description
+      || (record.kind === 'mcp' ? `${record.transport} server defined in ${record.source}.`
+        : record.kind === 'permission' ? `${record.action} rule from ${record.source}.`
+        : `Configured ${record.event} hook from ${record.source}.`);
+    return `
+      <article class="target-card agent-ops-card" data-card-kind="agent-op" data-agent-op-id="${esc(record.id)}">
+        <div class="machine-bar">
+          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="machine-label">agent-ops :: ${esc(record.name)}</span>
+          <span class="machine-node">${esc(record.project || record.scope || 'USER')}</span>
+        </div>
+        <div class="machine-screen">
+          <div class="target-main">
+            <div class="target-title">
+              ${record.lint ? `<span class="skill-health ${esc(record.lint.level)}" title="Health: ${esc(record.lint.level)}"></span>` : ''}
+              <h3><span class="target-prefix">${esc(titlePrefix)}</span>${esc(record.name)}</h3>
+              <span class="target-type">${esc(typeLabel)}</span>
+              ${statusBadge(status)}
+            </div>
+            <p class="skill-desc">${esc(description)}</p>
+            <div class="target-fields">
+              ${field('Scope', record.scope)}
+              ${field('Project', record.project)}
+              ${field('Model', record.model)}
+              ${field('Tools', record.tools?.join(', '))}
+              ${field('Transport', record.transport)}
+              ${field('Context tax', Number.isFinite(record.estimatedTokens) ? `~${record.estimatedTokens} tokens` : '')}
+              ${field('Event', record.event)}
+              ${field('Matcher', record.matcher)}
+              ${field('Source', record.source)}
+            </div>
+            ${record.command ? `<pre class="ops-command">${esc(record.command)}</pre>` : ''}
+            ${['agent', 'command'].includes(record.kind) ? opsUsageHtml(record) : ''}
+            ${findings.length ? `
+              <details class="skill-findings">
+                <summary>${findings.length} health finding${findings.length === 1 ? '' : 's'}</summary>
+                <ul>${findings.map((finding) => `<li>${esc(finding.message)}</li>`).join('')}</ul>
+              </details>
+            ` : ''}
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function agentOpsFindingsHtml() {
+    const findings = state.agentOps.filter === 'permissions'
+      ? state.agentOps.permissions.findings || []
+      : [];
+    if (!findings.length) return '';
+    return `
+      <section class="friction-panel" aria-label="Agent Ops findings">
+        <h3>Permission findings</h3>
+        <div class="friction-groups">
+          ${findings.map((finding) => `
+            <div class="friction-group is-recurring">
+              <strong>${esc(finding.message)}</strong>
+              <span>${esc(finding.level)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+    `;
+  }
+
   function onboardingPromptsForView() {
     if (state.query || !state.onboarding?.prompts?.length) return [];
     if (state.view === 'projects' && state.projects.length === 0) {
@@ -4878,10 +5103,11 @@
       : state.view === 'processes' ? visibleProcesses()
       : state.view === 'scripts' ? visibleScripts()
       : state.view === 'skills' ? visibleSkills()
-      : visibleInstructions();
+      : state.view === 'instructions' ? visibleInstructions()
+      : visibleAgentOps();
     const scanningSkills = state.view === 'skills' && !state.skillsLoaded;
     const onboardingPrompts = onboardingPromptsForView();
-    const hasSupplementalContent = state.view === 'instructions';
+    const hasSupplementalContent = ['instructions', 'agentOps'].includes(state.view);
     $('emptyState').hidden = rows.length > 0 || hasSupplementalContent;
     if (onboardingPrompts.length) $('emptyState').innerHTML = onboardingHtml(onboardingPrompts);
     else $('emptyState').textContent = scanningSkills
@@ -4895,12 +5121,16 @@
       ? archivedSkillsHtml()
       : '';
     const friction = state.view === 'instructions' ? frictionPanelHtml() : '';
-    $('targetList').innerHTML = friction + skillRouter + skillsSetup + rows.map((row) =>
+    const agentOps = state.view === 'agentOps'
+      ? agentOpsNavHtml() + agentOpsFindingsHtml()
+      : '';
+    $('targetList').innerHTML = friction + agentOps + skillRouter + skillsSetup + rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
       : state.view === 'processes' ? processCard(row)
       : state.view === 'scripts' ? scriptCard(row)
       : state.view === 'skills' ? skillCard(row)
-      : instructionCard(row)
+      : state.view === 'instructions' ? instructionCard(row)
+      : agentOpsCard(row)
     ).join('') + archived;
   }
 
@@ -4928,7 +5158,8 @@
     else if (view === 'processes') Promise.all([loadProjects(true), loadProcesses(true)]);
     else if (view === 'scripts') loadScripts(true);
     else if (view === 'skills') loadSkills(true);
-    else loadInstructions(true);
+    else if (view === 'instructions') loadInstructions(true);
+    else loadAgentOps(true);
   }
 
   function updateClock() {
@@ -4957,6 +5188,9 @@
     } else if (state.view === 'instructions') {
       rows = state.instructions;
       live = rows.length;
+    } else if (state.view === 'agentOps') {
+      rows = agentOpsRows();
+      live = rows.length;
     } else {
       rows = state.processes.filter((process) => !isConfiguredProjectProcess(process) && (state.showSystem || !process.system));
       live = rows.filter((row) => !row.stopped).length;
@@ -4969,10 +5203,12 @@
 
     $('liveLabel').textContent = state.view === 'skills'
       ? 'Personal Skills'
-      : state.view === 'instructions' ? 'Instruction Files' : 'Live Targets';
+      : state.view === 'instructions' ? 'Instruction Files'
+      : state.view === 'agentOps' ? 'Inventory Records' : 'Live Targets';
     $('dormantLabel').textContent = state.view === 'skills'
       ? 'Default Skills'
-      : state.view === 'instructions' ? 'Drift Findings' : 'Dormant Targets';
+      : state.view === 'instructions' ? 'Drift Findings'
+      : state.view === 'agentOps' ? 'Health Findings' : 'Dormant Targets';
     if (state.view === 'instructions') {
       const findingCount = Object.values(state.instructionFindings).reduce(
         (sum, findings) => sum + findings.length,
@@ -4980,9 +5216,19 @@
       );
       live = rows.length;
       $('dormantCount').textContent = String(findingCount);
+    } else if (state.view === 'agentOps') {
+      const findingCount = [
+        ...state.agentOps.agents,
+        ...state.agentOps.commands,
+      ].reduce((sum, record) => sum + (record.lint?.findings?.length || 0), 0)
+        + (state.agentOps.permissions.findings?.length || 0);
+      live = rows.length;
+      $('dormantCount').textContent = String(findingCount);
     }
     $('liveCount').textContent = String(live);
-    if (state.view !== 'instructions') $('dormantCount').textContent = String(dormant);
+    if (!['instructions', 'agentOps'].includes(state.view)) {
+      $('dormantCount').textContent = String(dormant);
+    }
     $('gitAttentionCount').textContent = String(state.projects.filter((project) => project.gitAttention?.summary?.level !== 'clean').length);
     $('cpuUsage').textContent = formatCpu(cpu) || '—';
     $('cpuBar').style.width = `${Math.max(0, Math.min(Number(cpu) || 0, 100))}%`;
@@ -5184,6 +5430,35 @@
     }
   }
 
+  async function loadAgentOps(quiet = false) {
+    if (state.settings?.enableSkills !== true) {
+      state.agentOps.loaded = false;
+      return;
+    }
+    try {
+      const snapshot = await fetchJson('/api/ai/ops');
+      state.agentOps = {
+        ...state.agentOps,
+        ...snapshot,
+        loaded: true,
+      };
+      if (!quiet) {
+        pushFeed(
+          'AGENT_OPS_SYNCED',
+          `agents=${state.agentOps.agents.length} commands=${state.agentOps.commands.length} mcp=${state.agentOps.mcpServers.length}`,
+          'info',
+        );
+      }
+      renderTargets();
+      updateIntel();
+    } catch (error) {
+      state.agentOps.loaded = true;
+      renderTargets();
+      toast('Signal lost: Agent Ops inventory unavailable', true);
+      pushFeed('AGENT_OPS_FAILED', `reason=${error.message}`, 'error');
+    }
+  }
+
   async function loadSettings() {
     try {
       const data = await fetchJson('/api/settings');
@@ -5222,10 +5497,11 @@
     $('scriptsPanelField').classList.toggle('is-success', state.panelSettings.saved);
     $('skillsTab').hidden = !skillsEnabled;
     $('instructionsTab').hidden = !skillsEnabled;
+    $('agentOpsTab').hidden = !skillsEnabled;
     $('frictionCapture').hidden = !skillsEnabled;
     $('scriptsTab').hidden = !scriptsEnabled || !state.scriptsConfigured;
     if (
-      (['skills', 'instructions'].includes(state.view) && !skillsEnabled)
+      (['skills', 'instructions', 'agentOps'].includes(state.view) && !skillsEnabled)
       || (state.view === 'scripts' && (!scriptsEnabled || !state.scriptsConfigured))
     ) {
       setView('projects');
@@ -6504,6 +6780,7 @@
         { verb: 'SKILL', label: 'Create personal skill', hint: 'lint-clean scaffold', run: openNewSkillDialog },
         { verb: 'CONTEXT', label: 'Show context tax', hint: 'local estimate', run: openContextCostDialog },
         { verb: 'INSTRUCTIONS', label: 'Open workflow instructions', hint: 'AGENTS.md and CLAUDE.md', run: () => setView('instructions') },
+        { verb: 'AGENT OPS', label: 'Open workflow inventories', hint: 'agents, commands, MCP, permissions, hooks', run: () => setView('agentOps') },
       );
     }
     if (['available', 'ready', 'blocked'].includes(state.update?.status)) {
@@ -6763,6 +7040,15 @@
   }
 
   $('targetList').addEventListener('click', async (event) => {
+    const agentOpsFilter = event.target.closest('[data-agent-ops-filter]');
+    if (agentOpsFilter) {
+      state.agentOps.filter = agentOpsFilter.dataset.agentOpsFilter;
+      state.query = '';
+      $('search').value = '';
+      renderTargets();
+      updateIntel();
+      return;
+    }
     const frictionScaffold = event.target.closest('[data-friction-scaffold]');
     if (frictionScaffold) {
       openNewSkillDialog(frictionScaffold.dataset.frictionScaffold);
@@ -6900,7 +7186,8 @@
         : state.view === 'processes' ? Promise.all([loadProjects(true), loadProcesses(true)])
         : state.view === 'scripts' ? loadScripts(true)
         : state.view === 'skills' ? loadSkills(true)
-        : loadInstructions(true),
+        : state.view === 'instructions' ? loadInstructions(true)
+        : loadAgentOps(true),
     ]);
   });
 

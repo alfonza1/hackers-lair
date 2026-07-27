@@ -139,6 +139,21 @@ test('AI maintenance loop captures friction, tests routing, and protects instruc
   assert.match(server, /instructionRecords\(settings\)\.find\(\(item\) => item\.id === id\)/);
 });
 
+test('Agent Ops keeps wider workflow inventories in one read-only filtered view', () => {
+  assert.match(html, /id="agentOpsTab"[^>]*data-view="agentOps"/);
+  for (const filter of ['agents', 'commands', 'mcp', 'permissions', 'hooks']) {
+    assert.match(html, new RegExp(`data-agent-ops-filter="\\$\\{filter\\}"|\\['${filter}',`));
+  }
+  assert.match(html, /AGENT_OPS_SYNCED/);
+  assert.match(html, /\/api\/ai\/ops/);
+  assert.match(server, /listAgents/);
+  assert.match(server, /listCommands/);
+  assert.match(server, /listMcpServers/);
+  assert.match(server, /permissionsView/);
+  assert.match(server, /listConfiguredHooks/);
+  assert.doesNotMatch(html, /data-agent-ops-(?:edit|delete|install)/);
+});
+
 test('runtime resilience controls surface backend and log state', () => {
   assert.match(html, /id="backendBanner"/);
   assert.match(html, /syncDesktopBackend/);

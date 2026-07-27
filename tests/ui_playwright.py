@@ -276,6 +276,7 @@ def assert_script_action_tray(page, script_name: str) -> None:
     actions = script.locator(".action-cluster .action")
     expect(actions).to_have_count(1)
     expect(actions).to_have_text("INITIATE")
+    expect(actions).to_be_visible()
     tray_box = script.locator(".action-cluster").bounding_box()
     action_box = actions.bounding_box()
     assert tray_box is not None and action_box is not None
@@ -541,6 +542,23 @@ def assert_maintenance_loop(page) -> None:
     page.get_by_role("tab", name="Targets", exact=True).click()
 
 
+def assert_agent_ops(page) -> None:
+    page.get_by_role("tab", name="Agent Ops", exact=True).click()
+    subagent = page.locator('[data-card-kind="agent-op"]').filter(has_text="reviewer")
+    expect(subagent).to_be_visible()
+    expect(subagent).to_contain_text("1 use")
+
+    page.get_by_role("button", name="Commands", exact=True).click()
+    expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="release/check")).to_be_visible()
+    page.get_by_role("button", name="MCP", exact=True).click()
+    expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="fixtureDocs")).to_be_visible()
+    page.get_by_role("button", name="Permissions", exact=True).click()
+    expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Read")).to_be_visible()
+    page.get_by_role("button", name="Hooks", exact=True).click()
+    expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Bash")).to_be_visible()
+    page.get_by_role("tab", name="Targets", exact=True).click()
+
+
 def assert_palette_and_theme(page) -> None:
     page.keyboard.press("Control+K")
     palette = page.locator("#commandPalette")
@@ -615,21 +633,71 @@ def run() -> None:
         encoding="utf-8",
     )
     (agents_home / "usage-log.jsonl").write_text(
-        json.dumps(
-            {
+        "\n".join(
+            json.dumps(event)
+            for event in [
+                {
                 "type": "skill",
                 "name": "verify",
                 "project": str(data_directory),
                 "ts": "2026-07-27T18:04:11.000Z",
                 "source": "manual",
-            }
+                },
+                {
+                    "type": "agent",
+                    "name": "reviewer",
+                    "project": str(data_directory),
+                    "ts": "2026-07-27T18:04:11.000Z",
+                    "source": "manual",
+                },
+                {
+                    "type": "command",
+                    "name": "release/check",
+                    "project": str(data_directory),
+                    "ts": "2026-07-27T18:04:11.000Z",
+                    "source": "manual",
+                },
+            ]
         )
         + "\n",
         encoding="utf-8",
     )
     claude_home = data_directory / "claude"
     claude_home.mkdir()
-    (claude_home / "settings.json").write_text("{}", encoding="utf-8")
+    (claude_home / "agents").mkdir()
+    (claude_home / "commands" / "release").mkdir(parents=True)
+    (claude_home / "agents" / "reviewer.md").write_text(
+        "---\n"
+        "name: reviewer\n"
+        "description: Review repository changes for correctness and security.\n"
+        "tools: Read, Grep\n"
+        "model: inherit\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    (claude_home / "commands" / "release" / "check.md").write_text(
+        "---\n"
+        "description: Check whether a release is ready for publication.\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    (claude_home / "settings.json").write_text(
+        json.dumps(
+            {
+                "permissions": {"allow": ["Read"]},
+                "mcpServers": {"fixtureDocs": {"command": "node"}},
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Bash",
+                            "hooks": [{"type": "command", "command": "node fixture-check.js"}],
+                        }
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     (data_directory / "AGENTS.md").write_text(
         "# Fixture instructions\n\n"
         "Run `missing-lair-tool --verify` and inspect `scripts/missing.js`.\n",
@@ -761,6 +829,7 @@ def run() -> None:
             assert_settings_panel(page, scripts_supported=script_name is not None)
             assert_skills_maintenance(page)
             assert_maintenance_loop(page)
+            assert_agent_ops(page)
             if script_name:
                 assert_script_action_tray(page, script_name)
             assert_palette_and_theme(page)

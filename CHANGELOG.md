@@ -27,6 +27,9 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - Added a read-only Instructions view for known `AGENTS.md` and `CLAUDE.md`
   files with safe editor/reveal actions and explicit drift checks for missing
   paths and commands.
+- Added a read-only Agent Ops inventory for user/project subagents, slash
+  commands, MCP definitions, merged permission rules, and configured hooks.
+  MCP environment values are excluded and no server is launched or probed.
 
 ### Changed
 

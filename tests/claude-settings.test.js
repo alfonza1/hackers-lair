@@ -9,6 +9,7 @@ const {
   buildUsageHookCommand,
   inspectUsageHook,
   installUsageHooks,
+  listConfiguredHooks,
   usageHooksBlock,
   writeUsageHookShim,
 } = require('../lib/claude-settings');
@@ -116,4 +117,28 @@ test('generated shim records only the allowed event fields', (t) => {
   assert.equal(logged.project, files.directory);
   assert.equal(logged.source, 'hook');
   assert.doesNotMatch(JSON.stringify(logged), /must not be logged/);
+});
+
+test('configured hooks inventory is read-only and records source scope', (t) => {
+  const files = fixture(t);
+  fs.mkdirSync(path.dirname(files.settingsFile), { recursive: true });
+  fs.writeFileSync(files.settingsFile, JSON.stringify({
+    hooks: {
+      PreToolUse: [{
+        matcher: 'Bash',
+        hooks: [{ type: 'command', command: 'node check.js' }],
+      }],
+    },
+  }));
+  assert.deepEqual(listConfiguredHooks([
+    { file: files.settingsFile, scope: 'user' },
+    { file: path.join(files.directory, 'missing.json'), scope: 'project' },
+  ]), [{
+    event: 'PreToolUse',
+    matcher: 'Bash',
+    type: 'command',
+    command: 'node check.js',
+    scope: 'user',
+    source: files.settingsFile,
+  }]);
 });

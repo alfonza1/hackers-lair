@@ -22,10 +22,15 @@ const { lastTouchedForSkills } = require('./lib/skill-git');
 const { appendFriction, listFriction } = require('./lib/friction-log');
 const { listInstructions } = require('./lib/instruction-registry');
 const { checkInstructionDrift } = require('./lib/instruction-drift');
+const { listAgents } = require('./lib/agent-registry');
+const { listCommands } = require('./lib/command-registry');
+const { listMcpServers } = require('./lib/mcp-registry');
+const { permissionsView } = require('./lib/permissions-view');
 const {
   buildUsageHookCommand,
   inspectUsageHook,
   installUsageHooks,
+  listConfiguredHooks,
   usageHooksBlock,
   writeUsageHookShim,
 } = require('./lib/claude-settings');
@@ -265,6 +270,68 @@ function instructionRecords(settings = loadSettings()) {
     projectFolders: knownProjectFolders(),
     workspaceFolders: settings.workspaceFolders,
   });
+}
+
+function agentOpsProjectFolders(settings = loadSettings()) {
+  return [...new Set([
+    ...knownProjectFolders(),
+    ...settings.workspaceFolders,
+  ].map((folder) => path.resolve(folder)))];
+}
+
+function claudeSettingsSources(settings = loadSettings()) {
+  return [
+    { file: CLAUDE_SETTINGS_FILE, scope: 'user' },
+    ...agentOpsProjectFolders(settings).flatMap((projectFolder) => [
+      {
+        file: path.join(projectFolder, '.claude', 'settings.json'),
+        scope: 'project',
+      },
+      {
+        file: path.join(projectFolder, '.claude', 'settings.local.json'),
+        scope: 'project-local',
+      },
+    ]),
+  ];
+}
+
+async function agentOpsSnapshot(settings = loadSettings()) {
+  const projectFolders = agentOpsProjectFolders(settings);
+  const [agents, commands, usage] = await Promise.all([
+    Promise.resolve(listAgents({ claudeHome: CLAUDE_HOME, projectFolders })),
+    Promise.resolve(listCommands({ claudeHome: CLAUDE_HOME, projectFolders })),
+    settings.aiWorkflow.enableUsageStats
+      ? aggregateUsageLog(USAGE_LOG_FILE)
+      : Promise.resolve({ byKey: {}, logStartedAt: null }),
+  ]);
+  const annotateUsage = (type, records) => records.map((record) => {
+    const recordUsage = usage.byKey[eventKey(type, record.name)] || null;
+    return {
+      ...record,
+      usage: recordUsage,
+      cold: isColdUsage({
+        usage: recordUsage,
+        logStartedAt: usage.logStartedAt,
+        coldSkillDays: settings.aiWorkflow.coldSkillDays,
+      }),
+    };
+  });
+  const hookStatus = inspectUsageHook({
+    settingsFile: CLAUDE_SETTINGS_FILE,
+    hookCommand: USAGE_HOOK_COMMAND,
+  });
+  return {
+    agents: annotateUsage('agent', agents),
+    commands: annotateUsage('command', commands),
+    mcpServers: listMcpServers({ claudeHome: CLAUDE_HOME, projectFolders }),
+    permissions: permissionsView({ claudeHome: CLAUDE_HOME, projectFolders }),
+    hooks: listConfiguredHooks(claudeSettingsSources(settings)),
+    usageHook: {
+      installed: hookStatus.installed,
+      conflict: hookStatus.conflict,
+      error: hookStatus.error,
+    },
+  };
 }
 
 function configuredBrowserPath() {
@@ -1792,6 +1859,32 @@ const server = http.createServer(async (req, res) => {
         codexHome: SKILL_ROOTS.codexHome,
         warnTokens: settings.aiWorkflow.contextTaxWarnTokens,
       }));
+      return;
+    }
+
+    if (req.method === 'GET' && [
+      '/api/ai/ops',
+      '/api/ai/agents',
+      '/api/ai/commands',
+      '/api/ai/mcp',
+      '/api/ai/permissions',
+      '/api/ai/hooks',
+    ].includes(req.url)) {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      const snapshot = await agentOpsSnapshot(settings);
+      const responseByPath = {
+        '/api/ai/ops': snapshot,
+        '/api/ai/agents': { agents: snapshot.agents },
+        '/api/ai/commands': { commands: snapshot.commands },
+        '/api/ai/mcp': { mcpServers: snapshot.mcpServers },
+        '/api/ai/permissions': snapshot.permissions,
+        '/api/ai/hooks': { hooks: snapshot.hooks, usageHook: snapshot.usageHook },
+      };
+      json(res, 200, responseByPath[req.url]);
       return;
     }
 
