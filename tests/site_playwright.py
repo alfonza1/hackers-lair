@@ -114,6 +114,14 @@ def run() -> None:
             windows_page.on("pageerror", lambda error: windows_errors.append(str(error)))
             stub_release_metadata(windows_page)
             windows_page.goto(origin, wait_until="networkidle")
+            windows_page.get_by_role("link", name="Install from terminal").click()
+            install_top = windows_page.locator("#install").evaluate(
+                "element => element.getBoundingClientRect().top"
+            )
+            header_bottom = windows_page.locator(".site-header").evaluate(
+                "element => element.getBoundingClientRect().bottom"
+            )
+            assert install_top >= header_bottom
             expect(
                 windows_page.get_by_role("button", name="Windows")
             ).to_have_attribute("aria-pressed", "true")

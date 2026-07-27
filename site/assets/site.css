@@ -60,6 +60,7 @@ html {
   overflow-x: clip;
   color-scheme: dark;
   font-synthesis: none;
+  scroll-padding-top: 84px;
   scroll-behavior: smooth;
   background: var(--color-void);
 }
