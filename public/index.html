@@ -30,6 +30,7 @@
 <style nonce="__LAIR_CSP_NONCE__">
   /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
   :root {
+    color-scheme: dark;
     --void: #010504;
     --bg: #050b0a;
     --panel: rgba(7, 16, 15, .88);
@@ -136,6 +137,7 @@
   }
 
   :root[data-theme="ghost"] {
+    color-scheme: light;
     --void: #eef3f0;
     --bg: #f5f8f6;
     --panel: rgba(255, 255, 255, .94);
@@ -339,6 +341,12 @@
   }
 
   button, input { font: inherit; }
+
+  select option,
+  select optgroup {
+    color: var(--text);
+    background-color: var(--panel-solid);
+  }
 
   button {
     color: inherit;

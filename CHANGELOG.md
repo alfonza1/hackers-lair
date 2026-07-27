@@ -7,6 +7,13 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+## [2.1.0-beta.6] - 2026-07-27
+
+### Fixed
+
+- Native dropdown menus now use theme-aware text and surface colors, keeping
+  Settings options readable before hover across every included theme.
+
 ## [2.1.0-beta.5] - 2026-07-27
 
 ### Added
