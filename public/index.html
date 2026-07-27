@@ -854,6 +854,13 @@
     border-bottom: 1px solid rgba(var(--accent-rgb), .1);
   }
 
+  .filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
   .search-shell {
     position: relative;
     min-width: 0;
@@ -2535,8 +2542,11 @@
         <div class="search-shell">
           <input id="search" type="text" autocomplete="off" placeholder="filter targets by name, branch, module, path, pid, or port">
         </div>
-        <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
-        <button class="utility" id="defaultSkillsToggle" type="button" aria-pressed="false" hidden>Default Skills</button>
+        <div class="filter-actions">
+          <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
+          <button class="utility" id="defaultSkillsToggle" type="button" aria-pressed="false" hidden>Default Skills</button>
+          <button class="utility" id="copySkillsPrompt" type="button" hidden>Copy AI setup prompt</button>
+        </div>
       </div>
       <div class="target-list" id="targetList"></div>
       <div class="empty" id="emptyState" hidden>No matching targets detected.</div>
@@ -3835,6 +3845,7 @@
     $('search').placeholder = config.placeholder;
     $('systemToggle').hidden = view !== 'processes';
     $('defaultSkillsToggle').hidden = view !== 'skills';
+    syncSkillsPromptButton();
     document.querySelectorAll('.view-tab').forEach((tab) => {
       const active = tab.dataset.view === view;
       tab.classList.toggle('active', active);
@@ -3972,6 +3983,48 @@
     } catch {
       state.onboarding = null;
       pushFeed('ONBOARDING_SCAN_FAILED', 'reason=configuration_state_unavailable', 'warn');
+    }
+    syncSkillsPromptButton();
+  }
+
+  function syncSkillsPromptButton() {
+    $('copySkillsPrompt').hidden = state.view !== 'skills' || !state.onboarding?.skillsPrompt;
+  }
+
+  async function writeClipboardText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      const fallback = document.createElement('textarea');
+      fallback.value = text;
+      fallback.setAttribute('readonly', '');
+      fallback.style.position = 'fixed';
+      fallback.style.opacity = '0';
+      document.body.appendChild(fallback);
+      let copied = false;
+      try {
+        fallback.select();
+        copied = document.execCommand('copy');
+      } finally {
+        fallback.remove();
+      }
+      if (!copied) throw new Error('Clipboard unavailable');
+    }
+  }
+
+  async function copyAgentPrompt(prompt, button, scope) {
+    if (!prompt) return;
+    const originalLabel = button.textContent;
+    try {
+      await writeClipboardText(prompt);
+      button.textContent = 'Copied';
+      pushFeed('SETUP_PROMPT_COPIED', `scope=${slug(scope)}`, 'info');
+      setTimeout(() => {
+        if (button.textContent === 'Copied') button.textContent = originalLabel;
+      }, 1600);
+    } catch {
+      toast('Clipboard unavailable. Check browser clipboard permissions and retry.', true);
     }
   }
 
@@ -5303,6 +5356,10 @@
     renderTargets();
   });
 
+  $('copySkillsPrompt').addEventListener('click', async (event) => {
+    await copyAgentPrompt(state.onboarding?.skillsPrompt, event.currentTarget, 'skills');
+  });
+
   $('emptyState').addEventListener('click', async (event) => {
     const wizardButton = event.target.closest('[data-onboarding-wizard]');
     if (wizardButton) {
@@ -5314,14 +5371,7 @@
     if (!button) return;
     const prompt = state.onboarding?.prompts?.find((item) => item.id === button.dataset.copyPrompt);
     if (!prompt) return;
-    try {
-      await navigator.clipboard.writeText(prompt.prompt);
-      button.textContent = 'Copied';
-      pushFeed('SETUP_PROMPT_COPIED', `scope=${slug(prompt.id)}`, 'info');
-      setTimeout(() => { button.textContent = 'Copy prompt'; }, 1600);
-    } catch {
-      toast('Clipboard unavailable. Select the prompt text manually.', true);
-    }
+    await copyAgentPrompt(prompt.prompt, button, prompt.id);
   });
 
   $('clearFeed').addEventListener('click', () => {

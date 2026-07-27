@@ -2,7 +2,11 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 
-const { configurationPrompts, onboardingState } = require('../lib/onboarding-prompts');
+const {
+  configurationPrompts,
+  onboardingState,
+  skillsSetupPrompt,
+} = require('../lib/onboarding-prompts');
 
 const fixtures = process.platform === 'win32'
   ? {
@@ -35,7 +39,7 @@ test('offers complete and focused prompts when nothing is configured', () => {
   assert.deepEqual(prompts.map((prompt) => prompt.id), ['complete', 'projects', 'skills']);
   assert.match(prompts[0].prompt, /Inspect the config and candidate folders read-only first/);
   assert.match(prompts[1].prompt, /absolute cwd/);
-  assert.match(prompts[2].prompt, /without overwriting any real directory/);
+  assert.match(prompts[2].prompt, /Do not delete, replace, or overwrite a real directory/);
 });
 
 test('project prompts require the live runtime schema URL', () => {
@@ -114,6 +118,21 @@ test('returns portable machine paths and only the missing setup area', () => {
   assert.equal(state.skillsDirectory, path.join(fixtures.agentsHome, 'skills'));
 });
 
+test('skills prompt uses the live directory and protects existing agent configuration', () => {
+  const prompt = skillsSetupPrompt(fixtures.skillsDirectory);
+
+  assert.match(
+    prompt,
+    new RegExp(fixtures.skillsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+  );
+  assert.match(prompt, /Inspect.*read-only first/i);
+  assert.match(prompt, /Preserve every existing skill/);
+  assert.match(prompt, /Do not delete, replace, or overwrite/);
+  assert.match(prompt, /valid name and description frontmatter/);
+  assert.match(prompt, /secrets, tokens, and credentials/);
+  assert.match(prompt, /refresh the Skills view/);
+});
+
 test('does not show onboarding prompts once projects and skills exist', () => {
   const state = onboardingState({
     projectsFile: 'projects.json',
@@ -124,4 +143,20 @@ test('does not show onboarding prompts once projects and skills exist', () => {
 
   assert.equal(state.configured, true);
   assert.deepEqual(state.prompts, []);
+  assert.match(state.skillsPrompt, /Canonical Skills directory:/);
+});
+
+test('keeps the reusable skills prompt behind the explicit Skills opt-in', () => {
+  const state = onboardingState({
+    projectsFile: fixtures.projectsFile,
+    projectsSchemaFile: fixtures.schemaFile,
+    projectsSchemaUrl: 'http://localhost:4953/api/schema/projects',
+    agentsHome: fixtures.agentsHome,
+    projects: [],
+    skills: [],
+    enableSkills: false,
+  });
+
+  assert.equal(state.skillsPrompt, '');
+  assert.deepEqual(state.prompts.map((prompt) => prompt.id), ['projects']);
 });

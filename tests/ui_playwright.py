@@ -108,6 +108,38 @@ def write_projects(data_directory: Path, projects: list[dict]) -> None:
     )
 
 
+def enable_skills(data_directory: Path) -> None:
+    settings = {
+        "configVersion": 1,
+        "enableSkills": True,
+        "browserPath": "",
+        "zombieAfterHours": 8,
+        "workspaceFolders": [],
+        "uiPreferences": {
+            "theme": "phosphor",
+            "density": "comfortable",
+            "motion": "full",
+            "fontScale": 100,
+        },
+    }
+    (data_directory / "settings.json").write_text(
+        json.dumps(settings, indent=2),
+        encoding="utf-8",
+    )
+
+
+def write_skill(skills_directory: Path) -> None:
+    skill_directory = skills_directory / "ui-smoke-skill"
+    skill_directory.mkdir(parents=True)
+    (skill_directory / "SKILL.md").write_text(
+        "---\n"
+        "name: ui-smoke-skill\n"
+        "description: Verify the persistent agent-assisted Skills setup action.\n"
+        "---\n",
+        encoding="utf-8",
+    )
+
+
 def project_fixture(
     *,
     name: str,
@@ -142,6 +174,26 @@ def assert_empty_state(page) -> None:
     setup_paths = empty_state.locator(".onboarding-paths > .onboarding-path")
     expect(setup_paths.nth(0)).to_contain_text("Agent-assisted")
     expect(setup_paths.nth(1)).to_contain_text("Guided setup")
+
+
+def assert_skills_agent_prompt(page, skills_directory: Path) -> None:
+    page.get_by_role("tab", name="Skills", exact=True).click()
+    skill_card = page.locator('[data-card-kind="skill"]').filter(has_text="ui-smoke-skill")
+    expect(skill_card).to_be_visible()
+    copy_prompt = page.get_by_role("button", name="Copy AI setup prompt")
+    expect(copy_prompt).to_be_visible()
+    copy_prompt.click()
+    copied = page.evaluate("navigator.clipboard.readText()")
+    assert str(skills_directory) in copied
+    assert "Preserve every existing skill" in copied
+    assert "refresh the Skills view" in copied
+    page.set_viewport_size({"width": 900, "height": 620})
+    expect(copy_prompt).to_be_visible()
+    assert not page.evaluate(
+        "() => document.documentElement.scrollWidth > document.documentElement.clientWidth"
+    )
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.get_by_role("tab", name="Targets", exact=True).click()
 
 
 def assert_project_editor_controls(page, selected_folder: Path) -> None:
@@ -246,12 +298,16 @@ def run() -> None:
     live_directory.mkdir()
     dormant_directory.mkdir()
     write_projects(data_directory, [])
+    enable_skills(data_directory)
+    agents_home = data_directory / "agents"
+    skills_directory = agents_home / "skills"
+    write_skill(skills_directory)
 
     environment = {
         **os.environ,
         "PORT": str(manager_port),
         "PROJECT_MANAGER_DATA_DIR": str(data_directory),
-        "AGENTS_HOME": str(data_directory / "agents-disabled"),
+        "AGENTS_HOME": str(agents_home),
     }
     service = subprocess.Popen(
         ["node", str(ROOT / "server.js")],
@@ -280,8 +336,13 @@ def run() -> None:
             page.add_init_script(
                 "localStorage.setItem('hackersLair.cinematicSeen', '1');"
             )
+            page.context.grant_permissions(
+                ["clipboard-read", "clipboard-write"],
+                origin=origin.rstrip("/"),
+            )
             page.goto(origin, wait_until="networkidle")
             assert_empty_state(page)
+            assert_skills_agent_prompt(page, skills_directory)
             assert_project_editor_controls(page, data_directory / "chosen-folder")
             assert_project_port_conflict(
                 page,
@@ -315,8 +376,8 @@ def run() -> None:
             browser.close()
             browser = None
         print(
-            "Playwright UI smoke passed: empty state, port conflict warning, target states, "
-            "palette, theme, and 900x620."
+            "Playwright UI smoke passed: empty state, Skills agent prompt, port conflict "
+            "warning, target states, palette, theme, and 900x620."
         )
     except Exception:
         OUTPUT_DIRECTORY.mkdir(exist_ok=True)
