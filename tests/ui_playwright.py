@@ -108,6 +108,29 @@ def write_projects(data_directory: Path, projects: list[dict]) -> None:
     )
 
 
+def write_script_fixture(data_directory: Path) -> str:
+    scripts_directory = data_directory / "script-fixtures"
+    scripts_directory.mkdir()
+    script_name = "ui-smoke-script.au3"
+    (scripts_directory / script_name).write_text(
+        "; Compact action tray UI fixture.\n",
+        encoding="utf-8",
+    )
+    config = {
+        "configVersion": 1,
+        "scriptsDir": str(scripts_directory),
+        "autoItExe": "",
+        "descriptions": {
+            script_name: "Verify the compact Scripts action tray.",
+        },
+    }
+    (data_directory / "scripts.json").write_text(
+        json.dumps(config, indent=2),
+        encoding="utf-8",
+    )
+    return script_name
+
+
 def project_fixture(
     *,
     name: str,
@@ -224,6 +247,38 @@ def assert_target_states(page, live_port: int, dormant_port: int) -> None:
     assert "N/A" not in page.locator("body").inner_text()
 
 
+def assert_port_signal_action_tray(page, live_port: int) -> None:
+    page.get_by_role("tab", name="Port Signals", exact=True).click()
+    signal = page.locator('[data-card-kind="process"]').filter(
+        has_text=f":{live_port}"
+    )
+    expect(signal).to_be_visible(timeout=15_000)
+    actions = signal.locator(".action-cluster .action")
+    expect(actions).to_have_count(1)
+    expect(actions).to_have_text("TERMINATE")
+    tray_box = signal.locator(".action-cluster").bounding_box()
+    action_box = actions.bounding_box()
+    assert tray_box is not None and action_box is not None
+    assert tray_box["width"] <= action_box["width"] + 20
+    page.get_by_role("tab", name="Targets", exact=True).click()
+
+
+def assert_script_action_tray(page, script_name: str) -> None:
+    page.get_by_role("tab", name="Scripts", exact=True).click()
+    script = page.locator('[data-card-kind="script"]').filter(
+        has_text=script_name.removesuffix(".au3")
+    )
+    expect(script).to_be_visible(timeout=15_000)
+    actions = script.locator(".action-cluster .action")
+    expect(actions).to_have_count(1)
+    expect(actions).to_have_text("INITIATE")
+    tray_box = script.locator(".action-cluster").bounding_box()
+    action_box = actions.bounding_box()
+    assert tray_box is not None and action_box is not None
+    assert tray_box["width"] <= action_box["width"] + 20
+    page.get_by_role("tab", name="Targets", exact=True).click()
+
+
 def assert_palette_and_theme(page) -> None:
     page.keyboard.press("Control+K")
     palette = page.locator("#commandPalette")
@@ -261,6 +316,7 @@ def run() -> None:
     live_directory.mkdir()
     dormant_directory.mkdir()
     write_projects(data_directory, [])
+    script_name = write_script_fixture(data_directory) if os.name == "nt" else None
 
     environment = {
         **os.environ,
@@ -324,6 +380,9 @@ def run() -> None:
                 ],
             )
             assert_target_states(page, live_listener.port, dormant_port)
+            assert_port_signal_action_tray(page, live_listener.port)
+            if script_name:
+                assert_script_action_tray(page, script_name)
             assert_palette_and_theme(page)
             assert_responsive_layout(page)
             assert not console_errors, f"Browser console errors: {console_errors}"
@@ -331,7 +390,7 @@ def run() -> None:
             browser = None
         print(
             "Playwright UI smoke passed: empty state, port conflict warning, target states, "
-            "palette, theme, and 900x620."
+            "compact action trays, palette, theme, and 900x620."
         )
     except Exception:
         OUTPUT_DIRECTORY.mkdir(exist_ok=True)

@@ -1237,6 +1237,10 @@
     background: rgba(var(--shadow-rgb),.2);
   }
 
+  .action-cluster.compact {
+    min-width: 0;
+  }
+
   .action {
     display: inline-flex;
     align-items: center;
@@ -3578,7 +3582,7 @@
               ${field('Path', processPath, 'path')}
             </div>
           </div>
-          <div class="action-cluster">
+          <div class="action-cluster compact">
             ${stopped ? actionButton('stopped-process', 'initiate', 'INITIATE', initiateDisabled) : ''}
             ${active ? actionButton('process', 'terminate', confirm ? 'KILL SIGNAL' : 'TERMINATE', terminateDisabled, confirm ? 'confirm' : '') : ''}
             ${stopped ? '<button class="action icon-clear" type="button" data-action="forget" data-kind="stopped-process" title="Clear remembered signal">X</button>' : ''}
@@ -3625,7 +3629,7 @@
               ${field('File', script.file)}
             </div>
           </div>
-          <div class="action-cluster">
+          <div class="action-cluster compact">
             ${!active ? actionButton('script', 'initiate', 'INITIATE', initiateDisabled) : ''}
             ${active ? actionButton('script', 'terminate', 'TERMINATE', terminateDisabled) : ''}
           </div>
