@@ -22,6 +22,11 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - Added a local context-tax breakdown, lint-clean personal skill scaffolding,
   and backed-up archive/restore actions. Default and plugin skills remain
   read-only.
+- Added a local friction log with recurrence grouping, three-strike skill
+  nudges, and a zero-network skill-routing tester.
+- Added a read-only Instructions view for known `AGENTS.md` and `CLAUDE.md`
+  files with safe editor/reveal actions and explicit drift checks for missing
+  paths and commands.
 
 ### Changed
 

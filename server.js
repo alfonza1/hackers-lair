@@ -19,6 +19,9 @@ const {
   unarchiveSkill,
 } = require('./lib/skill-maintenance');
 const { lastTouchedForSkills } = require('./lib/skill-git');
+const { appendFriction, listFriction } = require('./lib/friction-log');
+const { listInstructions } = require('./lib/instruction-registry');
+const { checkInstructionDrift } = require('./lib/instruction-drift');
 const {
   buildUsageHookCommand,
   inspectUsageHook,
@@ -100,6 +103,10 @@ const SKILL_ROOTS = skillRoots({
 });
 const PERSONAL_SKILLS_ROOT = SKILL_ROOTS.personalSkills;
 const SKILL_BACKUP_ROOT = path.join(DATA_DIR, 'backups', 'skills');
+const FRICTION_LOG_FILE = path.join(DATA_DIR, 'friction-log.jsonl');
+const WORKSPACE_ROOT = path.resolve(
+  process.env.LAIR_WORKSPACE_ROOT || path.dirname(AGENTS_HOME),
+);
 const REWRITE_USAGE_THRESHOLD = 3;
 const STORE = path.join(DATA_DIR, 'stopped.json');
 const MAX_STOPPED = 40;
@@ -244,6 +251,20 @@ async function annotatedSkills(settings = loadSettings()) {
     },
     ratingsError: ratingsResult.error,
   };
+}
+
+function knownProjectFolders() {
+  return loadProjects().flatMap((project) => (
+    (project.components || []).map((component) => component.cwd).filter(Boolean)
+  ));
+}
+
+function instructionRecords(settings = loadSettings()) {
+  return listInstructions({
+    workspaceRoot: WORKSPACE_ROOT,
+    projectFolders: knownProjectFolders(),
+    workspaceFolders: settings.workspaceFolders,
+  });
 }
 
 function configuredBrowserPath() {
@@ -1771,6 +1792,104 @@ const server = http.createServer(async (req, res) => {
         codexHome: SKILL_ROOTS.codexHome,
         warnTokens: settings.aiWorkflow.contextTaxWarnTokens,
       }));
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/ai/friction') {
+      if (!loadSettings().enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      json(res, 200, await listFriction(FRICTION_LOG_FILE));
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/ai/friction') {
+      if (!loadSettings().enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const requestedProject = String(input.project || '').trim();
+      const project = loadProjects().find((candidate) => (
+        candidate.name.toLowerCase() === requestedProject.toLowerCase()
+      ));
+      try {
+        const entry = appendFriction(FRICTION_LOG_FILE, {
+          text: input.text,
+          project: project?.name || '',
+        });
+        json(res, 201, { ok: true, entry, event: 'FRICTION_LOGGED' });
+      } catch (error) {
+        json(res, 400, { error: error.message });
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/ai/instructions') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      json(res, 200, { instructions: instructionRecords(settings) });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/ai/instructions/drift') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      let id;
+      try { id = String(JSON.parse(await readBody(req)).id || ''); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const instruction = instructionRecords(settings).find((item) => item.id === id);
+      if (!instruction) {
+        json(res, 404, { error: 'Instructions file was not found.' });
+        return;
+      }
+      try {
+        const result = await checkInstructionDrift(instruction.path, {
+          commandExists: (command) => platform.executableExists(command),
+        });
+        json(res, 200, { ok: true, id, ...result, event: 'INSTRUCTION_DRIFT_CHECKED' });
+      } catch (error) {
+        json(res, 500, { error: `Could not check instruction drift: ${error.message}` });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/ai/instructions/open') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const instruction = instructionRecords(settings).find((item) => item.id === String(input.id || ''));
+      if (!instruction) {
+        json(res, 404, { error: 'Instructions file was not found.' });
+        return;
+      }
+      const action = input.action === 'reveal' ? 'reveal-file' : input.action === 'editor'
+        ? 'editor-file'
+        : '';
+      if (!action) {
+        json(res, 400, { error: 'action must be editor or reveal.' });
+        return;
+      }
+      try {
+        await platform.openTarget(action, { file: instruction.path });
+        json(res, 200, { ok: true, id: instruction.id, action: input.action });
+      } catch (error) {
+        json(res, 500, { error: `Could not open instructions: ${error.message}` });
+      }
       return;
     }
 

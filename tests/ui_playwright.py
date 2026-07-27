@@ -506,6 +506,41 @@ def assert_skills_maintenance(page) -> None:
     page.get_by_role("tab", name="Targets", exact=True).click()
 
 
+def assert_maintenance_loop(page) -> None:
+    page.get_by_role("tab", name="Skills", exact=True).click()
+    route_input = page.locator("[data-skill-route-input]")
+    route_input.fill("verify repository changes before release")
+    route_results = page.locator("[data-skill-route-results]")
+    expect(route_results).to_contain_text("verify")
+
+    friction_input = page.locator("#frictionInput")
+    for text in [
+        "Agent skipped repository verification on run 1",
+        "Agent skipped repository verification on run 2",
+        "Agent skipped repository verification on run 3",
+    ]:
+        friction_input.fill(text)
+        page.locator("#logFriction").click()
+        expect(friction_input).to_have_value("")
+
+    page.get_by_role("tab", name="Instructions", exact=True).click()
+    expect(page.locator(".friction-panel")).to_contain_text("skipped-repository-verification-run")
+    expect(page.locator(".friction-panel")).to_contain_text("3")
+    create_skill = page.locator("[data-friction-scaffold]")
+    expect(create_skill).to_be_visible()
+    create_skill.click()
+    new_skill = page.get_by_role("dialog", name="New Skill")
+    expect(new_skill.locator("#newSkillName")).not_to_have_value("")
+    new_skill.get_by_role("button", name="Cancel").click()
+
+    instruction = page.locator('[data-card-kind="instruction"]').filter(has_text="AGENTS.md")
+    expect(instruction).to_be_visible()
+    instruction.get_by_role("button", name="Check drift").click()
+    expect(instruction).to_contain_text("Command is not available on PATH")
+    expect(instruction).to_contain_text("Referenced path does not exist")
+    page.get_by_role("tab", name="Targets", exact=True).click()
+
+
 def assert_palette_and_theme(page) -> None:
     page.keyboard.press("Control+K")
     palette = page.locator("#commandPalette")
@@ -595,6 +630,11 @@ def run() -> None:
     claude_home = data_directory / "claude"
     claude_home.mkdir()
     (claude_home / "settings.json").write_text("{}", encoding="utf-8")
+    (data_directory / "AGENTS.md").write_text(
+        "# Fixture instructions\n\n"
+        "Run `missing-lair-tool --verify` and inspect `scripts/missing.js`.\n",
+        encoding="utf-8",
+    )
 
     environment = {
         **os.environ,
@@ -602,6 +642,7 @@ def run() -> None:
         "PROJECT_MANAGER_DATA_DIR": str(data_directory),
         "AGENTS_HOME": str(agents_home),
         "CLAUDE_CONFIG_DIR": str(claude_home),
+        "LAIR_WORKSPACE_ROOT": str(data_directory),
     }
     service = subprocess.Popen(
         ["node", str(ROOT / "server.js")],
@@ -719,6 +760,7 @@ def run() -> None:
             assert_minimal_update_controls(page)
             assert_settings_panel(page, scripts_supported=script_name is not None)
             assert_skills_maintenance(page)
+            assert_maintenance_loop(page)
             if script_name:
                 assert_script_action_tray(page, script_name)
             assert_palette_and_theme(page)

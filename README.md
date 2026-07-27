@@ -114,6 +114,11 @@ JSON.
   skills stay read-only.
 - The context-tax meter estimates auto-loaded instructions, skill descriptions,
   memory, and MCP configuration with the offline `characters / 4` rule.
+- The local maintenance loop includes a quick friction capture, three-strike
+  recurrence nudges, an instant “Which skill would fire?” routing preview, and
+  a read-only Instructions view for known `AGENTS.md` and `CLAUDE.md` files.
+  Drift checks validate referenced paths and commands only when requested;
+  instruction editing stays in the user's normal editor.
 - Curated phosphor, ultraviolet, ice, volt, and high-contrast ghost themes.
 
 ![Hacker's Lair Targets view with fictional live and dormant projects](docs/screenshots/targets.png)

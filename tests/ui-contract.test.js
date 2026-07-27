@@ -122,6 +122,23 @@ test('Skills maintenance cards expose health, usage, ratings, context, and guard
   assert.match(html, /CONTEXT_TAX_SCANNED/);
 });
 
+test('AI maintenance loop captures friction, tests routing, and protects instruction paths', () => {
+  assert.match(html, /id="frictionCapture"/);
+  assert.match(html, /data-skill-route-input/);
+  assert.match(html, /Which skill would fire\?/);
+  assert.match(html, /id="instructionsTab"[^>]*data-view="instructions"/);
+  assert.match(html, /data-instruction-action="editor"/);
+  assert.match(html, /data-instruction-action="reveal"/);
+  assert.match(html, /data-instruction-action="drift"/);
+  assert.match(html, /Recurring|Three repeats suggest/);
+  assert.match(html, /data-friction-scaffold/);
+  assert.match(html, /FRICTION_LOGGED/);
+  assert.match(html, /INSTRUCTION_DRIFT_CHECKED/);
+  assert.match(server, /req\.url === '\/api\/ai\/friction'/);
+  assert.match(server, /req\.url === '\/api\/ai\/instructions\/drift'/);
+  assert.match(server, /instructionRecords\(settings\)\.find\(\(item\) => item\.id === id\)/);
+});
+
 test('runtime resilience controls surface backend and log state', () => {
   assert.match(html, /id="backendBanner"/);
   assert.match(html, /syncDesktopBackend/);

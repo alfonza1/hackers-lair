@@ -82,6 +82,12 @@ test('protects localhost mutations and verifies the bound service identity', asy
   fs.writeFileSync(path.join(claudeHome, 'settings.json'), JSON.stringify({
     permissions: { allow: ['Read'] },
   }));
+  fs.writeFileSync(path.join(dataDirectory, 'AGENTS.md'), [
+    '# Fixture instructions',
+    '',
+    'Run `missing-lair-tool --verify` and inspect `scripts/missing.js`.',
+    '',
+  ].join('\n'));
   const child = spawn(process.execPath, [path.join(ROOT, 'server.js')], {
     cwd: ROOT,
     env: {
@@ -90,6 +96,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
       PROJECT_MANAGER_DATA_DIR: dataDirectory,
       AGENTS_HOME: agentsHome,
       CLAUDE_CONFIG_DIR: claudeHome,
+      LAIR_WORKSPACE_ROOT: dataDirectory,
     },
     stdio: 'ignore',
     windowsHide: true,
@@ -227,6 +234,64 @@ test('protects localhost mutations and verifies the bound service identity', asy
   const contextCostResponse = await request({ port, pathname: '/api/ai/context-cost' });
   assert.equal(contextCostResponse.status, 200);
   assert.ok(Number.isInteger(JSON.parse(contextCostResponse.body).totalTokens));
+
+  const instructionResponse = await request({ port, pathname: '/api/ai/instructions' });
+  assert.equal(instructionResponse.status, 200);
+  const instruction = JSON.parse(instructionResponse.body).instructions.find(
+    (item) => item.name === 'AGENTS.md',
+  );
+  assert.ok(instruction);
+  assert.equal(instruction.path, path.join(dataDirectory, 'AGENTS.md'));
+
+  const driftResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/ai/instructions/drift',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ id: instruction.id }),
+  });
+  assert.equal(driftResponse.status, 200);
+  assert.deepEqual(
+    JSON.parse(driftResponse.body).findings.map((finding) => finding.code).sort(),
+    ['missing-command', 'missing-path'],
+  );
+  const arbitraryInstructionPath = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/ai/instructions/drift',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ id: 'missing', file: path.join(dataDirectory, 'projects.json') }),
+  });
+  assert.equal(arbitraryInstructionPath.status, 404);
+
+  for (const text of [
+    'Agent skipped repository verification on run 1',
+    'Agent skipped repository verification on run 2',
+    'Agent skipped repository verification on run 3',
+  ]) {
+    const frictionResponse = await request({
+      port,
+      method: 'POST',
+      pathname: '/api/ai/friction',
+      headers: authorizedHeaders,
+      body: JSON.stringify({ text, project: 'unknown-project' }),
+    });
+    assert.equal(frictionResponse.status, 201);
+    assert.equal(JSON.parse(frictionResponse.body).entry.project, '');
+  }
+  const friction = JSON.parse((await request({ port, pathname: '/api/ai/friction' })).body);
+  assert.equal(friction.entries.length, 3);
+  assert.equal(friction.groups[0].count, 3);
+  assert.equal(friction.groups[0].nudge, true);
+
+  const invalidFriction = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/ai/friction',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ text: ' ' }),
+  });
+  assert.equal(invalidFriction.status, 400);
 
   const unsafeScaffold = await request({
     port,

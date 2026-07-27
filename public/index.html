@@ -543,6 +543,44 @@
     margin-left: auto;
   }
 
+  .friction-capture {
+    display: flex;
+    min-width: min(330px, 28vw);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(var(--surface-strong-rgb), .72);
+  }
+
+  .friction-capture input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    padding: 0 10px;
+    color: var(--text);
+    background: transparent;
+    font: 10px/1.3 var(--mono);
+  }
+
+  .friction-capture input::placeholder { color: var(--dim); }
+
+  .friction-capture button {
+    flex: none;
+    min-height: 42px;
+    border: 0;
+    border-left: 1px solid var(--line);
+    padding: 0 10px;
+    color: var(--cyan);
+    background: rgba(var(--secondary-rgb), .06);
+    font: 800 8px/1 var(--mono);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .friction-capture button:hover { color: var(--text); background: rgba(var(--secondary-rgb), .13); }
+  .friction-capture button:disabled { opacity: .55; cursor: wait; }
+
   .settings-shell {
     position: relative;
     flex: none;
@@ -1879,6 +1917,117 @@
     font-size: 10px;
   }
 
+  .skill-router,
+  .friction-panel {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: rgba(var(--surface-rgb), .62);
+  }
+
+  .skill-router h3,
+  .friction-panel h3 {
+    margin: 0;
+    color: var(--text);
+    font-size: 12px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .skill-router p,
+  .friction-panel p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  .skill-router input {
+    width: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    padding: 10px;
+    color: var(--text);
+    background: var(--panel-2);
+    font: 11px/1.4 var(--mono);
+  }
+
+  .skill-route-results,
+  .friction-groups {
+    display: grid;
+    gap: 7px;
+  }
+
+  .skill-route-result {
+    display: grid;
+    grid-template-columns: minmax(110px, .65fr) minmax(90px, 1fr) auto;
+    gap: 9px;
+    align-items: center;
+    color: var(--muted);
+    font-size: 9px;
+  }
+
+  .skill-route-result strong {
+    overflow: hidden;
+    color: var(--text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .skill-route-bar {
+    width: 100%;
+    height: 5px;
+    border: 0;
+    border-radius: 99px;
+    background: rgba(var(--white-rgb), .06);
+    appearance: none;
+  }
+
+  .skill-route-bar::-webkit-progress-bar { background: rgba(var(--white-rgb), .06); }
+  .skill-route-bar::-webkit-progress-value { background: var(--cyan); }
+  .skill-route-bar::-moz-progress-bar { background: var(--cyan); }
+
+  .friction-group {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    background: rgba(var(--shadow-rgb), .16);
+    font-size: 10px;
+  }
+
+  .friction-group strong {
+    overflow: hidden;
+    color: var(--text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .friction-group.is-recurring { border-color: rgba(var(--warning-rgb), .42); }
+
+  .instruction-card .machine-screen { grid-template-columns: minmax(0, 1fr); }
+
+  .instruction-path {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .instruction-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 11px;
+  }
+
   .context-breakdown {
     display: grid;
     gap: 7px;
@@ -2475,6 +2624,8 @@
       padding-top: 18px;
       padding-left: 0;
     }
+
+    .friction-capture { min-width: min(300px, 42vw); }
   }
 
   @media (max-width: 780px) {
@@ -2493,6 +2644,7 @@
     .setup-module + .setup-module { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 18px; }
     .onboarding-paths { grid-template-columns: 1fr; }
     .filter-row { grid-template-columns: 1fr; }
+    .friction-capture { min-width: 220px; }
     .target-card { grid-template-columns: 1fr; }
     .machine-screen { grid-template-columns: 1fr; }
     .machine-bar { grid-template-columns: auto minmax(0, 1fr); }
@@ -2518,6 +2670,10 @@
       right: auto;
       left: 0;
     }
+    .friction-capture { width: 100%; min-width: 0; }
+    .skill-route-result { grid-template-columns: minmax(90px, .8fr) minmax(70px, 1fr) auto; }
+    .friction-group { grid-template-columns: minmax(0, 1fr) auto; }
+    .friction-group .utility { grid-column: 1 / -1; }
     h1 { font-size: 18px; line-height: 1.18; }
     .top-sub { max-width: 28ch; font-size: 11px; }
     .view-tabs { display: grid; grid-template-columns: 1fr; }
@@ -2967,6 +3123,10 @@
         <p class="top-sub">Low-light command room for local targets, port signals, optional scripts, and machine diagnostics.</p>
       </div>
       <div class="header-actions" aria-label="Application links">
+        <form class="friction-capture" id="frictionCapture" hidden>
+          <input id="frictionInput" type="text" maxlength="2000" autocomplete="off" aria-label="Capture agent friction" placeholder="agent did X wrong">
+          <button id="logFriction" type="submit">Log friction</button>
+        </form>
         <button class="header-action update-available-trigger" id="updateAvailableTrigger" type="button" hidden>
           <span id="updateAvailableLabel">Update available</span>
         </button>
@@ -3082,6 +3242,7 @@
             <button class="view-tab" data-view="processes" role="tab" aria-selected="false">Port Signals</button>
             <button class="view-tab" id="scriptsTab" data-view="scripts" role="tab" aria-selected="false" hidden>Scripts</button>
             <button class="view-tab" id="skillsTab" data-view="skills" role="tab" aria-selected="false" hidden>Skills</button>
+            <button class="view-tab" id="instructionsTab" data-view="instructions" role="tab" aria-selected="false" hidden>Instructions</button>
           </div>
           <button class="utility" id="addProject" type="button">Add Project</button>
           <button class="utility" id="newSkill" type="button" hidden>+ New Skill</button>
@@ -3315,7 +3476,7 @@
     </div>
     <div class="dialog-body">
       <label class="editor-field">Skill name
-        <input id="newSkillName" type="text" autocomplete="off" maxlength="64" pattern="[a-z0-9][a-z0-9-]{1,63}" placeholder="release-helper">
+        <input id="newSkillName" type="text" autocomplete="off" maxlength="64" pattern="[a-z0-9][a-z0-9\-]{1,63}" placeholder="release-helper">
       </label>
       <p class="setup-copy">Creates a lint-clean SKILL.md in your personal workspace Skills folder. Edit the generated routing description before relying on it.</p>
       <p class="editor-error" id="newSkillError" role="alert"></p>
@@ -3428,6 +3589,7 @@
     processes: { title: 'Port Signals', placeholder: 'filter signals by name, path, pid, or port', empty: 'No matching port signals detected.' },
     scripts: { title: 'Scripts', placeholder: 'filter scripts by name, file, or description', empty: 'No matching scripts detected.' },
     skills: { title: 'Skills', placeholder: 'filter skills by name, source, or description', empty: 'No matching skills detected.' },
+    instructions: { title: 'Instructions', placeholder: 'filter AGENTS.md and CLAUDE.md by path', empty: 'No workspace instruction files detected.' },
   };
 
   const state = {
@@ -3443,6 +3605,11 @@
     skillsLoaded: false,
     aiSetup: null,
     contextCost: null,
+    instructions: [],
+    instructionsLoaded: false,
+    instructionFindings: {},
+    friction: { entries: [], groups: [] },
+    skillRouteQuery: '',
     aiWorkflowBusy: false,
     onboarding: null,
     settings: null,
@@ -4487,6 +4654,138 @@
     });
   }
 
+  const ROUTING_STOPWORDS = new Set([
+    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'in', 'is',
+    'it', 'of', 'on', 'or', 'that', 'the', 'this', 'to', 'use', 'when', 'with',
+  ]);
+
+  function routingTokens(value) {
+    return String(value || '')
+      .toLowerCase()
+      .match(/[a-z0-9][a-z0-9-]{1,}/g)
+      ?.filter((token) => !ROUTING_STOPWORDS.has(token)) || [];
+  }
+
+  function scoreSkillRoute(query, skill) {
+    const queryTokens = new Set(routingTokens(query));
+    const descriptionTokens = new Set(routingTokens(`${skill.name} ${skill.description}`));
+    if (!queryTokens.size || !descriptionTokens.size) return 0;
+    const shared = [...queryTokens].filter((token) => descriptionTokens.has(token)).length;
+    const union = new Set([...queryTokens, ...descriptionTokens]).size;
+    const queryPhrase = [...queryTokens].join(' ');
+    const description = String(skill.description || '').toLowerCase();
+    const phraseBoost = queryPhrase.length >= 8 && description.includes(queryPhrase) ? .35 : 0;
+    return Math.min(1, (shared / Math.max(union, 1)) + phraseBoost);
+  }
+
+  function skillRouteMatches(query) {
+    return state.skills
+      .map((skill) => ({ skill, score: scoreSkillRoute(query, skill) }))
+      .filter((match) => match.score > 0)
+      .sort((left, right) => right.score - left.score || left.skill.name.localeCompare(right.skill.name))
+      .slice(0, 5);
+  }
+
+  function skillRouteResultsHtml(query) {
+    if (!query.trim()) return '<p>Describe a task to preview the five strongest local routing matches.</p>';
+    const matches = skillRouteMatches(query);
+    if (!matches.length || matches[0].score < .12) {
+      return '<p>No strong match. Consider refining a description or scaffolding a focused skill.</p>';
+    }
+    return matches.map(({ skill, score }) => `
+      <div class="skill-route-result">
+        <strong>${esc(skill.name)}</strong>
+        <progress class="skill-route-bar" max="100" value="${Math.round(score * 100)}" aria-label="${Math.round(score * 100)} percent match"></progress>
+        <span>${Math.round(score * 100)}%</span>
+      </div>
+    `).join('');
+  }
+
+  function skillRouterHtml() {
+    return `
+      <section class="skill-router" aria-label="Skill routing tester">
+        <h3>Which skill would fire?</h3>
+        <p>Local token-overlap scoring only. No prompt text leaves this machine.</p>
+        <input type="text" data-skill-route-input autocomplete="off" value="${esc(state.skillRouteQuery)}" placeholder="describe the work an agent is about to do">
+        <div class="skill-route-results" data-skill-route-results>${skillRouteResultsHtml(state.skillRouteQuery)}</div>
+      </section>
+    `;
+  }
+
+  function visibleInstructions() {
+    if (!state.query) return state.instructions;
+    return state.instructions.filter((instruction) => (
+      `${instruction.name} ${instruction.path} ${instruction.directory}`.toLowerCase().includes(state.query)
+    ));
+  }
+
+  function instructionCard(instruction) {
+    const findings = state.instructionFindings[instruction.id] || [];
+    return `
+      <article class="target-card instruction-card" data-card-kind="instruction" data-instruction-id="${esc(instruction.id)}">
+        <div class="machine-bar">
+          <span class="machine-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="machine-label">workspace-instructions :: ${esc(instruction.name)}</span>
+          <span class="machine-node">${esc(instruction.scope || 'WORKSPACE')}</span>
+        </div>
+        <div class="machine-screen">
+          <div class="target-main">
+            <div class="target-title">
+              <h3><span class="target-prefix">FILE</span>${esc(instruction.name)}</h3>
+              <span class="target-type">${Number(instruction.tokens || 0).toLocaleString()} TOKENS</span>
+              ${statusBadge({ key: findings.length ? 'booting' : 'live', label: findings.length ? 'DRIFT' : 'READY' })}
+            </div>
+            <p class="instruction-path">${esc(instruction.path)}</p>
+            <div class="target-fields">
+              ${field('Size', `${Number(instruction.size || 0).toLocaleString()} bytes`)}
+              ${field('Modified', formatDateTime(instruction.modifiedAt))}
+              ${field('Scope', instruction.scope)}
+            </div>
+            <div class="instruction-actions">
+              <button class="utility" type="button" data-instruction-action="editor">Open in editor</button>
+              <button class="utility" type="button" data-instruction-action="reveal">Reveal folder</button>
+              <button class="utility" type="button" data-instruction-action="drift">Check drift</button>
+            </div>
+            ${findings.length ? `
+              <details class="skill-findings" open>
+                <summary>${findings.length} drift finding${findings.length === 1 ? '' : 's'}</summary>
+                <ul>${findings.map((finding) => `<li>${esc(finding.message)}</li>`).join('')}</ul>
+              </details>
+            ` : ''}
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function skillNameFromTag(tag) {
+    const normalized = String(tag || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 64);
+    return /^[a-z0-9][a-z0-9-]{1,63}$/.test(normalized) ? normalized : 'workflow-fix';
+  }
+
+  function frictionPanelHtml() {
+    const groups = state.friction?.groups || [];
+    return `
+      <section class="friction-panel" aria-label="Agent friction log">
+        <h3>Friction signals</h3>
+        <p>Quick captures are stored locally and grouped deterministically. Three repeats suggest a reusable workflow fix.</p>
+        <div class="friction-groups">
+          ${groups.length ? groups.map((group) => `
+            <div class="friction-group ${group.nudge ? 'is-recurring' : ''}">
+              <strong title="${esc(group.tag)}">${esc(group.tag)}</strong>
+              <span>&times;${Number(group.count || 0)}</span>
+              ${group.nudge ? `<button class="utility" type="button" data-friction-scaffold="${esc(skillNameFromTag(group.tag))}">Create skill</button>` : ''}
+            </div>
+          `).join('') : '<p>No friction logged yet. Use the header capture when an agent workflow goes wrong.</p>'}
+        </div>
+      </section>
+    `;
+  }
+
   function onboardingPromptsForView() {
     if (state.query || !state.onboarding?.prompts?.length) return [];
     if (state.view === 'projects' && state.projects.length === 0) {
@@ -4578,23 +4877,30 @@
     const rows = state.view === 'projects' ? visibleProjects()
       : state.view === 'processes' ? visibleProcesses()
       : state.view === 'scripts' ? visibleScripts()
-      : visibleSkills();
+      : state.view === 'skills' ? visibleSkills()
+      : visibleInstructions();
     const scanningSkills = state.view === 'skills' && !state.skillsLoaded;
     const onboardingPrompts = onboardingPromptsForView();
-    $('emptyState').hidden = rows.length > 0;
+    const hasSupplementalContent = state.view === 'instructions';
+    $('emptyState').hidden = rows.length > 0 || hasSupplementalContent;
     if (onboardingPrompts.length) $('emptyState').innerHTML = onboardingHtml(onboardingPrompts);
-    else $('emptyState').textContent = scanningSkills ? 'Scanning shared agent skill folder...' : VIEW_CONFIG[state.view].empty;
+    else $('emptyState').textContent = scanningSkills
+      ? 'Scanning shared agent skill folder...'
+      : VIEW_CONFIG[state.view].empty;
     const skillsSetup = state.view === 'skills' && (!onboardingPrompts.length || rows.length)
       ? aiWorkflowSetupHtml()
       : '';
+    const skillRouter = state.view === 'skills' && state.skillsLoaded ? skillRouterHtml() : '';
     const archived = state.view === 'skills' && !state.showDefaultSkills
       ? archivedSkillsHtml()
       : '';
-    $('targetList').innerHTML = skillsSetup + rows.map((row) =>
+    const friction = state.view === 'instructions' ? frictionPanelHtml() : '';
+    $('targetList').innerHTML = friction + skillRouter + skillsSetup + rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
       : state.view === 'processes' ? processCard(row)
       : state.view === 'scripts' ? scriptCard(row)
-      : skillCard(row)
+      : state.view === 'skills' ? skillCard(row)
+      : instructionCard(row)
     ).join('') + archived;
   }
 
@@ -4621,7 +4927,8 @@
     if (view === 'projects') loadProjects(true);
     else if (view === 'processes') Promise.all([loadProjects(true), loadProcesses(true)]);
     else if (view === 'scripts') loadScripts(true);
-    else loadSkills(true);
+    else if (view === 'skills') loadSkills(true);
+    else loadInstructions(true);
   }
 
   function updateClock() {
@@ -4647,6 +4954,9 @@
     } else if (state.view === 'skills') {
       rows = state.skills;
       live = rows.filter((row) => row.kind === 'personal').length;
+    } else if (state.view === 'instructions') {
+      rows = state.instructions;
+      live = rows.length;
     } else {
       rows = state.processes.filter((process) => !isConfiguredProjectProcess(process) && (state.showSystem || !process.system));
       live = rows.filter((row) => !row.stopped).length;
@@ -4657,10 +4967,22 @@
     const memoryUsed = state.system?.memory?.usedPercent;
     const cpu = state.system?.cpuPercent;
 
-    $('liveLabel').textContent = state.view === 'skills' ? 'Personal Skills' : 'Live Targets';
-    $('dormantLabel').textContent = state.view === 'skills' ? 'Default Skills' : 'Dormant Targets';
+    $('liveLabel').textContent = state.view === 'skills'
+      ? 'Personal Skills'
+      : state.view === 'instructions' ? 'Instruction Files' : 'Live Targets';
+    $('dormantLabel').textContent = state.view === 'skills'
+      ? 'Default Skills'
+      : state.view === 'instructions' ? 'Drift Findings' : 'Dormant Targets';
+    if (state.view === 'instructions') {
+      const findingCount = Object.values(state.instructionFindings).reduce(
+        (sum, findings) => sum + findings.length,
+        0,
+      );
+      live = rows.length;
+      $('dormantCount').textContent = String(findingCount);
+    }
     $('liveCount').textContent = String(live);
-    $('dormantCount').textContent = String(dormant);
+    if (state.view !== 'instructions') $('dormantCount').textContent = String(dormant);
     $('gitAttentionCount').textContent = String(state.projects.filter((project) => project.gitAttention?.summary?.level !== 'clean').length);
     $('cpuUsage').textContent = formatCpu(cpu) || '—';
     $('cpuBar').style.width = `${Math.max(0, Math.min(Number(cpu) || 0, 100))}%`;
@@ -4831,6 +5153,37 @@
     }
   }
 
+  async function loadInstructions(quiet = false) {
+    if (state.settings?.enableSkills !== true) {
+      state.instructions = [];
+      state.friction = { entries: [], groups: [] };
+      return;
+    }
+    try {
+      const [instructions, friction] = await Promise.all([
+        fetchJson('/api/ai/instructions'),
+        fetchJson('/api/ai/friction'),
+      ]);
+      state.instructions = instructions.instructions || [];
+      state.friction = friction;
+      state.instructionsLoaded = true;
+      if (!quiet) {
+        pushFeed(
+          'INSTRUCTION_REGISTRY_SYNCED',
+          `files=${state.instructions.length} friction=${state.friction.entries?.length || 0}`,
+          'info',
+        );
+      }
+      renderTargets();
+      updateIntel();
+    } catch (error) {
+      state.instructionsLoaded = true;
+      renderTargets();
+      toast('Signal lost: AI workflow instructions unavailable', true);
+      pushFeed('INSTRUCTION_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    }
+  }
+
   async function loadSettings() {
     try {
       const data = await fetchJson('/api/settings');
@@ -4868,9 +5221,11 @@
     $('skillsPanelField').classList.toggle('is-success', state.panelSettings.saved);
     $('scriptsPanelField').classList.toggle('is-success', state.panelSettings.saved);
     $('skillsTab').hidden = !skillsEnabled;
+    $('instructionsTab').hidden = !skillsEnabled;
+    $('frictionCapture').hidden = !skillsEnabled;
     $('scriptsTab').hidden = !scriptsEnabled || !state.scriptsConfigured;
     if (
-      (state.view === 'skills' && !skillsEnabled)
+      (['skills', 'instructions'].includes(state.view) && !skillsEnabled)
       || (state.view === 'scripts' && (!scriptsEnabled || !state.scriptsConfigured))
     ) {
       setView('projects');
@@ -6148,6 +6503,7 @@
       commands.push(
         { verb: 'SKILL', label: 'Create personal skill', hint: 'lint-clean scaffold', run: openNewSkillDialog },
         { verb: 'CONTEXT', label: 'Show context tax', hint: 'local estimate', run: openContextCostDialog },
+        { verb: 'INSTRUCTIONS', label: 'Open workflow instructions', hint: 'AGENTS.md and CLAUDE.md', run: () => setView('instructions') },
       );
     }
     if (['available', 'ready', 'blocked'].includes(state.update?.status)) {
@@ -6277,8 +6633,8 @@
     $('commandPalette').hidden = true;
   }
 
-  function openNewSkillDialog() {
-    $('newSkillName').value = '';
+  function openNewSkillDialog(prefill = '') {
+    $('newSkillName').value = typeof prefill === 'string' ? prefill : '';
     $('newSkillError').textContent = '';
     $('newSkillDialog').showModal();
     $('newSkillName').focus();
@@ -6356,6 +6712,49 @@
     $('contextCostDialog').showModal();
   }
 
+  async function captureFriction(event) {
+    event.preventDefault();
+    const text = $('frictionInput').value.trim();
+    if (!text) {
+      toast('Describe what the agent did wrong first.', true);
+      return;
+    }
+    const button = $('logFriction');
+    const project = state.projects.find((item) => item.name === state.actions.last?.target)?.name || '';
+    button.disabled = true;
+    try {
+      const result = await postJson('/api/ai/friction', { text, project });
+      $('frictionInput').value = '';
+      pushFeed('FRICTION_LOGGED', `tag=${slug(result.entry.tag)} project=${slug(result.entry.project || 'none')}`, 'warn');
+      toast('Friction signal saved locally.');
+      await loadInstructions(true);
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function runInstructionAction(instruction, action, button) {
+    button.disabled = true;
+    try {
+      if (action === 'drift') {
+        const result = await postJson('/api/ai/instructions/drift', { id: instruction.id });
+        state.instructionFindings[instruction.id] = result.findings || [];
+        pushFeed('INSTRUCTION_DRIFT_CHECKED', `file=${slug(instruction.name)} findings=${result.findings?.length || 0}`, result.findings?.length ? 'warn' : 'info');
+        renderTargets();
+        updateIntel();
+        return;
+      }
+      await postJson('/api/ai/instructions/open', { id: instruction.id, action });
+      pushFeed('INSTRUCTION_OPENED', `file=${slug(instruction.name)} action=${action}`, 'info');
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
+  }
+
   async function executeCommand(index = commandSelection) {
     const command = visibleCommands[index];
     if (!command || command.disabled) return;
@@ -6364,6 +6763,21 @@
   }
 
   $('targetList').addEventListener('click', async (event) => {
+    const frictionScaffold = event.target.closest('[data-friction-scaffold]');
+    if (frictionScaffold) {
+      openNewSkillDialog(frictionScaffold.dataset.frictionScaffold);
+      pushFeed('FRICTION_SKILL_SUGGESTED', `name=${slug(frictionScaffold.dataset.frictionScaffold)}`, 'info');
+      return;
+    }
+    const instructionAction = event.target.closest('[data-instruction-action]');
+    if (instructionAction) {
+      const card = instructionAction.closest('[data-instruction-id]');
+      const instruction = state.instructions.find((item) => item.id === card?.dataset.instructionId);
+      if (instruction) {
+        await runInstructionAction(instruction, instructionAction.dataset.instructionAction, instructionAction);
+      }
+      return;
+    }
     const aiAction = event.target.closest('[data-ai-action]');
     if (aiAction) {
       await runAiWorkflowAction(aiAction.dataset.aiAction, aiAction);
@@ -6461,6 +6875,13 @@
     if (action === 'terminate') await terminateProcess(target);
   });
 
+  $('targetList').addEventListener('input', (event) => {
+    if (!event.target.matches('[data-skill-route-input]')) return;
+    state.skillRouteQuery = event.target.value;
+    const results = $('targetList').querySelector('[data-skill-route-results]');
+    if (results) results.innerHTML = skillRouteResultsHtml(state.skillRouteQuery);
+  });
+
   document.querySelectorAll('.view-tab').forEach((button) => {
     button.addEventListener('click', () => setView(button.dataset.view));
   });
@@ -6478,7 +6899,8 @@
       state.view === 'projects' ? loadProjects(true)
         : state.view === 'processes' ? Promise.all([loadProjects(true), loadProcesses(true)])
         : state.view === 'scripts' ? loadScripts(true)
-        : loadSkills(true),
+        : state.view === 'skills' ? loadSkills(true)
+        : loadInstructions(true),
     ]);
   });
 
@@ -6527,6 +6949,7 @@
   });
 
   $('addProject').addEventListener('click', () => openProjectEditor());
+  $('frictionCapture').addEventListener('submit', captureFriction);
   $('newSkill').addEventListener('click', openNewSkillDialog);
   $('createSkill').addEventListener('click', createSkill);
   $('newSkillName').addEventListener('keydown', (event) => {

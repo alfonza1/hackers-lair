@@ -107,3 +107,33 @@ test('Linux workspace picker treats cancel as empty but surfaces launch failures
     /cannot open display/,
   );
 });
+
+test('instruction files open in the associated editor and reveal without shell interpolation', async () => {
+  const windowsCalls = [];
+  const windows = createWin32Platform({
+    spawnCommand: async (command, args) => { windowsCalls.push({ command, args }); },
+  });
+  await windows.openTarget('editor-file', { file: 'C:\\Work\\AGENTS.md' });
+  await windows.openTarget('reveal-file', { file: 'C:\\Work\\AGENTS.md' });
+  assert.deepEqual(windowsCalls, [
+    {
+      command: 'cmd.exe',
+      args: ['/d', '/s', '/c', 'start', '', 'C:\\Work\\AGENTS.md'],
+    },
+    {
+      command: 'explorer.exe',
+      args: ['/select,C:\\Work\\AGENTS.md'],
+    },
+  ]);
+
+  const linuxCalls = [];
+  const linux = createLinuxPlatform({
+    spawnCommand: async (command, args) => { linuxCalls.push({ command, args }); },
+  });
+  await linux.openTarget('editor-file', { file: '/work/AGENTS.md' });
+  await linux.openTarget('reveal-file', { file: '/work/AGENTS.md' });
+  assert.deepEqual(linuxCalls, [
+    { command: 'xdg-open', args: ['/work/AGENTS.md'] },
+    { command: 'xdg-open', args: ['/work'] },
+  ]);
+});
