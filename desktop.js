@@ -17,6 +17,7 @@ const path = require('path');
 const { APP_NAME, APP_USER_MODEL_ID } = require('./app-config');
 const { performPowerAction } = require('./lib/app-power');
 const { detectInstallChannel, installChannelDetails } = require('./lib/install-channel');
+const { fetchAvailableRelease } = require('./lib/release-check');
 const {
   managedTargetsRunning,
   releaseNotesForVersion,
@@ -75,6 +76,7 @@ let serviceRestartAttempts = 0;
 const MAX_SERVICE_RESTARTS = 5;
 const SERVICE_HEALTH_INTERVAL_MS = 5_000;
 const SERVICE_RESTART_STABILITY_MS = 30_000;
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1_000;
 const smokeExitAfterMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_MS);
 const smokeExitAfterRecoveryMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_RECOVERY_MS);
 let serviceHealthySince = 0;
@@ -184,7 +186,30 @@ async function requestUpdateApply() {
 }
 
 function initializeUpdates() {
-  if (installChannel !== 'squirrel' || !app.isPackaged) return;
+  if (!app.isPackaged) return;
+  if (installChannel !== 'squirrel') {
+    const check = async () => {
+      try {
+        const release = await fetchAvailableRelease({ currentVersion });
+        if (!release.version) return;
+        publishUpdateState({
+          status: 'available',
+          version: release.version,
+          message: `v${release.version} is available. Update when convenient with the ${channelDetails.label} command.`,
+          releaseUrl: release.releaseUrl,
+          releaseNotes: release.releaseNotes,
+          managedTargets: [],
+        });
+      } catch (error) {
+        console.warn(`Passive update check unavailable: ${error.message}`);
+      }
+    };
+    void check();
+    const timer = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+    timer.unref?.();
+    updateStop = () => clearInterval(timer);
+    return;
+  }
   const { UpdateSourceType, updateElectronApp } = require('update-electron-app');
   autoUpdater.on('error', (error) => {
     if (['ready', 'blocked', 'applying'].includes(updateState.status)) return;

@@ -281,16 +281,20 @@ def assert_script_action_tray(page, script_name: str) -> None:
 
 def assert_update_settings_dialog(page) -> None:
     expect(page.locator("#updateBanner")).to_have_count(0)
+    expect(page.locator("#settingsUpdateDot")).to_be_hidden()
+    page.evaluate("window.__lairUpdateListener(window.__availableUpdate)")
+    expect(page.locator("#settingsUpdateDot")).to_be_visible()
     page.get_by_role("button", name="Settings").click()
     updates = page.get_by_role("button", name=re.compile(r"Updates & release notes"))
     expect(updates).to_be_visible()
-    expect(updates).to_contain_text("PowerShell portable")
+    expect(updates).to_contain_text("Update available")
+    expect(page.locator("#settingsUpdateBadge")).to_be_visible()
     updates.click()
 
     dialog = page.get_by_role("dialog", name="Updates & release notes")
     expect(dialog).to_be_visible()
     expect(dialog).to_contain_text(
-        "Updates use the PowerShell portable install channel."
+        "v2.1.0-beta.3 is available."
     )
     expect(dialog.locator("#updateCommand")).to_have_text(
         "irm https://hackerslairhq.github.io/desktop/install.ps1 | iex"
@@ -392,6 +396,19 @@ def run() -> None:
             page.add_init_script(
                 """
                 localStorage.setItem('hackersLair.cinematicSeen', '1');
+                window.__availableUpdate = {
+                  channel: 'powershell',
+                  channelLabel: 'PowerShell portable',
+                  currentVersion: '2.1.0-beta.2',
+                  mode: 'manual',
+                  status: 'available',
+                  version: '2.1.0-beta.3',
+                  message: 'v2.1.0-beta.3 is available. Update when convenient with the PowerShell portable install command.',
+                  upgradeCommand: 'irm https://hackerslairhq.github.io/desktop/install.ps1 | iex',
+                  releaseUrl: 'https://github.com/hackerslairhq/desktop/releases/tag/v2.1.0-beta.3',
+                  releaseNotes: '### Fixed\\n\\n- Portable update fixture notes.',
+                  managedTargets: [],
+                };
                 window.hackerLairWindow = {
                   minimize: () => {},
                   toggleMaximize: () => {},
@@ -409,10 +426,13 @@ def run() -> None:
                     message: 'Updates use the PowerShell portable install channel.',
                     upgradeCommand: 'irm https://hackerslairhq.github.io/desktop/install.ps1 | iex',
                     releaseUrl: 'https://github.com/hackerslairhq/desktop/releases',
-                    releaseNotes: '### Fixed\\n\\n- Portable update fixture notes.',
+                    releaseNotes: '### Fixed\\n\\n- Current release fixture notes.',
                     managedTargets: [],
                   }),
-                  onUpdateState: () => () => {},
+                  onUpdateState: (callback) => {
+                    window.__lairUpdateListener = callback;
+                    return () => {};
+                  },
                   openUpdateNotes: async () => true,
                 };
                 """

@@ -63,6 +63,8 @@ test('updates and release notes live in the Settings dialog', () => {
   assert.match(html, /aria-label="Settings"/);
   assert.doesNotMatch(html, />UI preferences</);
   assert.match(html, /id="updatesTrigger"/);
+  assert.match(html, /id="settingsUpdateDot"/);
+  assert.match(html, /id="settingsUpdateBadge"/);
   assert.match(html, /id="updateDialog"/);
   assert.match(html, /id="copyUpdateCommand"/);
   assert.match(html, /id="releaseNotesBody"/);

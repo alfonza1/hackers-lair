@@ -530,6 +530,7 @@
   }
 
   .preferences-trigger {
+    position: relative;
     display: grid;
     place-items: center;
     width: 34px;
@@ -633,6 +634,18 @@
     cursor: pointer;
   }
 
+  .settings-update-dot {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 9px;
+    height: 9px;
+    border: 2px solid var(--panel-solid);
+    border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 8px rgba(var(--warning-rgb), .42);
+  }
+
   .preferences-action:hover {
     border-color: var(--cyan);
     background: rgba(var(--secondary-rgb), .1);
@@ -643,6 +656,31 @@
     font-size: 10px;
     letter-spacing: .05em;
     text-transform: uppercase;
+  }
+
+  .preferences-action-title {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .settings-update-badge {
+    flex: none;
+    padding: 2px 5px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    color: var(--amber);
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: .07em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .preferences-action.has-update {
+    border-color: rgba(var(--warning-rgb), .48);
+    background: rgba(var(--warning-rgb), .055);
   }
 
   .preferences-action small {
@@ -2576,7 +2614,10 @@
         <p class="top-sub">Low-light command room for local targets, port signals, optional scripts, and machine diagnostics.</p>
       </div>
       <div class="preferences-shell">
-        <button class="preferences-trigger" id="preferencesTrigger" type="button" aria-label="Settings" aria-expanded="false" aria-controls="preferencesPopover">⚙</button>
+        <button class="preferences-trigger" id="preferencesTrigger" type="button" aria-label="Settings" aria-expanded="false" aria-controls="preferencesPopover">
+          <span aria-hidden="true">⚙</span>
+          <span class="settings-update-dot" id="settingsUpdateDot" aria-hidden="true" hidden></span>
+        </button>
         <div class="preferences-popover" id="preferencesPopover" hidden>
           <h2>Settings</h2>
           <p>Curated local presets. Saved across the desktop app and browser tabs.</p>
@@ -2612,7 +2653,10 @@
             <input id="launchAtLogin" type="checkbox">
           </label>
           <button class="preferences-action" id="updatesTrigger" type="button">
-            <strong>Updates &amp; release notes</strong>
+            <span class="preferences-action-title">
+              <strong>Updates &amp; release notes</strong>
+              <span class="settings-update-badge" id="settingsUpdateBadge" hidden>Update available</span>
+            </span>
             <small id="updatesSummary">Desktop host required</small>
           </button>
           <span class="preferences-sync" id="preferencesSync" role="status"></span>
@@ -4185,8 +4229,20 @@
     state.update = update;
     const currentVersion = update?.currentVersion || '';
     const displayVersion = update?.version || currentVersion;
-    $('updatesSummary').textContent = update
-      ? `${update.channelLabel || update.channel || 'Update channel'}${currentVersion ? ` · v${currentVersion}` : ''}`
+    const updateAvailable = ['available', 'ready', 'blocked'].includes(update?.status);
+    $('settingsUpdateDot').hidden = !updateAvailable;
+    $('settingsUpdateBadge').hidden = !updateAvailable;
+    $('updatesTrigger').classList.toggle('has-update', updateAvailable);
+    $('preferencesTrigger').setAttribute(
+      'aria-label',
+      updateAvailable
+        ? `Settings, update available${update?.version ? `: v${update.version}` : ''}`
+        : 'Settings',
+    );
+    $('updatesSummary').textContent = updateAvailable
+      ? `${update?.version ? `v${update.version}` : 'Update'} · ${update?.channelLabel || update?.channel || 'Update channel'}`
+      : update
+        ? `${update.channelLabel || update.channel || 'Update channel'}${currentVersion ? ` · v${currentVersion}` : ''}`
       : 'Desktop host required';
     $('updateCurrentVersion').textContent = currentVersion ? `v${currentVersion}` : 'Unknown';
     $('updateChannel').textContent = update?.channelLabel || update?.channel || 'Desktop host required';

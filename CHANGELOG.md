@@ -7,6 +7,12 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+### Added
+
+- Packaged portable, Scoop, and Linux installs now check the official GitHub
+  releases feed hourly and show a quiet Settings badge when an update is
+  available; installation remains user-initiated through the detected channel.
+
 ### Changed
 
 - Moved update channel commands and release notes from the Targets page into a
