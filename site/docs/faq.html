@@ -44,8 +44,8 @@ Get-Content .\checksums.txt</code></pre>
       <p>Not currently. Releases are built in GitHub Actions and publish SHA256 checksums plus provenance attestations, but neither is Windows publisher identity signing or a way around SmartScreen. The release setup keeps signing configuration isolated so a trusted certificate can be enabled later without changing package channels. The project does not self-sign public packages or ask users to disable operating-system protection.</p>
 
       <h2 id="update">How do I update?</h2>
-      <h3>Winget</h3>
-      <pre class="command-block"><code>winget upgrade --id hackerslair.desktop --exact</code></pre>
+      <h3>Winget status</h3>
+      <p>Package ID <code>hackerslair.desktop</code> is pending community approval and is not an active update channel yet.</p>
       <h3>PowerShell channel</h3>
       <pre class="command-block"><code>irm https://hackerslairhq.github.io/desktop/install.ps1 | iex</code></pre>
       <h3>Scoop</h3>

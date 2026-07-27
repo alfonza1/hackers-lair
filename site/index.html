@@ -84,14 +84,14 @@
       </div>
 
       <div class="install-console">
-        <div class="platform-tabs requires-js" role="tablist" aria-label="Operating system">
-          <button class="platform-tab" type="button" role="tab" data-platform-tab="windows" aria-selected="true">Windows</button>
-          <button class="platform-tab" type="button" role="tab" data-platform-tab="linux" aria-selected="false">Linux</button>
+        <div class="platform-tabs requires-js" role="group" aria-label="Choose an operating system">
+          <button class="platform-tab" type="button" data-platform-tab="windows" aria-pressed="true">Windows</button>
+          <button class="platform-tab" type="button" data-platform-tab="linux" aria-pressed="false">Linux</button>
         </div>
         <section class="install-panel" data-platform-panel="windows" aria-label="Windows installation">
           <p class="detected-signal">Signal detected: <span data-detected-platform>windows_x64</span> · checksum-verified PowerShell</p>
           <pre class="command-block"><code>irm https://hackerslairhq.github.io/desktop/install.ps1 | iex</code></pre>
-          <p>Winget is prepared but remains pending community approval. Scoop is available now through the public <code>hackerslairhq/scoop</code> bucket.</p>
+          <p>Winget package ID <code>hackerslair.desktop</code> is reserved but not installable until community approval. Scoop is available now through the public <code>hackerslairhq/scoop</code> bucket.</p>
           <ul class="install-notes">
             <li>Per-user install</li>
             <li>No Node.js required</li>
@@ -99,10 +99,39 @@
           </ul>
         </section>
         <section class="install-panel" data-platform-panel="linux" aria-label="Linux installation">
-          <p class="detected-signal">Signal detected: <span data-detected-platform>linux_x64</span> · Debian / Ubuntu</p>
-          <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_amd64.deb &amp;&amp; sudo apt install ./hackers-lair_amd64.deb</code></pre>
-          <p>Fedora and RHEL packages, plus a distro-neutral tarball, are documented alongside checksum verification.</p>
-          <a href="./docs/#linux">View every Linux command →</a>
+          <p class="detected-signal">Signal detected: <span data-detected-platform>linux_x64</span> · choose your distribution</p>
+          <p>Browsers cannot identify a Linux distribution reliably. Choose the package family your machine uses; every command verifies SHA256 before installation or extraction.</p>
+          <div class="linux-channel-list">
+            <div class="linux-channel">
+              <h3>Debian / Ubuntu</h3>
+              <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_amd64.deb &amp;&amp;
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/checksums.txt &amp;&amp;
+grep '  hackers-lair_amd64.deb$' checksums.txt | sha256sum -c - &amp;&amp;
+sudo apt install ./hackers-lair_amd64.deb</code></pre>
+            </div>
+            <div class="linux-channel">
+              <h3>Fedora / RHEL</h3>
+              <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_x86_64.rpm &amp;&amp;
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/checksums.txt &amp;&amp;
+grep '  hackers-lair_x86_64.rpm$' checksums.txt | sha256sum -c - &amp;&amp;
+sudo rpm -i ./hackers-lair_x86_64.rpm</code></pre>
+            </div>
+            <div class="linux-channel">
+              <h3>Distro-neutral</h3>
+              <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair-linux-x64.tar.gz &amp;&amp;
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/checksums.txt &amp;&amp;
+grep '  hackers-lair-linux-x64.tar.gz$' checksums.txt | sha256sum -c - &amp;&amp;
+mkdir -p "$HOME/.local/opt/hackers-lair" &amp;&amp;
+tar -xzf hackers-lair-linux-x64.tar.gz -C "$HOME/.local/opt/hackers-lair" --strip-components=1 &amp;&amp;
+"$HOME/.local/opt/hackers-lair/HackersLair"</code></pre>
+            </div>
+          </div>
+          <a href="./docs/#linux">Read Linux installation details →</a>
+        </section>
+        <section class="install-panel unsupported-platform" data-platform-panel="unsupported" aria-label="Unsupported operating system" hidden>
+          <p class="detected-signal">No supported package signal detected</p>
+          <h3>Choose Windows or Linux above.</h3>
+          <p>Hacker's Lair currently ships x64 packages for Windows and Linux. macOS, mobile operating systems, and ARM Linux are not supported yet.</p>
         </section>
       </div>
     </section>

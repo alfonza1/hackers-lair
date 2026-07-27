@@ -52,8 +52,7 @@
       <p class="lede">The normal setup path stays inside the app. Choose folders, review detected commands, and confirm the targets you want—no hand-edited JSON required.</p>
 
       <h2 id="install">1. Install and launch</h2>
-      <p>On Windows, Winget is the primary package channel. The checksum-verifying PowerShell channel works before the community manifest is approved.</p>
-      <pre class="command-block"><code>winget install --id hackerslair.desktop --exact</code></pre>
+      <p>On Windows, use the checksum-verifying PowerShell channel. Winget package ID <code>hackerslair.desktop</code> remains unavailable until its community manifest is approved.</p>
       <pre class="command-block"><code>irm https://hackerslairhq.github.io/desktop/install.ps1 | iex</code></pre>
       <p>Open <strong>Hacker's Lair</strong> from the Start menu. Linux packages add the same desktop application to the system launcher. The Electron host starts and verifies its own private localhost service; Node.js is bundled.</p>
 

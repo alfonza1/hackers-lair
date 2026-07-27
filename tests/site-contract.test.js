@@ -64,19 +64,59 @@ test('site typography is self-hosted and uses one deliberate developer-mono fami
 test('installation remains command-only and useful without JavaScript', () => {
   const landing = fs.readFileSync(path.join(site, 'index.html'), 'utf8');
   const installation = fs.readFileSync(path.join(site, 'docs', 'index.html'), 'utf8');
-  assert.doesNotMatch(`${landing}\n${installation}`, /<a[^>]+releases\/download/i);
-  assert.doesNotMatch(`${landing}\n${installation}`, /<button[^>]*>\s*download/i);
-  assert.doesNotMatch(`${landing}\n${installation}`, /<(?:a|button)[^>]*\sdownload(?:=|\s|>)/i);
+  const gettingStarted = fs.readFileSync(path.join(site, 'getting-started', 'index.html'), 'utf8');
+  const faq = fs.readFileSync(path.join(site, 'docs', 'faq.html'), 'utf8');
+  const uninstall = fs.readFileSync(path.join(site, 'docs', 'uninstall.html'), 'utf8');
+  const publicInstallationCopy = [
+    landing,
+    installation,
+    gettingStarted,
+    faq,
+    uninstall,
+  ].join('\n');
+  assert.doesNotMatch(publicInstallationCopy, /<a[^>]+releases\/download/i);
+  assert.doesNotMatch(publicInstallationCopy, /<button[^>]*>\s*download/i);
+  assert.doesNotMatch(publicInstallationCopy, /<(?:a|button)[^>]*\sdownload(?:=|\s|>)/i);
+  assert.doesNotMatch(
+    publicInstallationCopy,
+    /<pre class="command-block"><code>winget (?:install|upgrade|uninstall)\b/i,
+  );
   assert.match(landing, /data-platform-panel="windows"/);
   assert.match(landing, /data-platform-panel="linux"/);
-  assert.doesNotMatch(landing, /data-platform-panel="[^"]+"[^>]*hidden/);
+  assert.doesNotMatch(
+    landing,
+    /data-platform-panel="(?:windows|linux)"[^>]*hidden/,
+  );
   assert.match(landing, /irm https:\/\/hackerslairhq\.github\.io\/desktop\/install\.ps1 \| iex/);
   assert.match(landing, /windows_x64<\/span>[^<]*checksum-verified PowerShell/);
-  assert.doesNotMatch(landing, /<code>winget install --id hackerslair\.desktop --exact<\/code>/);
   assert.match(installation, /hackers-lair_amd64\.deb/);
   assert.match(installation, /hackers-lair_x86_64\.rpm/);
   assert.match(installation, /hackers-lair-linux-x64\.tar\.gz/);
   assert.match(installation, /gh attestation verify &lt;file&gt; -R hackerslairhq\/desktop/);
+});
+
+test('Linux commands require a distro choice and verify the artifact before elevation', () => {
+  const landing = fs.readFileSync(path.join(site, 'index.html'), 'utf8');
+  const installation = fs.readFileSync(path.join(site, 'docs', 'index.html'), 'utf8');
+  const linuxPanel = landing.match(
+    /<section class="install-panel" data-platform-panel="linux"[\s\S]*?<\/section>/,
+  )?.[0] || '';
+
+  assert.match(linuxPanel, /choose your distribution/i);
+  assert.match(linuxPanel, /Debian \/ Ubuntu/);
+  assert.match(linuxPanel, /Fedora \/ RHEL/);
+  assert.match(linuxPanel, /Distro-neutral/);
+  for (const [asset, installer] of [
+    ['hackers-lair_amd64\\.deb', 'sudo apt install'],
+    ['hackers-lair_x86_64\\.rpm', 'sudo rpm -i'],
+    ['hackers-lair-linux-x64\\.tar\\.gz', 'tar -xzf'],
+  ]) {
+    const integrityFirst = new RegExp(
+      `${asset}[\\s\\S]*checksums\\.txt[\\s\\S]*sha256sum[\\s\\S]*${installer}`,
+    );
+    assert.match(linuxPanel, integrityFirst);
+    assert.match(installation, integrityFirst);
+  }
 });
 
 test('public branding uses the product-owned Winget identity', () => {
@@ -106,16 +146,33 @@ test('landing page gives engineers a concrete contribution path', () => {
 
 test('site scripts stay self-contained and installer mirrors stay exact', () => {
   const javascript = fs.readFileSync(path.join(site, 'assets', 'site.js'), 'utf8');
+  const installer = fs.readFileSync(path.join(root, 'install.ps1'), 'utf8');
   assert.equal((javascript.match(/\bfetch\(/g) || []).length, 1);
   assert.match(javascript, /api\.github\.com\/repos\/hackerslairhq\/desktop\/releases\?per_page=1/);
+  assert.match(javascript, /aria-pressed/);
+  assert.match(javascript, /data-platform-panel="unsupported"|unsupported/);
+  assert.doesNotMatch(javascript, /return 'windows';\s*\n\}/);
+  assert.match(
+    installer,
+    /https:\/\/github\.com\/hackerslairhq\/desktop\/releases\/latest\/download/,
+  );
   assert.equal(
-    fs.readFileSync(path.join(root, 'install.ps1'), 'utf8'),
+    installer,
     fs.readFileSync(path.join(site, 'install.ps1'), 'utf8'),
   );
   assert.equal(
     fs.readFileSync(path.join(root, 'uninstall.ps1'), 'utf8'),
     fs.readFileSync(path.join(site, 'uninstall.ps1'), 'utf8'),
   );
+});
+
+test('custom 404 uses project-root links that survive nested missing routes', () => {
+  const notFound = fs.readFileSync(path.join(site, '404.html'), 'utf8');
+  assert.match(notFound, /href="\/desktop\/assets\/site\.css"/);
+  assert.match(notFound, /src="\/desktop\/assets\/command-line-mark\.png"/);
+  assert.match(notFound, /href="\/desktop\/getting-started\/"/);
+  assert.match(notFound, /href="\/desktop\/docs\/"/);
+  assert.doesNotMatch(notFound, /(?:href|src)="\.\//);
 });
 
 test('live release notes omit GitHub identities and raw URLs', async () => {

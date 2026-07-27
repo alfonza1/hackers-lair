@@ -46,12 +46,8 @@
       <p class="lede">Hacker's Lair ships self-contained desktop packages. End users do not install Node.js, clone the repository, or run npm.</p>
 
       <h2 id="windows">Windows</h2>
-      <h3>Winget</h3>
-      <p>The per-user Squirrel package installs beneath <code>%LOCALAPPDATA%</code> and does not request elevation. Winget is the primary channel after the community manifest is approved.</p>
-      <pre class="command-block"><code>winget install --id hackerslair.desktop --exact</code></pre>
-      <p>Update or remove it through the same channel:</p>
-      <pre class="command-block"><code>winget upgrade --id hackerslair.desktop --exact
-winget uninstall --id hackerslair.desktop --exact</code></pre>
+      <h3>Winget status</h3>
+      <p>Package ID <code>hackerslair.desktop</code> is prepared but is not available in the community source yet. No Winget command is published here until approval is complete. Use the verified PowerShell or Scoop channel today.</p>
 
       <h3>Checksum-verifying PowerShell channel</h3>
       <p>This channel works directly from GitHub Releases. The script resolves the latest release, downloads the portable ZIP and <code>checksums.txt</code>, verifies SHA256, and only then unblocks and extracts it to <code>%LOCALAPPDATA%\Programs\HackersLair</code>.</p>
@@ -65,15 +61,23 @@ scoop install hackerslair</code></pre>
 
       <h2 id="linux">Linux</h2>
       <h3>Debian / Ubuntu</h3>
-      <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_amd64.deb &amp;&amp; sudo apt install ./hackers-lair_amd64.deb</code></pre>
+      <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_amd64.deb &amp;&amp;
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/checksums.txt &amp;&amp;
+grep '  hackers-lair_amd64.deb$' checksums.txt | sha256sum -c - &amp;&amp;
+sudo apt install ./hackers-lair_amd64.deb</code></pre>
 
       <h3>Fedora / RHEL</h3>
-      <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_x86_64.rpm &amp;&amp; sudo rpm -i ./hackers-lair_x86_64.rpm</code></pre>
+      <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_x86_64.rpm &amp;&amp;
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/checksums.txt &amp;&amp;
+grep '  hackers-lair_x86_64.rpm$' checksums.txt | sha256sum -c - &amp;&amp;
+sudo rpm -i ./hackers-lair_x86_64.rpm</code></pre>
 
       <h3>Distro-neutral tarball</h3>
-      <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair-linux-x64.tar.gz
-mkdir -p "$HOME/.local/opt/hackers-lair"
-tar -xzf hackers-lair-linux-x64.tar.gz -C "$HOME/.local/opt/hackers-lair" --strip-components=1
+      <pre class="command-block"><code>curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair-linux-x64.tar.gz &amp;&amp;
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/checksums.txt &amp;&amp;
+grep '  hackers-lair-linux-x64.tar.gz$' checksums.txt | sha256sum -c - &amp;&amp;
+mkdir -p "$HOME/.local/opt/hackers-lair" &amp;&amp;
+tar -xzf hackers-lair-linux-x64.tar.gz -C "$HOME/.local/opt/hackers-lair" --strip-components=1 &amp;&amp;
 "$HOME/.local/opt/hackers-lair/HackersLair"</code></pre>
       <p>The desktop app uses <code>$XDG_CONFIG_HOME/HackersLair</code> when that variable is set, otherwise <code>~/.config/HackersLair</code>. The Windows-only AutoIt Scripts view is hidden automatically.</p>
 

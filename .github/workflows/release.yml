@@ -93,6 +93,7 @@ jobs:
       - run: python -m pip install -r requirements-test.txt
       - run: python -m playwright install --with-deps --only-shell chromium
       - run: npm run test:ui
+      - run: npm run test:site-ui
       - run: npm run make
       - name: Verify packaged Linux lifecycle
         env:

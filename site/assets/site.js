@@ -41,20 +41,29 @@ function installCopyButtons() {
 
 function visitorPlatform() {
   const agent = navigator.userAgent.toLowerCase();
-  if (agent.includes('linux') && !agent.includes('android')) return 'linux';
+  const declaredPlatform = (
+    navigator.userAgentData?.platform
+    || navigator.platform
+    || ''
+  ).toLowerCase();
+  const architectureSignal = `${agent} ${declaredPlatform}`;
+  if (/(android|iphone|ipad|ipod)/.test(agent)) return null;
+  if (/(aarch64|arm64|armv8)/.test(architectureSignal)) return null;
   if (agent.includes('win')) return 'windows';
-  return 'windows';
+  if (agent.includes('linux')) return 'linux';
+  if (/(macintosh|mac os x)/.test(agent)) return null;
+  if (declaredPlatform.includes('win')) return 'windows';
+  if (declaredPlatform.includes('linux')) return 'linux';
+  return null;
 }
 
 function selectPlatform(platform) {
+  const selectedPanel = platform || 'unsupported';
   document.querySelectorAll('[data-platform-tab]').forEach((tab) => {
-    tab.setAttribute('aria-selected', String(tab.dataset.platformTab === platform));
+    tab.setAttribute('aria-pressed', String(tab.dataset.platformTab === platform));
   });
   document.querySelectorAll('[data-platform-panel]').forEach((panel) => {
-    panel.hidden = panel.dataset.platformPanel !== platform;
-  });
-  document.querySelectorAll('[data-detected-platform]').forEach((label) => {
-    label.textContent = platform === 'windows' ? 'windows_x64' : 'linux_x64';
+    panel.hidden = panel.dataset.platformPanel !== selectedPanel;
   });
 }
 
