@@ -122,6 +122,12 @@ JSON.
 - Agent Ops inventories user/project subagents, slash commands, MCP definitions,
   permission rules, and configured hooks behind the same opt-in Skills privacy
   gate. It never launches an MCP server or edits these files.
+- Freshness checks flag old model/runtime references, project coverage gaps,
+  broken workflow links, and unpublished skill-repository work. Link checks are
+  explicit-only HEAD requests with a seven-day local cache.
+- The session feed is separately opt-in, stream-parses at most the newest 50
+  local transcripts, and redacts every displayed string. Weekly reports and
+  workflow bundle exports are written only inside the app data directory.
 - Curated phosphor, ultraviolet, ice, volt, and high-contrast ghost themes.
 
 ![Hacker's Lair Targets view with fictional live and dormant projects](docs/screenshots/targets.png)

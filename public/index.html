@@ -2060,6 +2060,36 @@
 
   .agent-ops-card .machine-screen { grid-template-columns: minmax(0, 1fr); }
 
+  .skills-repo-warning {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(var(--warning-rgb), .44);
+    border-left: 3px solid var(--amber);
+    border-radius: 4px;
+    color: var(--muted);
+    background: rgba(var(--warning-rgb), .05);
+    font-size: 10px;
+  }
+
+  .skills-repo-warning strong { color: var(--amber); }
+
+  .workflow-report-preview {
+    max-height: 280px;
+    margin: 0;
+    padding: 10px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    background: var(--panel-2);
+    font: 10px/1.55 var(--mono);
+    white-space: pre-wrap;
+  }
+
   .ops-meta {
     display: flex;
     flex-wrap: wrap;
@@ -3662,6 +3692,8 @@
     skills: [],
     archivedSkills: [],
     skillUsage: null,
+    skillsRepo: null,
+    harnessParity: null,
     skillsLoaded: false,
     aiSetup: null,
     contextCost: null,
@@ -3670,6 +3702,8 @@
     instructionFindings: {},
     friction: { entries: [], groups: [] },
     skillRouteQuery: '',
+    urlChecks: {},
+    workflowReport: null,
     agentOps: {
       loaded: false,
       filter: 'agents',
@@ -3679,6 +3713,11 @@
       permissions: { rules: [], findings: [] },
       hooks: [],
       usageHook: null,
+      sessions: [],
+      sessionFeedEnabled: false,
+      memory: [],
+      coverage: [],
+      parity: { counts: {}, exclusive: [], matrix: [] },
     },
     aiWorkflowBusy: false,
     onboarding: null,
@@ -4522,6 +4561,20 @@
     `;
   }
 
+  function urlCheckFindingsHtml(kind, id) {
+    const check = state.urlChecks[`${kind}:${id}`];
+    if (!check) return '';
+    if (!check.results?.length) return '<p class="ai-workflow-status">No HTTP links found.</p>';
+    return `
+      <details class="skill-findings" open>
+        <summary>${check.results.length} checked link${check.results.length === 1 ? '' : 's'}</summary>
+        <ul>${check.results.map((result) => `
+          <li>${result.ok ? 'OK' : 'FAILED'} ${esc(result.url)}${result.status ? ` (${result.status})` : ''}${result.error ? ` — ${esc(result.error)}` : ''}${result.cached ? ' [cached]' : ''}</li>
+        `).join('')}</ul>
+      </details>
+    `;
+  }
+
   function skillCard(skill) {
     const personal = skill.kind === 'personal';
     const status = { key: personal ? 'live' : 'dormant', label: personal ? 'PERSONAL' : 'DEFAULT' };
@@ -4572,6 +4625,7 @@
                 <button type="button" data-skill-rate="positive" title="Worked well" aria-label="Mark ${esc(skill.name)} effective">+ ${rating.positive}</button>
                 <button type="button" data-skill-rate="negative" title="Needs improvement" aria-label="Mark ${esc(skill.name)} ineffective">− ${rating.negative}</button>
               </span>
+              <button class="utility" type="button" data-check-urls="skill">Check links</button>
               ${skill.canManage ? `<button class="utility" type="button" data-skill-archive>Archive</button>` : ''}
             </div>
             ${findings.length ? `
@@ -4580,6 +4634,7 @@
                 <ul>${findings.map((finding) => `<li>${esc(finding.message)}</li>`).join('')}</ul>
               </details>
             ` : ''}
+            ${urlCheckFindingsHtml('skill', skill.id)}
           </div>
         </div>
       </article>
@@ -4782,6 +4837,17 @@
     `;
   }
 
+  function skillsRepoStatusHtml() {
+    const repo = state.skillsRepo;
+    if (!repo?.available || (!repo.dirtyFiles && !repo.unpushedCommits)) return '';
+    return `
+      <div class="skills-repo-warning" role="status">
+        <strong>Skills repo has unpublished changes</strong>
+        <span>${Number(repo.dirtyFiles || 0)} dirty file${repo.dirtyFiles === 1 ? '' : 's'} · ${Number(repo.unpushedCommits || 0)} unpushed commit${repo.unpushedCommits === 1 ? '' : 's'}</span>
+      </div>
+    `;
+  }
+
   function visibleInstructions() {
     if (!state.query) return state.instructions;
     return state.instructions.filter((instruction) => (
@@ -4790,7 +4856,10 @@
   }
 
   function instructionCard(instruction) {
-    const findings = state.instructionFindings[instruction.id] || [];
+    const findings = [
+      ...(instruction.staleFindings || []),
+      ...(state.instructionFindings[instruction.id] || []),
+    ];
     return `
       <article class="target-card instruction-card" data-card-kind="instruction" data-instruction-id="${esc(instruction.id)}">
         <div class="machine-bar">
@@ -4815,6 +4884,7 @@
               <button class="utility" type="button" data-instruction-action="editor">Open in editor</button>
               <button class="utility" type="button" data-instruction-action="reveal">Reveal folder</button>
               <button class="utility" type="button" data-instruction-action="drift">Check drift</button>
+              <button class="utility" type="button" data-check-urls="instruction">Check links</button>
             </div>
             ${findings.length ? `
               <details class="skill-findings" open>
@@ -4822,6 +4892,7 @@
                 <ul>${findings.map((finding) => `<li>${esc(finding.message)}</li>`).join('')}</ul>
               </details>
             ` : ''}
+            ${urlCheckFindingsHtml('instruction', instruction.id)}
           </div>
         </div>
       </article>
@@ -4843,6 +4914,12 @@
       <section class="friction-panel" aria-label="Agent friction log">
         <h3>Friction signals</h3>
         <p>Quick captures are stored locally and grouped deterministically. Three repeats suggest a reusable workflow fix.</p>
+        <div class="instruction-actions">
+          <button class="utility" type="button" data-workflow-action="report">Generate weekly report</button>
+          <button class="utility" type="button" data-workflow-action="export">Export workflow bundle</button>
+          <button class="utility" type="button" data-workflow-action="repair-prompt">Copy repair prompt</button>
+        </div>
+        ${state.workflowReport ? `<pre class="workflow-report-preview">${esc(state.workflowReport)}</pre>` : ''}
         <div class="friction-groups">
           ${groups.length ? groups.map((group) => `
             <div class="friction-group ${group.nudge ? 'is-recurring' : ''}">
@@ -4862,6 +4939,10 @@
     ['mcp', 'MCP'],
     ['permissions', 'Permissions'],
     ['hooks', 'Hooks'],
+    ['sessions', 'Sessions'],
+    ['memory', 'Memory'],
+    ['coverage', 'Coverage'],
+    ['parity', 'Parity'],
   ]);
 
   function agentOpsRows() {
@@ -4877,11 +4958,35 @@
         kind: 'permission',
       }));
     }
-    return state.agentOps.hooks.map((record, index) => ({
+    if (filter === 'hooks') {
+      return state.agentOps.hooks.map((record, index) => ({
+        ...record,
+        id: `hook-${index}`,
+        name: record.matcher || record.event,
+        kind: 'hook',
+      }));
+    }
+    if (filter === 'sessions') {
+      return state.agentOps.sessions.map((record) => ({
+        ...record,
+        name: record.project || record.id,
+        kind: 'session',
+      }));
+    }
+    if (filter === 'memory') {
+      return state.agentOps.memory.map((record) => ({ ...record, kind: 'memory' }));
+    }
+    if (filter === 'coverage') {
+      return state.agentOps.coverage.map((record, index) => ({
+        ...record,
+        id: `coverage-${index}`,
+        kind: 'coverage',
+      }));
+    }
+    return (state.agentOps.parity.matrix || []).map((record, index) => ({
       ...record,
-      id: `hook-${index}`,
-      name: record.matcher || record.event,
-      kind: 'hook',
+      id: `parity-${index}`,
+      kind: 'parity',
     }));
   }
 
@@ -4901,6 +5006,9 @@
         row.event,
         row.matcher,
         row.source,
+        row.tools?.join(' '),
+        row.skills?.join(' '),
+        row.gaps?.join(' '),
       ].join(' ').toLowerCase().includes(state.query)
     ));
   }
@@ -4938,17 +5046,29 @@
       mcp: 'MCP',
       permission: record.action?.toUpperCase() || 'RULE',
       hook: 'HOOK',
+      session: 'SESSION',
+      memory: 'MEMORY',
+      coverage: 'PROJECT',
+      parity: 'PARITY',
     }[record.kind];
     const typeLabel = record.kind === 'hook'
       ? record.event
       : record.transport || record.scope || record.kind;
     const status = record.kind === 'permission' && record.action === 'deny'
       ? { key: 'booting', label: 'DENY' }
-      : { key: 'live', label: record.cold ? 'COLD' : 'INDEXED' };
+      : record.stale
+        ? { key: 'booting', label: 'STALE' }
+        : record.kind === 'coverage' && record.gaps?.length
+          ? { key: 'booting', label: `${record.gaps.length} GAPS` }
+          : { key: 'live', label: record.cold ? 'COLD' : 'INDEXED' };
     const findings = record.lint?.findings || [];
     const description = record.description
       || (record.kind === 'mcp' ? `${record.transport} server defined in ${record.source}.`
         : record.kind === 'permission' ? `${record.action} rule from ${record.source}.`
+        : record.kind === 'session' ? `Redacted local session summary with ${record.tools?.length || 0} tool types.`
+        : record.kind === 'memory' ? `Read-only memory entry last touched ${relativeAge(record.modifiedAt)}.`
+        : record.kind === 'coverage' ? (record.gaps?.length ? `Missing: ${record.gaps.join(', ')}.` : 'Project workflow coverage is complete.')
+        : record.kind === 'parity' ? 'Skill visibility across shared, Claude, and Codex roots.'
         : `Configured ${record.event} hook from ${record.source}.`);
     return `
       <article class="target-card agent-ops-card" data-card-kind="agent-op" data-agent-op-id="${esc(record.id)}">
@@ -4976,8 +5096,23 @@
               ${field('Event', record.event)}
               ${field('Matcher', record.matcher)}
               ${field('Source', record.source)}
+              ${field('Started', formatDateTime(record.startedAt))}
+              ${field('Ended', formatDateTime(record.endedAt))}
+              ${field('Skills', record.skills?.join(', '))}
+              ${field('Tools', record.kind === 'session' ? record.tools?.join(', ') : '')}
+              ${field('Age', Number.isFinite(record.ageDays) ? `${record.ageDays} days` : '')}
+              ${field('Components', Number.isInteger(record.componentCount) ? record.componentCount : '')}
+              ${field('AGENTS.md', typeof record.hasAgents === 'boolean' ? (record.hasAgents ? 'yes' : 'missing') : '')}
+              ${field('CLAUDE.md', typeof record.hasClaude === 'boolean' ? (record.hasClaude ? 'yes' : 'missing') : '')}
+              ${field('Run guide', typeof record.hasRunInstructions === 'boolean' ? (record.hasRunInstructions ? 'yes' : 'missing') : '')}
+              ${field('Verify guide', typeof record.hasVerifyInstructions === 'boolean' ? (record.hasVerifyInstructions ? 'yes' : 'missing') : '')}
+              ${field('Git', typeof record.isGitRepo === 'boolean' ? (record.isGitRepo ? 'yes' : 'missing') : '')}
+              ${field('.agents', typeof record.agents === 'boolean' ? (record.agents ? 'visible' : 'missing') : '')}
+              ${field('Claude', typeof record.claude === 'boolean' ? (record.claude ? 'visible' : 'missing') : '')}
+              ${field('Codex', typeof record.codex === 'boolean' ? (record.codex ? 'visible' : 'missing') : '')}
             </div>
             ${record.command ? `<pre class="ops-command">${esc(record.command)}</pre>` : ''}
+            ${record.kind === 'coverage' && record.directory ? `<div class="instruction-actions"><button class="utility" type="button" data-coverage-open="${esc(record.name)}">Open project folder</button></div>` : ''}
             ${['agent', 'command'].includes(record.kind) ? opsUsageHtml(record) : ''}
             ${findings.length ? `
               <details class="skill-findings">
@@ -4992,6 +5127,22 @@
   }
 
   function agentOpsFindingsHtml() {
+    if (state.agentOps.filter === 'sessions' && !state.agentOps.sessionFeedEnabled) {
+      return `
+        <section class="friction-panel">
+          <h3>Session feed is off</h3>
+          <p>Enable the sensitive, redacted session feed in Settings to scan local transcripts. It remains read-only.</p>
+        </section>
+      `;
+    }
+    if (state.agentOps.filter === 'parity' && state.agentOps.parity.exclusive?.length) {
+      return `
+        <section class="friction-panel">
+          <h3>Harness-only skills</h3>
+          <p>${state.agentOps.parity.exclusive.length} skill${state.agentOps.parity.exclusive.length === 1 ? '' : 's'} are visible to only one configured harness.</p>
+        </section>
+      `;
+    }
     const findings = state.agentOps.filter === 'permissions'
       ? state.agentOps.permissions.findings || []
       : [];
@@ -5124,7 +5275,8 @@
     const agentOps = state.view === 'agentOps'
       ? agentOpsNavHtml() + agentOpsFindingsHtml()
       : '';
-    $('targetList').innerHTML = friction + agentOps + skillRouter + skillsSetup + rows.map((row) =>
+    const skillsRepo = state.view === 'skills' ? skillsRepoStatusHtml() : '';
+    $('targetList').innerHTML = friction + agentOps + skillsRepo + skillRouter + skillsSetup + rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
       : state.view === 'processes' ? processCard(row)
       : state.view === 'scripts' ? scriptCard(row)
@@ -5330,6 +5482,8 @@
       state.skills = data.skills || [];
       state.archivedSkills = data.archived || [];
       state.skillUsage = data.usage || null;
+      state.skillsRepo = data.repoStatus || null;
+      state.harnessParity = data.parity || null;
       state.skillsLoaded = true;
       await Promise.all([loadAiSetup(true), loadContextCost(true)]);
       if (!quiet) {
@@ -6781,6 +6935,8 @@
         { verb: 'CONTEXT', label: 'Show context tax', hint: 'local estimate', run: openContextCostDialog },
         { verb: 'INSTRUCTIONS', label: 'Open workflow instructions', hint: 'AGENTS.md and CLAUDE.md', run: () => setView('instructions') },
         { verb: 'AGENT OPS', label: 'Open workflow inventories', hint: 'agents, commands, MCP, permissions, hooks', run: () => setView('agentOps') },
+        { verb: 'REPORT', label: 'Generate workflow report', hint: 'local markdown', run: () => runWorkflowAction('report', { disabled: false, isConnected: false }) },
+        { verb: 'EXPORT', label: 'Export workflow bundle', hint: 'local folder', run: () => runWorkflowAction('export', { disabled: false, isConnected: false }) },
       );
     }
     if (['available', 'ready', 'blocked'].includes(state.update?.status)) {
@@ -7032,6 +7188,59 @@
     }
   }
 
+  async function checkWorkflowUrls(kind, id, button) {
+    button.disabled = true;
+    try {
+      const result = await postJson('/api/ai/check-urls', { kind, id });
+      state.urlChecks[`${kind}:${id}`] = result;
+      pushFeed('WORKFLOW_URLS_CHECKED', `kind=${kind} links=${result.results?.length || 0}`, result.results?.some((entry) => !entry.ok) ? 'warn' : 'info');
+      renderTargets();
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
+  }
+
+  async function runWorkflowAction(action, button) {
+    button.disabled = true;
+    try {
+      if (action === 'repair-prompt') {
+        const result = await fetchJson('/api/ai/repair-prompt');
+        await navigator.clipboard.writeText(result.prompt);
+        pushFeed('WORKFLOW_REPAIR_PROMPT_COPIED', 'scope=current_findings', 'info');
+        toast('Repair prompt copied.');
+        return;
+      }
+      if (action === 'report') {
+        const result = await postJson('/api/ai/report', {});
+        state.workflowReport = result.markdown;
+        pushFeed('REPORT_GENERATED', `file=${slug(result.file)}`, 'info');
+        renderTargets();
+        return;
+      }
+      const result = await postJson('/api/ai/export', { reveal: true });
+      pushFeed('WORKFLOW_BUNDLE_EXPORTED', `directory=${slug(result.directory)}`, 'info');
+      toast('Workflow bundle exported.');
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
+  }
+
+  async function openCoverageFolder(name, button) {
+    button.disabled = true;
+    try {
+      await postJson('/api/ai/coverage/open', { name });
+      pushFeed('COVERAGE_FOLDER_OPENED', `project=${slug(name)}`, 'info');
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   async function executeCommand(index = commandSelection) {
     const command = visibleCommands[index];
     if (!command || command.disabled) return;
@@ -7040,6 +7249,24 @@
   }
 
   $('targetList').addEventListener('click', async (event) => {
+    const workflowAction = event.target.closest('[data-workflow-action]');
+    if (workflowAction) {
+      await runWorkflowAction(workflowAction.dataset.workflowAction, workflowAction);
+      return;
+    }
+    const linkCheck = event.target.closest('[data-check-urls]');
+    if (linkCheck) {
+      const kind = linkCheck.dataset.checkUrls;
+      const card = linkCheck.closest(kind === 'skill' ? '[data-skill-id]' : '[data-instruction-id]');
+      const id = kind === 'skill' ? card?.dataset.skillId : card?.dataset.instructionId;
+      if (id) await checkWorkflowUrls(kind, id, linkCheck);
+      return;
+    }
+    const coverageOpen = event.target.closest('[data-coverage-open]');
+    if (coverageOpen) {
+      await openCoverageFolder(coverageOpen.dataset.coverageOpen, coverageOpen);
+      return;
+    }
     const agentOpsFilter = event.target.closest('[data-agent-ops-filter]');
     if (agentOpsFilter) {
       state.agentOps.filter = agentOpsFilter.dataset.agentOpsFilter;

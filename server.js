@@ -8,7 +8,11 @@ const os = require('os');
 const { exec, spawn } = require('child_process');
 const { gitAttentionForProject, refreshGitAttention } = require('./lib/git-attention');
 const { compareProjectsForDisplay } = require('./lib/project-order');
-const { onboardingState, usageTrackingSetupPrompt } = require('./lib/onboarding-prompts');
+const {
+  onboardingState,
+  usageTrackingSetupPrompt,
+  workflowRepairPrompt,
+} = require('./lib/onboarding-prompts');
 const { listSkills, skillRoots } = require('./lib/skill-registry');
 const { lintSkills } = require('./lib/skill-lint');
 const { contextCost } = require('./lib/context-cost');
@@ -26,11 +30,21 @@ const { listAgents } = require('./lib/agent-registry');
 const { listCommands } = require('./lib/command-registry');
 const { listMcpServers } = require('./lib/mcp-registry');
 const { permissionsView } = require('./lib/permissions-view');
+const { scanStaleContent } = require('./lib/stale-scan');
+const { checkFileUrls } = require('./lib/url-checker');
+const { projectCoverageMatrix } = require('./lib/coverage-matrix');
+const { skillsRepoStatus } = require('./lib/skills-repo-status');
+const { listSessions } = require('./lib/session-feed');
+const { listMemoryEntries } = require('./lib/memory-registry');
+const { generateWorkflowReport } = require('./lib/workflow-report');
+const { exportWorkflowBundle } = require('./lib/workflow-export');
+const { harnessParity } = require('./lib/harness-parity');
 const {
   buildUsageHookCommand,
   inspectUsageHook,
   installUsageHooks,
   listConfiguredHooks,
+  readSettings,
   usageHooksBlock,
   writeUsageHookShim,
 } = require('./lib/claude-settings');
@@ -109,6 +123,9 @@ const SKILL_ROOTS = skillRoots({
 const PERSONAL_SKILLS_ROOT = SKILL_ROOTS.personalSkills;
 const SKILL_BACKUP_ROOT = path.join(DATA_DIR, 'backups', 'skills');
 const FRICTION_LOG_FILE = path.join(DATA_DIR, 'friction-log.jsonl');
+const URL_CHECK_CACHE_FILE = path.join(DATA_DIR, 'url-check-cache.json');
+const REPORTS_DIR = path.join(DATA_DIR, 'reports');
+const EXPORTS_DIR = path.join(DATA_DIR, 'exports');
 const WORKSPACE_ROOT = path.resolve(
   process.env.LAIR_WORKSPACE_ROOT || path.dirname(AGENTS_HOME),
 );
@@ -220,15 +237,24 @@ async function annotatedSkills(settings = loadSettings()) {
         malformedLines: 0,
       };
   const lint = lintSkills(skills);
-  const lastTouched = await lastTouchedForSkills(
-    skills.filter((skill) => skill.kind === 'personal'),
-  );
+  const [lastTouched, repoStatus] = await Promise.all([
+    lastTouchedForSkills(skills.filter((skill) => skill.kind === 'personal')),
+    skillsRepoStatus(PERSONAL_SKILLS_ROOT),
+  ]);
   const ratingsResult = runtimeConfig.skillRatings.read();
   const ratings = ratingsResult.value.ratings || {};
   return {
     skills: skills.map((skill) => {
       const skillUsage = usage.byKey[eventKey('skill', skill.name)] || null;
       const rating = ratings[skill.id] || { positive: 0, negative: 0 };
+      let staleFindings = [];
+      try {
+        if (skill.skillFile) staleFindings = scanStaleContent(fs.readFileSync(skill.skillFile, 'utf8'));
+      } catch {
+        // The registry lint already reports unreadable skill files.
+      }
+      const baseLint = lint.get(skill.id) || { level: 'ok', findings: [] };
+      const findings = [...baseLint.findings, ...staleFindings];
       return {
         ...publicSkillRecord(skill),
         canManage: skill.kind === 'personal',
@@ -238,7 +264,12 @@ async function annotatedSkills(settings = loadSettings()) {
           logStartedAt: usage.logStartedAt,
           coldSkillDays: settings.aiWorkflow.coldSkillDays,
         }),
-        lint: lint.get(skill.id) || { level: 'ok', findings: [] },
+        lint: {
+          level: baseLint.level === 'error'
+            ? 'error'
+            : findings.length ? 'warn' : 'ok',
+          findings,
+        },
         rating,
         rewriteSuggested: Boolean(
           skillUsage?.count >= REWRITE_USAGE_THRESHOLD
@@ -255,6 +286,8 @@ async function annotatedSkills(settings = loadSettings()) {
       malformedLines: usage.malformedLines,
     },
     ratingsError: ratingsResult.error,
+    repoStatus,
+    parity: harnessParity(skills),
   };
 }
 
@@ -269,7 +302,36 @@ function instructionRecords(settings = loadSettings()) {
     workspaceRoot: WORKSPACE_ROOT,
     projectFolders: knownProjectFolders(),
     workspaceFolders: settings.workspaceFolders,
+  }).map((instruction) => {
+    let staleFindings = [];
+    try { staleFindings = scanStaleContent(fs.readFileSync(instruction.path, 'utf8')); }
+    catch { /* the file may have disappeared after the registry scan */ }
+    return { ...instruction, staleFindings };
   });
+}
+
+function currentWorkflowRepairPrompt(settings = loadSettings()) {
+  const skills = internalSkills();
+  const lint = lintSkills(skills);
+  const findings = [];
+  for (const skill of skills) {
+    for (const finding of lint.get(skill.id)?.findings || []) {
+      if (skill.skillFile) findings.push({ file: skill.skillFile, message: finding.message });
+    }
+    try {
+      for (const finding of scanStaleContent(fs.readFileSync(skill.skillFile, 'utf8'))) {
+        findings.push({ file: skill.skillFile, message: finding.message });
+      }
+    } catch {
+      // Unreadable files are already represented by lint findings.
+    }
+  }
+  for (const instruction of instructionRecords(settings)) {
+    for (const finding of instruction.staleFindings) {
+      findings.push({ file: instruction.path, message: finding.message });
+    }
+  }
+  return workflowRepairPrompt({ findings });
 }
 
 function agentOpsProjectFolders(settings = loadSettings()) {
@@ -326,6 +388,13 @@ async function agentOpsSnapshot(settings = loadSettings()) {
     mcpServers: listMcpServers({ claudeHome: CLAUDE_HOME, projectFolders }),
     permissions: permissionsView({ claudeHome: CLAUDE_HOME, projectFolders }),
     hooks: listConfiguredHooks(claudeSettingsSources(settings)),
+    sessions: settings.aiWorkflow.enableSessionFeed
+      ? await listSessions({ claudeHome: CLAUDE_HOME })
+      : [],
+    sessionFeedEnabled: settings.aiWorkflow.enableSessionFeed,
+    memory: listMemoryEntries({ claudeHome: CLAUDE_HOME, projectFolders }),
+    coverage: projectCoverageMatrix(loadProjects()),
+    parity: harnessParity(internalSkills()),
     usageHook: {
       installed: hookStatus.installed,
       conflict: hookStatus.conflict,
@@ -712,6 +781,13 @@ async function refreshDoctor() {
     configErrors: [projects.error, scripts.error, settings.error],
     installChannel: process.env.LAIR_INSTALL_CHANNEL || (process.versions.electron ? 'portable' : 'source'),
     port: currentPort,
+    agentsHome: AGENTS_HOME,
+    claudeHome: CLAUDE_HOME,
+    instructionFiles: [
+      path.join(WORKSPACE_ROOT, 'AGENTS.md'),
+      path.join(AGENTS_HOME, 'AGENTS.md'),
+      path.join(CLAUDE_HOME, 'AGENTS.md'),
+    ],
   });
   return doctorSnapshot;
 }
@@ -1888,6 +1964,16 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && req.url === '/api/ai/repair-prompt') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      json(res, 200, { prompt: currentWorkflowRepairPrompt(settings) });
+      return;
+    }
+
     if (req.method === 'GET' && req.url === '/api/ai/friction') {
       if (!loadSettings().enableSkills) {
         json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
@@ -1982,6 +2068,132 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, { ok: true, id: instruction.id, action: input.action });
       } catch (error) {
         json(res, 500, { error: `Could not open instructions: ${error.message}` });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/ai/check-urls') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      let file = '';
+      if (input.kind === 'skill') {
+        file = internalSkills().find((skill) => skill.id === String(input.id || ''))?.skillFile || '';
+      } else if (input.kind === 'instruction') {
+        file = instructionRecords(settings).find(
+          (instruction) => instruction.id === String(input.id || ''),
+        )?.path || '';
+      }
+      if (!file) {
+        json(res, 404, { error: 'The requested workflow file was not found.' });
+        return;
+      }
+      const lockKey = `url-check:${input.kind}:${input.id}`;
+      if (actionLocks.has(lockKey)) {
+        json(res, 409, { error: 'A link check is already running for this file.' });
+        return;
+      }
+      actionLocks.add(lockKey);
+      try {
+        const result = await checkFileUrls(file, { cacheFile: URL_CHECK_CACHE_FILE });
+        json(res, 200, { ok: true, ...result, event: 'WORKFLOW_URLS_CHECKED' });
+      } catch (error) {
+        json(res, 502, { error: `Could not check links: ${error.message}` });
+      } finally {
+        actionLocks.delete(lockKey);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/ai/coverage/open') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      let name;
+      try { name = String(JSON.parse(await readBody(req)).name || ''); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const project = loadProjects().find((candidate) => candidate.name === name);
+      const directory = project?.components?.find((component) => component.cwd)?.cwd;
+      if (!directory) {
+        json(res, 404, { error: 'The project folder was not found.' });
+        return;
+      }
+      try {
+        await platform.openTarget('explorer', { cwd: directory });
+        json(res, 200, { ok: true, name: project.name, event: 'COVERAGE_FOLDER_OPENED' });
+      } catch (error) {
+        json(res, 500, { error: `Could not open project folder: ${error.message}` });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/ai/report') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      await readBody(req);
+      const [skillsData, friction] = await Promise.all([
+        annotatedSkills(settings),
+        listFriction(FRICTION_LOG_FILE),
+      ]);
+      const instructions = instructionRecords(settings);
+      const coverage = projectCoverageMatrix(loadProjects());
+      const result = generateWorkflowReport({
+        reportsDirectory: REPORTS_DIR,
+        usage: skillsData.skills
+          .filter((skill) => skill.usage?.count)
+          .map((skill) => ({ name: skill.name, count: skill.usage.count }))
+          .sort((left, right) => right.count - left.count),
+        coldSkills: skillsData.skills.filter((skill) => skill.cold).map((skill) => skill.name),
+        frictionGroups: friction.groups.filter((group) => group.nudge),
+        counts: {
+          lint: skillsData.skills.reduce((sum, skill) => sum + skill.lint.findings.length, 0),
+          drift: 0,
+          stale: instructions.reduce((sum, instruction) => sum + instruction.staleFindings.length, 0),
+          coverage: coverage.reduce((sum, row) => sum + row.gaps.length, 0),
+        },
+        skillsRepo: skillsData.repoStatus,
+      });
+      json(res, 201, { ok: true, ...result, event: 'REPORT_GENERATED' });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/ai/export') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const claude = readSettings(CLAUDE_SETTINGS_FILE);
+      if (claude.error) {
+        json(res, 409, { error: `Fix Claude settings before export: ${claude.error}` });
+        return;
+      }
+      try {
+        const result = exportWorkflowBundle({
+          exportsDirectory: EXPORTS_DIR,
+          skillsDirectory: PERSONAL_SKILLS_ROOT,
+          instructionFiles: instructionRecords(settings).map((instruction) => instruction.path),
+          hooks: claude.value.hooks || {},
+        });
+        if (input.reveal === true) {
+          await platform.openTarget('explorer', { cwd: result.directory });
+        }
+        json(res, 201, { ok: true, ...result, event: 'WORKFLOW_BUNDLE_EXPORTED' });
+      } catch (error) {
+        json(res, 500, { error: `Could not export workflow bundle: ${error.message}` });
       }
       return;
     }

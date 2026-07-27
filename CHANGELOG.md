@@ -30,6 +30,11 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - Added a read-only Agent Ops inventory for user/project subagents, slash
   commands, MCP definitions, merged permission rules, and configured hooks.
   MCP environment values are excluded and no server is launched or probed.
+- Added stale-content checks, explicit cached link validation, project coverage,
+  Doctor workflow-link health, skill-repository publication state, and
+  cross-harness skill parity.
+- Added separately opt-in redacted session summaries, read-only memory age,
+  local weekly workflow reports, and local workflow bundle export.
 
 ### Changed
 

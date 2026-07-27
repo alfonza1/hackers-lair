@@ -110,6 +110,17 @@ test('protects localhost mutations and verifies the bound service identity', asy
     'description: Check whether a release is ready for publication.',
     '---',
   ].join('\n'));
+  const transcriptDirectory = path.join(claudeHome, 'projects', 'fixture');
+  fs.mkdirSync(transcriptDirectory, { recursive: true });
+  fs.writeFileSync(path.join(transcriptDirectory, 'session.jsonl'), `${JSON.stringify({
+    timestamp: new Date().toISOString(),
+    cwd: dataDirectory,
+    tool_name: 'Skill',
+    tool_input: { skill: 'verify' },
+  })}\n`);
+  const memoryDirectory = path.join(transcriptDirectory, 'memory');
+  fs.mkdirSync(memoryDirectory);
+  fs.writeFileSync(path.join(memoryDirectory, 'decisions.md'), '# Fixture decisions');
   fs.writeFileSync(path.join(claudeHome, 'settings.json'), JSON.stringify({
     permissions: { allow: ['Read'] },
     mcpServers: {
@@ -290,6 +301,9 @@ test('protects localhost mutations and verifies the bound service identity', asy
   assert.equal(agentOps.permissions.rules.some((rule) => rule.rule === 'Read'), true);
   assert.equal(agentOps.hooks.some((hook) => hook.matcher === 'Bash'), true);
   assert.equal(agentOps.usageHook.installed, false);
+  assert.equal(agentOps.sessionFeedEnabled, false);
+  assert.deepEqual(agentOps.sessions, []);
+  assert.equal(agentOps.memory.some((entry) => entry.name === 'decisions.md'), true);
   assert.doesNotMatch(agentOpsResponse.body, /must-not-leak|SECRET/);
 
   const instructionResponse = await request({ port, pathname: '/api/ai/instructions' });
@@ -321,6 +335,28 @@ test('protects localhost mutations and verifies the bound service identity', asy
   });
   assert.equal(arbitraryInstructionPath.status, 404);
 
+  const linkCheck = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/ai/check-urls',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ kind: 'instruction', id: instruction.id }),
+  });
+  assert.equal(linkCheck.status, 200);
+  assert.deepEqual(JSON.parse(linkCheck.body).results, []);
+  const arbitraryLinkCheck = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/ai/check-urls',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      kind: 'instruction',
+      id: 'missing',
+      file: path.join(dataDirectory, 'projects.json'),
+    }),
+  });
+  assert.equal(arbitraryLinkCheck.status, 404);
+
   for (const text of [
     'Agent skipped repository verification on run 1',
     'Agent skipped repository verification on run 2',
@@ -349,6 +385,34 @@ test('protects localhost mutations and verifies the bound service identity', asy
     body: JSON.stringify({ text: ' ' }),
   });
   assert.equal(invalidFriction.status, 400);
+
+  const reportResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/ai/report',
+    headers: authorizedHeaders,
+    body: '{}',
+  });
+  assert.equal(reportResponse.status, 201);
+  const report = JSON.parse(reportResponse.body);
+  assert.ok(fs.existsSync(report.file));
+  assert.match(report.markdown, /workflow report/i);
+
+  const repairPromptResponse = await request({ port, pathname: '/api/ai/repair-prompt' });
+  assert.equal(repairPromptResponse.status, 200);
+  assert.match(JSON.parse(repairPromptResponse.body).prompt, /read-only first|No actionable/i);
+
+  const workflowExportResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/ai/export',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ reveal: false }),
+  });
+  assert.equal(workflowExportResponse.status, 201);
+  const workflowExport = JSON.parse(workflowExportResponse.body);
+  assert.ok(fs.existsSync(path.join(workflowExport.directory, 'manifest.json')));
+  assert.ok(fs.existsSync(path.join(workflowExport.directory, 'hooks.json')));
 
   const unsafeScaffold = await request({
     port,
@@ -466,6 +530,12 @@ test('protects localhost mutations and verifies the bound service identity', asy
   assert.equal(aiSettings.status, 200);
   assert.equal(JSON.parse(aiSettings.body).aiWorkflow.coldSkillDays, 60);
   assert.equal(JSON.parse(aiSettings.body).aiWorkflow.enableSessionFeed, true);
+  const sessionEnabledOps = JSON.parse(
+    (await request({ port, pathname: '/api/ai/ops' })).body,
+  );
+  assert.equal(sessionEnabledOps.sessionFeedEnabled, true);
+  assert.equal(sessionEnabledOps.sessions.length, 1);
+  assert.deepEqual(sessionEnabledOps.sessions[0].skills, ['verify']);
 
   const invalidFeatures = await request({
     port,

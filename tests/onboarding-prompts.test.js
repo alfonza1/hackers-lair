@@ -6,6 +6,7 @@ const {
   configurationPrompts,
   onboardingState,
   usageTrackingSetupPrompt,
+  workflowRepairPrompt,
 } = require('../lib/onboarding-prompts');
 
 const fixtures = process.platform === 'win32'
@@ -215,4 +216,19 @@ test('usage setup prompt is gated by Skills and hook detection and joins complet
       .join(','),
     /usage/,
   );
+});
+
+test('workflow repair prompt embeds only current findings with backup guardrails', () => {
+  const prompt = workflowRepairPrompt({
+    findings: [{
+      file: fixtures.instructionsFile,
+      message: 'Referenced path does not exist: scripts/check.js',
+    }],
+  });
+  assert.match(prompt, new RegExp(fixtures.instructionsFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(prompt, /scripts\/check\.js/);
+  assert.match(prompt, /Inspect every listed file read-only first/);
+  assert.match(prompt, /timestamped backup/);
+  assert.match(prompt, /one file at a time/);
+  assert.doesNotMatch(workflowRepairPrompt({ findings: [] }), /timestamped backup/);
 });

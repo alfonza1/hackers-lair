@@ -11,6 +11,7 @@ const publicPages = [
   'getting-started/index.html',
   'docs/index.html',
   'docs/configuration.html',
+  'docs/ai-workflow.html',
   'docs/detection.html',
   'docs/troubleshooting.html',
   'docs/faq.html',
@@ -245,4 +246,15 @@ test('getting started presents the recommended agent path before guided setup', 
   assert.ok(guide.indexOf('id="agent-setup"') < guide.indexOf('id="wizard"'));
   assert.match(guide, /recommended first option/i);
   assert.doesNotMatch(guide, /second empty-state path/i);
+});
+
+test('AI workflow docs state the opt-in and offline privacy boundary', () => {
+  const guide = fs.readFileSync(path.join(site, 'docs', 'ai-workflow.html'), 'utf8');
+  assert.match(guide, /Skills scanning is off on a new install/i);
+  assert.match(guide, /Session summaries have a separate switch/i);
+  assert.match(guide, /normal scans never use the network/i);
+  assert.match(guide, /“Check links” is the only workflow-maintenance network action/i);
+  assert.match(guide, /does not call an LLM/i);
+  assert.match(guide, /never launched or probed/i);
+  assert.doesNotMatch(guide, /telemetry enabled|analytics enabled/i);
 });

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Workflow Maintenance — Hacker's Lair Docs</title>
+  <meta name="description" content="Use Hacker's Lair to inspect and maintain local skills, agents, instructions, hooks, permissions, MCP definitions, and workflow health without telemetry.">
+  <link rel="canonical" href="https://hackerslairhq.github.io/desktop/docs/ai-workflow.html">
+  <meta property="og:type" content="article"><meta property="og:title" content="AI Workflow Maintenance — Hacker's Lair"><meta property="og:description" content="A local, deterministic maintenance console for agent workflows."><meta property="og:image" content="https://hackerslairhq.github.io/desktop/assets/og-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="../assets/icon.png" type="image/png"><link rel="stylesheet" href="../assets/site.css"><script src="../assets/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="../" aria-label="Hacker's Lair home"><img src="../assets/command-line-mark.png" alt="">Hacker's <span>Lair</span></a><nav class="site-nav" aria-label="Primary navigation"><a href="../">Home</a><a href="../getting-started/">Getting started</a><a href="./" aria-current="page">Docs</a><a class="nav-install" href="./#windows">Install</a></nav></div></header>
+  <main class="docs-shell" id="main">
+    <aside class="docs-sidebar" aria-label="Documentation navigation"><h2>Docs registry</h2><nav><a href="./">Installation</a><a href="../getting-started/">Getting started</a><a href="./configuration.html">Configuration</a><a href="./ai-workflow.html" aria-current="page">AI workflow</a><a href="./detection.html">Detection</a><a href="./troubleshooting.html">Troubleshooting</a><a href="./faq.html">FAQ</a><a href="./uninstall.html">Uninstall</a></nav></aside>
+    <article class="docs-content">
+      <div class="eyebrow">Guide 04 // agent operations</div>
+      <h1>Maintain the workflow around your agents.</h1>
+      <p class="lede">The optional Skills area turns Hacker's Lair into a local maintenance console for reusable skills, subagents, slash commands, workspace instructions, MCP definitions, permissions, hooks, and memory. Its analysis is deterministic; the app does not call an LLM.</p>
+
+      <h2 id="privacy">Privacy defaults</h2>
+      <p>Skills scanning is off on a new install because it reads agent configuration outside project folders. Enable <strong>Skills panel</strong> in Settings when you want it. Session summaries have a separate switch and remain off until explicitly enabled. Transcript strings are redacted before display.</p>
+      <div class="docs-callout"><strong>Network boundary:</strong> normal scans never use the network. “Check links” is the only workflow-maintenance network action; it runs only after a button press, uses a five-second HEAD request, and caches the result locally for seven days. There is no telemetry, analytics, account, or hosted service.</div>
+
+      <h2 id="usage">Local usage counts</h2>
+      <p>The Usage tracking card shows the exact Claude Code hook JSON, offers a reviewable one-click install, and can generate a machine-aware prompt for your coding agent. The hook appends only event type, name, project, timestamp, and source to <code>usage-log.jsonl</code>. It never records prompt text, file contents, tool arguments, environment variables, tokens, or credentials.</p>
+      <p>The hook calls a small shim in Hacker's Lair's data directory. Packaged-app users need <code>node</code> available on <code>PATH</code> for that external hook command; the desktop app itself still ships self-contained and does not require a separate Node installation.</p>
+
+      <h2 id="skills">Skills and instructions</h2>
+      <ul>
+        <li>Usage counts, last-use age, eight-week history, cold status, effectiveness marks, and Git edit age.</li>
+        <li>Lint for weak frontmatter, missing relative references, and overlapping routing descriptions.</li>
+        <li>Lint-clean personal skill scaffolding plus backed-up archive and restore. Bundled and plugin skills stay read-only.</li>
+        <li>An instant “Which skill would fire?” tester using local token overlap—no prompt leaves the machine.</li>
+        <li>A read-only Instructions view with editor/reveal actions and on-demand checks for missing paths, commands, stale references, and dead links.</li>
+      </ul>
+
+      <h2 id="ops">Agent Ops inventories</h2>
+      <p>Agent Ops groups subagents, slash commands, MCP definitions, permission rules, configured hooks, session summaries, memory age, project coverage, and harness parity under one filtered view. MCP servers are never launched or probed, and MCP environment values are excluded from the response.</p>
+
+      <h2 id="maintenance">Close the maintenance loop</h2>
+      <p>Use the header's friction capture when an agent workflow fails. Similar entries are grouped; at three occurrences, Hacker's Lair suggests scaffolding a reusable skill. Generate a weekly Markdown report for usage, cold skills, recurring friction, findings, coverage gaps, and unpublished skill-repository work.</p>
+      <p>Workflow bundle export creates a local folder containing personal skills, discovered instruction files, configured hook JSON, and a manifest. It does not upload or zip anything. Restore remains an intentional manual operation through your existing <code>Install-WorkspaceLinks.ps1</code> workflow.</p>
+
+      <h2 id="storage">Local files</h2>
+      <div class="docs-table-wrap"><table><thead><tr><th>Data</th><th>Location</th></tr></thead><tbody>
+        <tr><td>Usage events</td><td><code>&lt;agentsHome&gt;/usage-log.jsonl</code></td></tr>
+        <tr><td>Friction events</td><td><code>&lt;dataDir&gt;/friction-log.jsonl</code></td></tr>
+        <tr><td>Link cache</td><td><code>&lt;dataDir&gt;/url-check-cache.json</code></td></tr>
+        <tr><td>Reports</td><td><code>&lt;dataDir&gt;/reports/</code></td></tr>
+        <tr><td>Exports</td><td><code>&lt;dataDir&gt;/exports/</code></td></tr>
+      </tbody></table></div>
+      <p>See <a href="./configuration.html">configuration locations</a> and <a href="./troubleshooting.html">troubleshooting</a> for platform-specific data-directory paths.</p>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-inner"><span>Version <span data-release-version>v2.1.0-beta.2</span></span><span>MIT</span><span>Local-only</span><span>No telemetry</span><a href="https://github.com/hackerslairhq/desktop/releases">GitHub releases for advanced users</a></div></footer>
+</body>
+</html>

@@ -556,6 +556,16 @@ def assert_agent_ops(page) -> None:
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Read")).to_be_visible()
     page.get_by_role("button", name="Hooks", exact=True).click()
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Bash")).to_be_visible()
+    page.get_by_role("button", name="Sessions", exact=True).click()
+    expect(page.locator(".friction-panel")).to_contain_text("Session feed is off")
+    page.get_by_role("button", name="Memory", exact=True).click()
+    expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="decisions.md")).to_be_visible()
+    page.get_by_role("button", name="Coverage", exact=True).click()
+    expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Live Fixture")).to_be_visible()
+    page.get_by_role("button", name="Parity", exact=True).click()
+    expect(
+        page.locator('[data-card-kind="agent-op"]').filter(has_text="verify").first
+    ).to_be_visible()
     page.get_by_role("tab", name="Targets", exact=True).click()
 
 
@@ -681,6 +691,9 @@ def run() -> None:
         "---\n",
         encoding="utf-8",
     )
+    memory_directory = claude_home / "projects" / "fixture" / "memory"
+    memory_directory.mkdir(parents=True)
+    (memory_directory / "decisions.md").write_text("# Fixture decisions\n", encoding="utf-8")
     (claude_home / "settings.json").write_text(
         json.dumps(
             {

@@ -154,6 +154,27 @@ test('Agent Ops keeps wider workflow inventories in one read-only filtered view'
   assert.doesNotMatch(html, /data-agent-ops-(?:edit|delete|install)/);
 });
 
+test('workflow freshness and reporting stay local unless link checks are explicitly clicked', () => {
+  for (const filter of ['sessions', 'memory', 'coverage', 'parity']) {
+    assert.match(html, new RegExp(`\\['${filter}',`));
+  }
+  assert.match(html, /data-check-urls="skill"/);
+  assert.match(html, /data-check-urls="instruction"/);
+  assert.match(html, /data-workflow-action="report"/);
+  assert.match(html, /data-workflow-action="export"/);
+  assert.match(html, /data-workflow-action="repair-prompt"/);
+  assert.match(html, /data-coverage-open/);
+  assert.match(html, /Skills repo has unpublished changes/);
+  assert.match(html, /Session feed is off/);
+  assert.match(html, /WORKFLOW_URLS_CHECKED/);
+  assert.match(html, /REPORT_GENERATED/);
+  assert.match(html, /WORKFLOW_BUNDLE_EXPORTED/);
+  assert.match(server, /req\.url === '\/api\/ai\/check-urls'/);
+  assert.match(server, /req\.url === '\/api\/ai\/report'/);
+  assert.match(server, /req\.url === '\/api\/ai\/export'/);
+  assert.match(server, /req\.url === '\/api\/ai\/repair-prompt'/);
+});
+
 test('runtime resilience controls surface backend and log state', () => {
   assert.match(html, /id="backendBanner"/);
   assert.match(html, /syncDesktopBackend/);
