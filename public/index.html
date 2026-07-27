@@ -554,6 +554,12 @@
     cursor: pointer;
   }
 
+  .settings-trigger {
+    width: 44px;
+    padding: 0;
+    font-size: 16px;
+  }
+
   .settings-popover {
     position: absolute;
     inset: 52px 0 auto auto;
@@ -2685,7 +2691,7 @@
           <span id="updateAvailableLabel">Update available</span>
         </button>
         <div class="settings-shell" id="settingsShell">
-          <button class="header-action" id="settingsTrigger" type="button" aria-expanded="false" aria-controls="settingsPopover">Settings</button>
+          <button class="header-action settings-trigger" id="settingsTrigger" type="button" aria-label="Settings" title="Settings" aria-expanded="false" aria-controls="settingsPopover"><span aria-hidden="true">⚙</span></button>
           <div class="settings-popover" id="settingsPopover" hidden>
             <h2>Settings</h2>
             <p class="settings-intro">Appearance and desktop behavior. Saved across the app and browser tabs.</p>

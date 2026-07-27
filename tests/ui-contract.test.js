@@ -74,7 +74,8 @@ test('update badge and Settings keep release controls minimal', () => {
 });
 
 test('Settings contains appearance, startup, and release controls', () => {
-  assert.match(html, /id="settingsTrigger"[^>]*>Settings</);
+  assert.match(html, /id="settingsTrigger"[^>]*aria-label="Settings"[^>]*><span aria-hidden="true">⚙<\/span>/);
+  assert.doesNotMatch(html, /id="settingsTrigger"[^>]*>Settings<\/button>/);
   assert.match(html, /id="settingsPopover"[^>]*hidden/);
   assert.match(html, /id="launchOnStartup"[^>]*role="switch"/);
   assert.match(html, /<strong>Launch on startup<\/strong>/);
