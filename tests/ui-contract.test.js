@@ -51,11 +51,12 @@ test('target cards expose compact details and truthful port groups', () => {
 });
 
 test('command palette includes setup, release, conditional update, and every preference family', () => {
-  for (const verb of ['ADD', 'SCAN', 'RELEASE', 'UPDATE', 'THEME', 'DENSITY', 'MOTION', 'FONT']) {
+  for (const verb of ['ADD', 'SCAN', 'RELEASE', 'UPDATE', 'THEME', 'DENSITY', 'MOTION', 'FONT', 'PANEL']) {
     assert.match(html, new RegExp(`verb: '${verb}'`));
   }
   assert.doesNotMatch(html, /verb: 'SETTINGS'/);
   assert.match(html, /Enable launch on startup/);
+  assert.match(html, /if \(state\.scriptsSupported\) \{\s*commands\.push\(\{\s*verb: 'PANEL'/);
   assert.doesNotMatch(html, /Enable launch at login/);
   assert.match(html, /component\.hasLog/);
 });
@@ -73,10 +74,13 @@ test('update badge and Settings keep release controls minimal', () => {
   assert.doesNotMatch(html, /id="updateStatus"/);
 });
 
-test('Settings contains appearance, startup, and release controls', () => {
+test('Settings contains panel visibility, appearance, startup, and release controls', () => {
   assert.match(html, /id="settingsTrigger"[^>]*aria-label="Settings"[^>]*><span aria-hidden="true">⚙<\/span>/);
   assert.doesNotMatch(html, /id="settingsTrigger"[^>]*>Settings<\/button>/);
   assert.match(html, /id="settingsPopover"[^>]*hidden/);
+  assert.match(html, /id="skillsPanelEnabled"[^>]*role="switch"/);
+  assert.match(html, /id="scriptsPanelEnabled"[^>]*role="switch"/);
+  assert.match(html, /\/api\/settings\/features/);
   assert.match(html, /id="launchOnStartup"[^>]*role="switch"/);
   assert.match(html, /<strong>Launch on startup<\/strong>/);
   assert.doesNotMatch(html, /Launch at login/);

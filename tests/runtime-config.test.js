@@ -9,6 +9,7 @@ const {
   createRuntimeConfig,
   CURRENT_CONFIG_VERSION,
   JsonConfigStore,
+  SETTINGS_CONFIG_VERSION,
 } = require('../lib/runtime-config');
 const { DEFAULT_UI_PREFERENCES } = require('../lib/ui-preferences');
 
@@ -21,7 +22,10 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
   });
   fs.writeFileSync(path.join(root, 'projects.example.json'), '{"projects":[]}');
   fs.writeFileSync(path.join(root, 'scripts.example.json'), '{"scriptsDir":"","autoItExe":"","descriptions":{}}');
-  fs.writeFileSync(path.join(root, 'settings.example.json'), '{"enableSkills":false,"browserPath":""}');
+  fs.writeFileSync(
+    path.join(root, 'settings.example.json'),
+    '{"enableSkills":true,"enableScripts":false,"browserPath":""}',
+  );
   fs.mkdirSync(path.join(root, 'schemas'));
   fs.copyFileSync(
     path.join(__dirname, '..', 'schemas', 'projects.schema.json'),
@@ -45,13 +49,17 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
   assert.equal(runtime.projects.file, path.join(data, 'projects.json'));
   assert.ok(fs.existsSync(path.join(data, 'scripts.json')));
   assert.ok(fs.existsSync(path.join(data, 'settings.json')));
-  assert.deepEqual(runtime.settings.read().value.uiPreferences, DEFAULT_UI_PREFERENCES);
+  const defaultSettings = runtime.settings.read().value;
+  assert.equal(defaultSettings.enableSkills, true);
+  assert.equal(defaultSettings.enableScripts, false);
+  assert.deepEqual(defaultSettings.uiPreferences, DEFAULT_UI_PREFERENCES);
 
   const workspaceFolders = process.platform === 'win32'
     ? ['D:\\Code', 'E:\\Experiments']
     : ['/code', '/experiments'];
   const settings = runtime.settings.write({
     enableSkills: false,
+    enableScripts: true,
     browserPath: '',
     zombieAfterHours: 8,
     workspaceFolders,
@@ -63,7 +71,11 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
     },
   });
   assert.deepEqual(settings.workspaceFolders, workspaceFolders);
+  assert.equal(settings.enableScripts, true);
   assert.equal(settings.uiPreferences.theme, 'ice');
+  assert.throws(() => runtime.settings.write({
+    enableScripts: 'yes',
+  }), /enableScripts/i);
   assert.throws(() => runtime.settings.write({
     workspaceFolders: ['relative-folder'],
   }), /absolute folder strings/i);
@@ -75,6 +87,43 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
       fontScale: 100,
     },
   }), /uiPreferences\.theme/i);
+});
+
+test('migrates panel visibility to Skills on and Scripts off', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-settings-root-'));
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-settings-data-'));
+  t.after(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(data, { recursive: true, force: true });
+  });
+  for (const file of ['projects.example.json', 'scripts.example.json', 'settings.example.json']) {
+    fs.copyFileSync(path.join(__dirname, '..', file), path.join(root, file));
+  }
+  fs.mkdirSync(path.join(root, 'schemas'));
+  fs.copyFileSync(
+    path.join(__dirname, '..', 'schemas', 'projects.schema.json'),
+    path.join(root, 'schemas', 'projects.schema.json'),
+  );
+  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({
+    configVersion: 1,
+    enableSkills: false,
+    browserPath: '',
+  }));
+
+  const previous = process.env.PROJECT_MANAGER_DATA_DIR;
+  process.env.PROJECT_MANAGER_DATA_DIR = data;
+  t.after(() => {
+    if (previous === undefined) delete process.env.PROJECT_MANAGER_DATA_DIR;
+    else process.env.PROJECT_MANAGER_DATA_DIR = previous;
+  });
+
+  const runtime = createRuntimeConfig(root);
+  const settings = runtime.settings.read();
+  assert.equal(settings.error, null);
+  assert.equal(settings.value.configVersion, SETTINGS_CONFIG_VERSION);
+  assert.equal(settings.value.enableSkills, true);
+  assert.equal(settings.value.enableScripts, false);
+  assert.equal(runtime.settings.listBackups().length, 1);
 });
 
 test('migrates legacy config after snapshotting and tolerates newer config fields', (t) => {

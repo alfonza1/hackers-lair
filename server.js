@@ -60,7 +60,7 @@ const runtimeConfig = createRuntimeConfig(__dirname);
 const runtimeIdentity = createRuntimeIdentity();
 const platform = createPlatform();
 const DATA_DIR = runtimeConfig.dataDirectory;
-const AGENTS_HOME = process.env.AGENTS_HOME || path.resolve(__dirname, '..', '.agents');
+const AGENTS_HOME = process.env.AGENTS_HOME || path.join(os.homedir(), '.agents');
 const STORE = path.join(DATA_DIR, 'stopped.json');
 const MAX_STOPPED = 40;
 const PROJECTS_FILE = runtimeConfig.projects.file;
@@ -71,7 +71,8 @@ let doctorSnapshot = null;
 function loadSettings() {
   const result = runtimeConfig.settings.read();
   return {
-    enableSkills: result.value.enableSkills === true,
+    enableSkills: result.value.enableSkills !== false,
+    enableScripts: result.value.enableScripts === true,
     browserPath: String(result.value.browserPath || ''),
     zombieAfterHours: Number(result.value.zombieAfterHours) || 8,
     workspaceFolders: Array.isArray(result.value.workspaceFolders)
@@ -1386,8 +1387,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && req.url === '/api/scripts') {
       const config = loadScriptsConfig();
+      const settings = loadSettings();
       json(res, 200, {
-        scripts: platform.supportsScripts ? await getScripts() : [],
+        scripts: settings.enableScripts && platform.supportsScripts ? await getScripts() : [],
+        enabled: settings.enableScripts,
+        supported: platform.supportsScripts,
         configured: platform.supportsScripts && Boolean(config.scriptsDir),
         configError: config.error,
       });
@@ -1420,7 +1424,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/api/skills') {
       const settings = loadSettings();
       if (!settings.enableSkills) {
-        json(res, 404, { error: 'Skills view is disabled. Enable it in settings.json.' });
+        json(res, 404, { error: 'The Skills view is disabled. Enable it in Settings.' });
         return;
       }
       json(res, 200, { skills: listSkills({ agentsHome: AGENTS_HOME }) });
@@ -1434,6 +1438,7 @@ const server = http.createServer(async (req, res) => {
         projectsFile: PROJECTS_FILE,
         scriptsFile: SCRIPTS_FILE,
         enableSkills: settings.enableSkills,
+        enableScripts: settings.enableScripts,
         workspaceFolders: settings.workspaceFolders,
         uiPreferences: settings.uiPreferences,
         browserOverride: Boolean(configuredBrowserPath()),
@@ -1457,6 +1462,44 @@ const server = http.createServer(async (req, res) => {
       } catch (error) {
         json(res, 501, { error: `Folder picker unavailable: ${error.message}` });
       }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/settings/features') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      if (!input || typeof input !== 'object' || Array.isArray(input)) {
+        json(res, 400, { error: 'Panel settings must be a JSON object.' });
+        return;
+      }
+      const updates = {};
+      for (const field of ['enableSkills', 'enableScripts']) {
+        if (!Object.hasOwn(input, field)) continue;
+        if (typeof input[field] !== 'boolean') {
+          json(res, 400, { error: `${field} must be true or false.` });
+          return;
+        }
+        updates[field] = input[field];
+      }
+      if (!Object.keys(updates).length) {
+        json(res, 400, { error: 'Choose at least one panel setting to update.' });
+        return;
+      }
+      const current = runtimeConfig.settings.read();
+      if (current.error) {
+        json(res, 409, { error: `Fix settings.json before saving panel settings: ${current.error}` });
+        return;
+      }
+      const saved = runtimeConfig.settings.write({
+        ...current.value,
+        ...updates,
+      });
+      json(res, 200, {
+        ok: true,
+        enableSkills: saved.enableSkills !== false,
+        enableScripts: saved.enableScripts === true,
+      });
       return;
     }
 
@@ -1886,6 +1929,10 @@ const server = http.createServer(async (req, res) => {
         json(res, 404, { error: 'The Scripts view is available on Windows only.' });
         return;
       }
+      if (!loadSettings().enableScripts) {
+        json(res, 404, { error: 'The Scripts view is disabled. Enable it in Settings.' });
+        return;
+      }
       let file;
       try { file = String(JSON.parse(await readBody(req)).file); }
       catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
@@ -1928,6 +1975,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/api/scripts/stop') {
       if (!platform.supportsScripts) {
         json(res, 404, { error: 'The Scripts view is available on Windows only.' });
+        return;
+      }
+      if (!loadSettings().enableScripts) {
+        json(res, 404, { error: 'The Scripts view is disabled. Enable it in Settings.' });
         return;
       }
       let file;

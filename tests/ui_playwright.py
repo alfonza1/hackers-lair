@@ -324,7 +324,7 @@ def assert_minimal_update_controls(page) -> None:
     page.set_viewport_size({"width": 1440, "height": 900})
 
 
-def assert_launch_on_startup_setting(page) -> None:
+def assert_settings_panel(page, scripts_supported: bool) -> None:
     settings = page.get_by_role("button", name="Settings", exact=True)
     expect(settings).to_be_visible()
     settings.click()
@@ -342,6 +342,26 @@ def assert_launch_on_startup_setting(page) -> None:
     page.locator("#fontScalePreference").select_option("110")
     expect(page.locator("html")).to_have_attribute("style", re.compile(r"--font-scale:\s*110%"))
     expect(page.locator("#settingsSync")).to_have_text("Saved")
+
+    skills = page.get_by_role("switch", name=re.compile(r"Skills panel"))
+    scripts = page.get_by_role("switch", name=re.compile(r"Scripts panel"))
+    expect(skills).to_be_checked()
+    expect(page.locator("#skillsTab")).to_be_visible()
+    expect(page.locator("#scriptsTab")).to_be_hidden()
+
+    skills.uncheck()
+    expect(page.locator("#skillsTab")).to_be_hidden()
+    skills.check()
+    expect(page.locator("#skillsTab")).to_be_visible()
+
+    if scripts_supported:
+        expect(scripts).to_be_visible()
+        expect(scripts).not_to_be_checked()
+        scripts.check()
+        expect(scripts).to_be_checked()
+        expect(page.locator("#scriptsTab")).to_be_visible()
+    else:
+        expect(page.locator("#scriptsPanelField")).to_be_hidden()
 
     launch = page.get_by_role("switch", name=re.compile(r"Launch on startup"))
     expect(launch).not_to_be_checked()
@@ -535,10 +555,10 @@ def run() -> None:
             )
             assert_target_states(page, live_listener.port, dormant_port)
             assert_port_signal_action_tray(page, live_listener.port)
+            assert_minimal_update_controls(page)
+            assert_settings_panel(page, scripts_supported=script_name is not None)
             if script_name:
                 assert_script_action_tray(page, script_name)
-            assert_minimal_update_controls(page)
-            assert_launch_on_startup_setting(page)
             assert_palette_and_theme(page)
             assert_responsive_layout(page)
             assert not console_errors, f"Browser console errors: {console_errors}"
@@ -546,7 +566,7 @@ def run() -> None:
             browser = None
         print(
             "Playwright UI smoke passed: empty state, port conflict warning, target states, "
-            "compact action trays, launch-on-startup setting, minimal update controls, "
+            "compact action trays, panel/startup settings, minimal update controls, "
             "palette, theme, and 900x620."
         )
     except Exception:
