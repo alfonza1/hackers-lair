@@ -7,6 +7,11 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- Re-running the PowerShell installer no longer aborts when an Electron child
+  process exits while the verified installation is being stopped.
+
 ## [2.1.0-beta.7] - 2026-07-27
 
 ### Added

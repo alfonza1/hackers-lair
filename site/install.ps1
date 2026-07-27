@@ -35,8 +35,16 @@ function Stop-InstalledProcesses([string]$Directory) {
             $_.ExecutablePath -and (Test-PathWithin $_.ExecutablePath $installRoot)
         }
     foreach ($process in $processes) {
-        Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
-        Write-Output "Stopped verified Hacker's Lair process PID $($process.ProcessId)."
+        try {
+            Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+            Write-Output "Stopped verified Hacker's Lair process PID $($process.ProcessId)."
+        } catch {
+            if (-not (Get-Process -Id $process.ProcessId -ErrorAction SilentlyContinue)) {
+                Write-Output "PID $($process.ProcessId) exited before the installer reached it."
+                continue
+            }
+            throw
+        }
     }
 }
 
