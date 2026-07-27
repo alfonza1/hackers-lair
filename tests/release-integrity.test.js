@@ -23,6 +23,7 @@ test('GitHub Actions are pinned and release artifacts receive provenance', () =>
   assert.equal((release.match(/npm audit --audit-level=high/g) || []).length, 2);
   assert.match(release, /npm run test:coverage/g);
   assert.match(release, /npm run test:ui/);
+  assert.match(release, /npm run test:site-ui/);
   assert.match(release, /npm run smoke:package/);
   assert.match(release, /npm run smoke:install/);
   assert.match(release, /RELEASES/);
@@ -35,8 +36,19 @@ test('CI reports coverage and runs the browser UI smoke', () => {
   assert.match(ci, /npm audit --audit-level=high/);
   assert.match(ci, /npm run test:coverage/);
   assert.match(ci, /npm run test:ui/);
+  assert.match(ci, /npm run test:site-ui/);
   assert.match(ci, /cache-dependency-path:\s*requirements-test\.txt/);
   assert.match(ci, /playwright install --with-deps --only-shell chromium/);
+});
+
+test('Pages deploys only after a successful main CI run', () => {
+  const pages = fs.readFileSync(path.join(workflowDirectory, 'pages.yml'), 'utf8');
+  assert.match(pages, /workflow_run:/);
+  assert.match(pages, /workflows:\s*\[\s*"?CI"?\s*\]/);
+  assert.match(pages, /types:\s*\[\s*completed\s*\]/);
+  assert.match(pages, /github\.event\.workflow_run\.conclusion\s*==\s*'success'/);
+  assert.match(pages, /ref:\s*\$\{\{\s*github\.event\.workflow_run\.head_sha\s*\}\}/);
+  assert.doesNotMatch(pages, /push:\s*\n\s*branches:/);
 });
 
 test('Dependabot covers npm and workflow dependencies every week', () => {

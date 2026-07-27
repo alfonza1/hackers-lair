@@ -18,6 +18,7 @@ npm run package
 npm run smoke:package
 npm run smoke:install
 npm run make
+npm run test:site-ui
 ```
 
 - `test:coverage` covers API authorization, Host and content-type protection,
@@ -28,18 +29,25 @@ npm run make
   directory, forcibly terminates its first child service, verifies Electron
   recovers with a new identity/PID, quits, and proves both service PIDs stopped.
 - `smoke:install` serves a local release fixture, runs the stock PowerShell
-  installer into a unique directory below `%LOCALAPPDATA%\Programs`, verifies
-  SHA256-before-unblock behavior, runs the packaged `lair` CLI without Node,
-  and exercises the verified uninstaller.
+  installer into a unique directory below `%LOCALAPPDATA%\Programs`, rejects a
+  deliberately invalid SHA256 without creating the install directory, falls
+  back to stable release URLs when the GitHub API is unavailable, runs the
+  packaged `lair` CLI without Node, and exercises the verified uninstaller.
 - `test:ui` drives the served page in headless Chromium at 1440x900 and
   900x620. It covers equal-path onboarding, live/dormant cards, truthful port
   chips, state-filtered palette commands, theme persistence, console errors,
   and minimum-window overflow.
+- `test:site-ui` drives the static installation site at desktop, minimum-window,
+  and mobile widths. It covers Windows/Linux selection, the explicit Linux
+  distro choice, unsupported-platform handling, command copying, no-JavaScript
+  visibility, and nested 404 asset resolution.
 
 CI runs `npm test` on `windows-latest` and `ubuntu-latest`; Windows also runs
-both packaged smoke tests. Tagged builds run Forge on both operating systems,
-normalize artifact names, generate checksums and Winget/Scoop manifests from
-the final bytes, and publish one GitHub Release.
+both packaged smoke tests, and Linux runs both Playwright suites. Tagged builds
+repeat those checks, run Forge on both operating systems, normalize artifact
+names, generate checksums and Winget/Scoop manifests from the final bytes, and
+publish one GitHub Release. Pages deployment starts only after the `main` CI
+workflow succeeds and checks out that exact verified commit.
 
 Local release-candidate verification on 2026-07-26 passed the full test suite,
 JavaScript syntax checks, the packaged lifecycle, and the checksum installer

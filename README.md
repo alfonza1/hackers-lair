@@ -27,11 +27,9 @@ checksums; there are no browser download buttons.
 
 ### Windows
 
-Winget, after the community manifest is approved:
-
-```powershell
-winget install --id hackerslair.desktop --exact
-```
+Winget package ID `hackerslair.desktop` is reserved but not installable until
+the community manifest is approved. The website will publish the command only
+after the package appears in the public source.
 
 Checksum-verifying PowerShell channel:
 
@@ -51,13 +49,19 @@ scoop install hackerslair
 Debian / Ubuntu:
 
 ```bash
-curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_amd64.deb && sudo apt install ./hackers-lair_amd64.deb
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_amd64.deb &&
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/checksums.txt &&
+grep '  hackers-lair_amd64.deb$' checksums.txt | sha256sum -c - &&
+sudo apt install ./hackers-lair_amd64.deb
 ```
 
 Fedora / RHEL:
 
 ```bash
-curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_x86_64.rpm && sudo rpm -i ./hackers-lair_x86_64.rpm
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/hackers-lair_x86_64.rpm &&
+curl -LO https://github.com/hackerslairhq/desktop/releases/latest/download/checksums.txt &&
+grep '  hackers-lair_x86_64.rpm$' checksums.txt | sha256sum -c - &&
+sudo rpm -i ./hackers-lair_x86_64.rpm
 ```
 
 See the [installation guide](https://hackerslairhq.github.io/desktop/docs/)
@@ -153,11 +157,12 @@ npm run make
 
 Forge produces the Squirrel installer and portable ZIP on Windows, plus DEB,
 RPM, and ZIP packages on Linux. The release workflow adds the Linux tarball.
-CI reports built-in Node coverage on both operating systems, runs a headless
-Playwright UI smoke, and exercises packaged lifecycle recovery. Tagged builds
-repeat those gates before creating the GitHub Release, checksums, provenance,
-and package-channel manifests. Pushes to `main` deploy the pure-static `site/`
-directory to GitHub Pages.
+CI reports built-in Node coverage on both operating systems, runs headless
+Playwright coverage for the desktop UI and static installation site, and
+exercises packaged lifecycle recovery. Tagged builds repeat those gates before
+creating the GitHub Release, checksums, provenance, and package-channel
+manifests. Successful `main` CI runs deploy that exact pure-static `site/`
+commit to GitHub Pages.
 
 See [TESTING.md](TESTING.md) for clean-VM acceptance steps and
 [distribution/WINGET.md](distribution/WINGET.md) for the one manual community
