@@ -3,35 +3,11 @@
  * Genre: operator console / technical documentation
  * Tone: cyber-industrial, local-first, restrained
  * Anchor: phosphor green
- * Fingerprint: angular display type + terminal transcript + dense documentation sidebar
+ * Fingerprint: condensed industrial display + mono-first operator copy + dense documentation sidebar
  */
 @font-face {
   font-family: "Lair Display";
-  src: url("./fonts/tektur-medium.ttf") format("truetype");
-  font-display: swap;
-  font-style: normal;
-  font-weight: 500;
-  size-adjust: 100%;
-  ascent-override: 96%;
-  descent-override: 24%;
-  line-gap-override: 0%;
-}
-
-@font-face {
-  font-family: "Lair Sans";
-  src: url("./fonts/instrument-sans-regular.ttf") format("truetype");
-  font-display: swap;
-  font-style: normal;
-  font-weight: 400;
-  size-adjust: 100%;
-  ascent-override: 96%;
-  descent-override: 24%;
-  line-gap-override: 0%;
-}
-
-@font-face {
-  font-family: "Lair Sans";
-  src: url("./fonts/instrument-sans-bold.ttf") format("truetype");
+  src: url("./fonts/big-shoulders-bold.ttf") format("truetype");
   font-display: swap;
   font-style: normal;
   font-weight: 700;
@@ -43,7 +19,7 @@
 
 @font-face {
   font-family: "Lair Mono";
-  src: url("./fonts/red-hat-mono-regular.ttf") format("truetype");
+  src: url("./fonts/geist-mono-regular.ttf") format("truetype");
   font-display: swap;
   font-style: normal;
   font-weight: 400;
@@ -55,7 +31,7 @@
 
 @font-face {
   font-family: "Lair Mono";
-  src: url("./fonts/red-hat-mono-bold.ttf") format("truetype");
+  src: url("./fonts/geist-mono-bold.ttf") format("truetype");
   font-display: swap;
   font-style: normal;
   font-weight: 700;
@@ -82,7 +58,7 @@
   --color-code: #020806;
   --shadow-panel: 0 24px 70px rgba(0, 0, 0, .45);
   --font-display: "Lair Display", "Arial Narrow", sans-serif;
-  --font-body: "Lair Sans", "Segoe UI", sans-serif;
+  --font-body: "Lair Mono", "Cascadia Mono", "SFMono-Regular", monospace;
   --font-mono: "Lair Mono", "Cascadia Mono", "SFMono-Regular", monospace;
   --page-width: 1180px;
 }
@@ -106,7 +82,8 @@ body {
   margin: 0;
   overflow-x: clip;
   color: var(--color-ink);
-  font: 16px/1.62 var(--font-body);
+  font: 15px/1.68 var(--font-body);
+  font-variant-ligatures: none;
   background:
     linear-gradient(90deg, rgba(94, 208, 255, .035) 1px, transparent 1px),
     linear-gradient(rgba(102, 255, 181, .03) 1px, transparent 1px),
@@ -201,9 +178,9 @@ kbd {
   align-items: center;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: .035em;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: .055em;
   text-decoration: none;
   text-transform: uppercase;
   white-space: nowrap;
@@ -283,10 +260,10 @@ kbd {
   max-width: 720px;
   margin: 14px 0 22px;
   font-family: var(--font-display);
-  font-size: clamp(42px, 6.2vw, 82px);
-  font-weight: 500;
-  line-height: .98;
-  letter-spacing: -.035em;
+  font-size: clamp(48px, 7vw, 92px);
+  font-weight: 700;
+  line-height: .9;
+  letter-spacing: -.012em;
   text-wrap: balance;
 }
 
@@ -457,10 +434,10 @@ kbd {
 .docs-content h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(30px, 4vw, 52px);
-  font-weight: 500;
-  line-height: 1.08;
-  letter-spacing: -.025em;
+  font-size: clamp(36px, 4.6vw, 60px);
+  font-weight: 700;
+  line-height: .96;
+  letter-spacing: -.01em;
 }
 
 .section-heading p {
@@ -598,9 +575,10 @@ kbd {
   margin: 0;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 19px;
-  font-weight: 500;
-  letter-spacing: -.015em;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .005em;
 }
 
 .feature-row p {
@@ -669,10 +647,10 @@ kbd {
   max-width: 720px;
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(30px, 4vw, 52px);
-  font-weight: 500;
-  line-height: 1.08;
-  letter-spacing: -.025em;
+  font-size: clamp(36px, 4.6vw, 60px);
+  font-weight: 700;
+  line-height: .96;
+  letter-spacing: -.01em;
   overflow-wrap: anywhere;
 }
 
@@ -860,18 +838,19 @@ kbd {
   padding-top: 12px;
   border-top: 1px solid var(--color-border);
   font-family: var(--font-display);
-  font-size: 27px;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -.015em;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .docs-content h3 {
   margin: 34px 0 10px;
   color: var(--color-signal);
   font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .docs-content p,
@@ -970,9 +949,9 @@ kbd {
   color: var(--color-accent);
   font-family: var(--font-display);
   font-size: clamp(80px, 18vw, 190px);
-  font-weight: 500;
-  line-height: .8;
-  letter-spacing: -.055em;
+  font-weight: 700;
+  line-height: .78;
+  letter-spacing: -.015em;
 }
 
 .not-found p {

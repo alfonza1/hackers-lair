@@ -33,26 +33,24 @@ test('static site ships complete metadata, docs navigation, and local assets', (
   }
 });
 
-test('site typography is self-hosted and assigns distinct display, body, and terminal roles', () => {
+test('site typography is self-hosted and assigns industrial display and mono-first body roles', () => {
   const stylesheet = fs.readFileSync(path.join(site, 'assets', 'site.css'), 'utf8');
   const fontFiles = [
-    'tektur-medium.ttf',
-    'instrument-sans-regular.ttf',
-    'instrument-sans-bold.ttf',
-    'red-hat-mono-regular.ttf',
-    'red-hat-mono-bold.ttf',
+    'big-shoulders-bold.ttf',
+    'geist-mono-regular.ttf',
+    'geist-mono-bold.ttf',
   ];
   const licenseFiles = [
-    'OFL-Tektur.txt',
-    'OFL-Instrument-Sans.txt',
-    'OFL-Red-Hat-Mono.txt',
+    'OFL-Big-Shoulders.txt',
+    'OFL-Geist-Mono.txt',
   ];
 
   assert.match(stylesheet, /--font-display:\s*"Lair Display"/);
-  assert.match(stylesheet, /--font-body:\s*"Lair Sans"/);
+  assert.match(stylesheet, /--font-body:\s*"Lair Mono"/);
   assert.match(stylesheet, /--font-mono:\s*"Lair Mono"/);
-  assert.match(stylesheet, /body\s*\{[\s\S]*font:\s*16px\/1\.62 var\(--font-body\)/);
+  assert.match(stylesheet, /body\s*\{[\s\S]*font:\s*15px\/1\.68 var\(--font-body\)/);
   assert.match(stylesheet, /\.hero-copy h1\s*\{[\s\S]*font-family:\s*var\(--font-display\)/);
+  assert.match(stylesheet, /\.hero-copy h1\s*\{[\s\S]*font-weight:\s*700/);
   assert.match(stylesheet, /\.terminal-window\s*\{[\s\S]*font-family:\s*var\(--font-mono\)/);
   assert.doesNotMatch(stylesheet, /url\(["']?https?:\/\//i);
 
@@ -166,11 +164,9 @@ test('landing page transfer stays below 500 KB before optional release metadata'
     'assets/site.js',
     'assets/command-line-mark.png',
     'assets/targets.jpg',
-    'assets/fonts/tektur-medium.ttf',
-    'assets/fonts/instrument-sans-regular.ttf',
-    'assets/fonts/instrument-sans-bold.ttf',
-    'assets/fonts/red-hat-mono-regular.ttf',
-    'assets/fonts/red-hat-mono-bold.ttf',
+    'assets/fonts/big-shoulders-bold.ttf',
+    'assets/fonts/geist-mono-regular.ttf',
+    'assets/fonts/geist-mono-bold.ttf',
   ];
   const bytes = criticalFiles.reduce((total, relative) => (
     total + fs.statSync(path.join(site, relative)).size
