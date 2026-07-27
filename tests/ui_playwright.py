@@ -279,6 +279,43 @@ def assert_script_action_tray(page, script_name: str) -> None:
     page.get_by_role("tab", name="Targets", exact=True).click()
 
 
+def assert_update_settings_dialog(page) -> None:
+    expect(page.locator("#updateBanner")).to_have_count(0)
+    page.get_by_role("button", name="UI preferences").click()
+    updates = page.get_by_role("button", name=re.compile(r"Updates & release notes"))
+    expect(updates).to_be_visible()
+    expect(updates).to_contain_text("PowerShell portable")
+    updates.click()
+
+    dialog = page.get_by_role("dialog", name="Updates & release notes")
+    expect(dialog).to_be_visible()
+    expect(dialog).to_contain_text(
+        "Updates use the PowerShell portable install channel."
+    )
+    expect(dialog.locator("#updateCommand")).to_have_text(
+        "irm https://hackerslairhq.github.io/desktop/install.ps1 | iex"
+    )
+    expect(dialog.locator("#releaseNotesBody")).to_contain_text(
+        "Portable update fixture notes."
+    )
+    dialog.get_by_role("button", name="Copy command").click()
+    expect(page.locator("#toast")).to_have_text("Update command copied.")
+    dialog.get_by_role("button", name="Close", exact=True).click()
+    expect(dialog).to_be_hidden()
+
+    page.set_viewport_size({"width": 900, "height": 620})
+    page.get_by_role("button", name="UI preferences").click()
+    page.get_by_role("button", name=re.compile(r"Updates & release notes")).click()
+    dialog_box = dialog.bounding_box()
+    assert dialog_box is not None
+    assert dialog_box["x"] >= 0 and dialog_box["y"] >= 0
+    assert dialog_box["x"] + dialog_box["width"] <= 900
+    assert dialog_box["y"] + dialog_box["height"] <= 620
+    page.keyboard.press("Escape")
+    expect(dialog).to_be_hidden()
+    page.set_viewport_size({"width": 1440, "height": 900})
+
+
 def assert_palette_and_theme(page) -> None:
     page.keyboard.press("Control+K")
     palette = page.locator("#commandPalette")
@@ -341,6 +378,10 @@ def run() -> None:
         with ListeningFixture() as live_listener, sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
             page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.context.grant_permissions(
+                ["clipboard-read", "clipboard-write"],
+                origin=origin.rstrip("/"),
+            )
             page.on(
                 "console",
                 lambda message: console_errors.append(message.text)
@@ -349,7 +390,32 @@ def run() -> None:
             )
             page.on("pageerror", lambda error: console_errors.append(str(error)))
             page.add_init_script(
-                "localStorage.setItem('hackersLair.cinematicSeen', '1');"
+                """
+                localStorage.setItem('hackersLair.cinematicSeen', '1');
+                window.hackerLairWindow = {
+                  minimize: () => {},
+                  toggleMaximize: () => {},
+                  close: () => {},
+                  restart: () => {},
+                  shutdown: () => {},
+                  onMaximizeChange: () => () => {},
+                  getUpdateState: async () => ({
+                    channel: 'powershell',
+                    channelLabel: 'PowerShell portable',
+                    currentVersion: '2.1.0-beta.2',
+                    mode: 'manual',
+                    status: 'manual',
+                    version: '',
+                    message: 'Updates use the PowerShell portable install channel.',
+                    upgradeCommand: 'irm https://hackerslairhq.github.io/desktop/install.ps1 | iex',
+                    releaseUrl: 'https://github.com/hackerslairhq/desktop/releases',
+                    releaseNotes: '### Fixed\\n\\n- Portable update fixture notes.',
+                    managedTargets: [],
+                  }),
+                  onUpdateState: () => () => {},
+                  openUpdateNotes: async () => true,
+                };
+                """
             )
             page.goto(origin, wait_until="networkidle")
             assert_empty_state(page)
@@ -383,6 +449,7 @@ def run() -> None:
             assert_port_signal_action_tray(page, live_listener.port)
             if script_name:
                 assert_script_action_tray(page, script_name)
+            assert_update_settings_dialog(page)
             assert_palette_and_theme(page)
             assert_responsive_layout(page)
             assert not console_errors, f"Browser console errors: {console_errors}"
@@ -390,7 +457,7 @@ def run() -> None:
             browser = None
         print(
             "Playwright UI smoke passed: empty state, port conflict warning, target states, "
-            "compact action trays, palette, theme, and 900x620."
+            "compact action trays, update settings dialog, palette, theme, and 900x620."
         )
     except Exception:
         OUTPUT_DIRECTORY.mkdir(exist_ok=True)

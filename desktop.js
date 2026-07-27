@@ -19,6 +19,7 @@ const { performPowerAction } = require('./lib/app-power');
 const { detectInstallChannel, installChannelDetails } = require('./lib/install-channel');
 const {
   managedTargetsRunning,
+  releaseNotesForVersion,
   releaseVersion,
   updateStateForChannel,
 } = require('./lib/update-policy');
@@ -89,7 +90,23 @@ const installChannel = detectInstallChannel({
   executablePath: process.execPath,
 });
 const channelDetails = installChannelDetails(installChannel);
-let updateState = updateStateForChannel(installChannel, channelDetails, app.getVersion());
+
+function bundledReleaseNotes(version) {
+  try {
+    const changelog = fs.readFileSync(path.join(__dirname, 'CHANGELOG.md'), 'utf8');
+    return releaseNotesForVersion(changelog, version);
+  } catch {
+    return '';
+  }
+}
+
+const currentVersion = app.getVersion();
+let updateState = updateStateForChannel(
+  installChannel,
+  channelDetails,
+  currentVersion,
+  bundledReleaseNotes(currentVersion),
+);
 
 function publishUpdateState(patch = {}) {
   updateState = { ...updateState, ...patch };
@@ -194,6 +211,7 @@ function initializeUpdates() {
         releaseUrl: version
           ? `https://github.com/hackerslairhq/desktop/releases/tag/v${version}`
           : updateState.releaseUrl,
+        releaseNotes: String(info.releaseNotes || '').trim() || updateState.releaseNotes,
         managedTargets: [],
       });
     },

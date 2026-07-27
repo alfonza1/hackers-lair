@@ -14,6 +14,7 @@ const windowsSigning = (
 const PACKAGED_RUNTIME_PATHS = new Set([
   'app-config.js',
   'bin',
+  'CHANGELOG.md',
   'desktop.js',
   'icon.ico',
   'icon.png',

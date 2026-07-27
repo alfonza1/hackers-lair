@@ -549,6 +549,7 @@
   }
 
   .preferences-trigger:focus-visible,
+  .preferences-action:focus-visible,
   .preference-field select:focus-visible,
   .density-toggle:focus-visible,
   .card-toggle:focus-visible {
@@ -616,6 +617,38 @@
     min-height: 15px;
     color: var(--dim);
     font-size: 9px;
+  }
+
+  .preferences-action {
+    display: grid;
+    gap: 3px;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid rgba(var(--secondary-rgb), .28);
+    border-radius: 3px;
+    color: var(--text);
+    background: rgba(var(--secondary-rgb), .055);
+    font-family: var(--mono);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .preferences-action:hover {
+    border-color: var(--cyan);
+    background: rgba(var(--secondary-rgb), .1);
+  }
+
+  .preferences-action strong {
+    color: var(--cyan);
+    font-size: 10px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .preferences-action small {
+    color: var(--dim);
+    font-size: 9px;
+    line-height: 1.4;
   }
 
   .eyebrow,
@@ -2406,6 +2439,83 @@
   .wizard-review .discovery-row { border: 1px solid var(--line); }
   .dialog-actions [hidden] { display: none; }
 
+  .update-dialog { width: min(760px, calc(100vw - 32px)); }
+  .update-overview {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    background: var(--void);
+  }
+  .update-overview > div {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    padding: 11px 12px;
+    border-right: 1px solid var(--line);
+  }
+  .update-overview > div:last-child { border-right: 0; }
+  .update-overview span,
+  .update-section-label {
+    color: var(--dim);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+  .update-overview strong {
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font-size: 10px;
+    text-transform: uppercase;
+  }
+  .update-message {
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  .update-command-panel,
+  .release-notes-panel {
+    display: grid;
+    gap: 9px;
+    margin-top: 18px;
+  }
+  .update-command-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .update-command-row code {
+    min-width: 0;
+    padding: 11px 12px;
+    overflow-wrap: anywhere;
+    border: 1px solid rgba(var(--secondary-rgb), .28);
+    color: var(--cyan);
+    background: rgba(var(--shadow-rgb), .3);
+    font: 700 10px/1.6 var(--mono);
+  }
+  .release-notes-panel h3 {
+    color: var(--text);
+    font-size: 14px;
+    text-transform: uppercase;
+  }
+  .release-notes-body {
+    max-height: 260px;
+    margin: 0;
+    padding: 13px 14px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    background: var(--void);
+    font: 10px/1.7 var(--mono);
+    white-space: pre-wrap;
+  }
+  .release-notes-body:focus-visible {
+    border-color: var(--cyan);
+    outline: 2px solid rgba(var(--secondary-rgb), .18);
+  }
+
   @media (max-width: 900px) {
     .template-controls { grid-template-columns: 1fr 1fr; }
     .template-controls .utility { grid-column: 1 / -1; }
@@ -2414,6 +2524,13 @@
     .schema-field-list { grid-template-columns: 1fr; }
     .component-fields,
     .editor-project-fields { grid-template-columns: 1fr; }
+    .update-overview { grid-template-columns: 1fr; }
+    .update-overview > div {
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .update-overview > div:last-child { border-bottom: 0; }
+    .update-command-row { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -2494,6 +2611,10 @@
           <label class="preference-field" id="launchAtLoginField" hidden>Launch at login
             <input id="launchAtLogin" type="checkbox">
           </label>
+          <button class="preferences-action" id="updatesTrigger" type="button">
+            <strong>Updates &amp; release notes</strong>
+            <small id="updatesSummary">Desktop host required</small>
+          </button>
           <span class="preferences-sync" id="preferencesSync" role="status"></span>
         </div>
       </div>
@@ -2507,12 +2628,6 @@
   </header>
 
   <main class="console-layout">
-    <section class="update-banner" id="updateBanner" role="status" hidden>
-      <span class="update-message" id="updateMessage"></span>
-      <code id="updateCommand" hidden></code>
-      <button class="utility" id="applyUpdate" type="button" hidden>Restart to Apply</button>
-      <button class="utility" id="updateNotes" type="button">Release Notes</button>
-    </section>
     <section class="update-banner backend-banner" id="backendBanner" role="alert" hidden>
       <span class="update-message" id="backendMessage">Local service unavailable.</span>
     </section>
@@ -2721,6 +2836,42 @@
     <div class="dialog-actions">
       <button class="utility" id="wizardBack" type="button">Back</button>
       <button class="utility" id="wizardNext" type="button">Continue</button>
+    </div>
+  </form>
+</dialog>
+<dialog class="lair-dialog update-dialog" id="updateDialog" aria-labelledby="updatesDialogTitle">
+  <form method="dialog">
+    <div class="dialog-head">
+      <div>
+        <div class="section-kicker">Software channel</div>
+        <h2 id="updatesDialogTitle">Updates &amp; release notes</h2>
+      </div>
+      <button class="utility" value="cancel" type="submit" aria-label="Close updates and release notes">Close</button>
+    </div>
+    <div class="dialog-body">
+      <div class="update-overview">
+        <div><span>Current</span><strong id="updateCurrentVersion">Unknown</strong></div>
+        <div><span>Channel</span><strong id="updateChannel">Desktop host required</strong></div>
+        <div><span>Status</span><strong id="updateStatus">Unavailable</strong></div>
+      </div>
+      <p class="update-message" id="updateMessage">Update status is available in the installed desktop app.</p>
+      <section class="update-command-panel" id="updateCommandPanel" hidden>
+        <div class="update-section-label">Upgrade command</div>
+        <div class="update-command-row">
+          <code id="updateCommand"></code>
+          <button class="utility" id="copyUpdateCommand" type="button">Copy command</button>
+        </div>
+      </section>
+      <section class="release-notes-panel">
+        <div class="update-section-label">Release notes</div>
+        <h3 id="releaseNotesTitle">Current release</h3>
+        <pre class="release-notes-body" id="releaseNotesBody" tabindex="0">Release notes are available in the installed desktop app.</pre>
+      </section>
+    </div>
+    <div class="dialog-actions">
+      <button class="utility" id="updateNotes" type="button" hidden>Open full release notes</button>
+      <button class="utility" id="applyUpdate" type="button" hidden>Restart to apply</button>
+      <button class="utility" value="cancel" type="submit">Close</button>
     </div>
   </form>
 </dialog>
@@ -4032,20 +4183,26 @@
 
   function renderUpdateState(update) {
     state.update = update;
-    const banner = $('updateBanner');
-    if (!update) {
-      banner.hidden = true;
-      return;
-    }
-    const show = update.mode === 'manual'
-      || ['ready', 'blocked', 'applying', 'error'].includes(update.status);
-    banner.hidden = !show;
-    $('updateMessage').textContent = update.message || 'Update status unavailable.';
-    $('updateCommand').hidden = !update.upgradeCommand;
-    $('updateCommand').textContent = update.upgradeCommand || '';
-    $('applyUpdate').hidden = !['ready', 'blocked'].includes(update.status);
-    $('applyUpdate').disabled = update.status === 'applying';
-    $('updateNotes').hidden = !update.releaseUrl;
+    const currentVersion = update?.currentVersion || '';
+    const displayVersion = update?.version || currentVersion;
+    $('updatesSummary').textContent = update
+      ? `${update.channelLabel || update.channel || 'Update channel'}${currentVersion ? ` · v${currentVersion}` : ''}`
+      : 'Desktop host required';
+    $('updateCurrentVersion').textContent = currentVersion ? `v${currentVersion}` : 'Unknown';
+    $('updateChannel').textContent = update?.channelLabel || update?.channel || 'Desktop host required';
+    $('updateStatus').textContent = update?.status || 'Unavailable';
+    $('updateMessage').textContent = update?.message
+      || 'Update status is available in the installed desktop app.';
+    $('updateCommandPanel').hidden = !update?.upgradeCommand;
+    $('updateCommand').textContent = update?.upgradeCommand || '';
+    $('applyUpdate').hidden = !['ready', 'blocked'].includes(update?.status);
+    $('applyUpdate').disabled = update?.status === 'applying';
+    $('updateNotes').hidden = !update?.releaseUrl;
+    $('releaseNotesTitle').textContent = displayVersion
+      ? `${update?.version ? 'Release' : 'Current release'} v${displayVersion}`
+      : 'Current release';
+    $('releaseNotesBody').textContent = update?.releaseNotes
+      || 'No bundled notes are available for this release. Open the full release history for details.';
   }
 
   function renderBackendState(backend) {
@@ -5071,6 +5228,12 @@
     if (open) $('themePreference').focus();
   }
 
+  function openUpdatesDialog() {
+    setPreferencesOpen(false);
+    renderUpdateState(state.update);
+    $('updateDialog').showModal();
+  }
+
   function commandCatalog() {
     const commands = [
       { verb: 'DOCTOR', label: 'Run machine readiness checks', hint: 'diagnostics', run: loadDoctor },
@@ -5078,6 +5241,7 @@
       { verb: 'ADD', label: 'Add project', hint: 'schema-backed editor', run: () => openProjectEditor() },
       { verb: 'SCAN', label: 'Scan folder', hint: 'project discovery', run: openSetupWizard },
       { verb: 'SETTINGS', label: 'Open UI preferences', hint: 'theme density motion font', run: () => setPreferencesOpen(true) },
+      { verb: 'UPDATES', label: 'Updates & release notes', hint: 'channel command changelog', run: openUpdatesDialog },
       { verb: 'CONFIG', label: 'Export redacted config', hint: 'backup', run: exportRedactedConfig },
       { verb: 'CONFIG', label: 'Restore previous config', hint: 'recovery', run: restorePreviousConfig },
     ];
@@ -5435,6 +5599,7 @@
   $('preferencesTrigger').addEventListener('click', () => {
     setPreferencesOpen($('preferencesPopover').hidden);
   });
+  $('updatesTrigger').addEventListener('click', openUpdatesDialog);
   $('themePreference').addEventListener('change', (event) => setUiPreference('theme', event.target.value));
   $('densityPreference').addEventListener('change', (event) => setUiPreference('density', event.target.value));
   $('motionPreference').addEventListener('change', (event) => setUiPreference('motion', event.target.value));
@@ -5452,6 +5617,16 @@
   $('applyUpdate').addEventListener('click', async () => {
     const update = await window.hackerLairWindow?.applyUpdate?.();
     if (update) renderUpdateState(update);
+  });
+  $('copyUpdateCommand').addEventListener('click', async () => {
+    const command = state.update?.upgradeCommand;
+    if (!command) return;
+    try {
+      await navigator.clipboard.writeText(command);
+      toast('Update command copied.');
+    } catch (error) {
+      toast(`Could not copy update command: ${error.message}`, true);
+    }
   });
   $('updateNotes').addEventListener('click', () => {
     void window.hackerLairWindow?.openUpdateNotes?.();

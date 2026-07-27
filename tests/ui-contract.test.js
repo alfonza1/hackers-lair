@@ -52,10 +52,18 @@ test('target cards expose compact details and truthful port groups', () => {
 });
 
 test('command palette includes setup and every preference family', () => {
-  for (const verb of ['ADD', 'SCAN', 'SETTINGS', 'THEME', 'DENSITY', 'MOTION', 'FONT']) {
+  for (const verb of ['ADD', 'SCAN', 'SETTINGS', 'UPDATES', 'THEME', 'DENSITY', 'MOTION', 'FONT']) {
     assert.match(html, new RegExp(`verb: '${verb}'`));
   }
   assert.match(html, /component\.hasLog/);
+});
+
+test('updates and release notes live in the Settings dialog', () => {
+  assert.doesNotMatch(html, /id="updateBanner"/);
+  assert.match(html, /id="updatesTrigger"/);
+  assert.match(html, /id="updateDialog"/);
+  assert.match(html, /id="copyUpdateCommand"/);
+  assert.match(html, /id="releaseNotesBody"/);
 });
 
 test('runtime resilience controls surface backend and log state', () => {

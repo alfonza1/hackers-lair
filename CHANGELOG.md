@@ -7,6 +7,11 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+### Changed
+
+- Moved update channel commands and release notes from the Targets page into a
+  focused Settings dialog with one-click command copying.
+
 ### Fixed
 
 - PowerShell installs started from an administrator terminal no longer leave an
