@@ -33,6 +33,37 @@ test('git age resolves the latest commit for each personal skill in one reposito
   assert.equal(result.get('verify'), '2026-06-01T12:00:00.000Z');
 });
 
+test('git age resolves skills reached through a filesystem alias', async (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-skill-git-alias-'));
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const root = path.join(parent, 'repository');
+  const alias = path.join(parent, 'repository-alias');
+  fs.mkdirSync(root, { recursive: true });
+  execFileSync('git', ['init'], { cwd: root, windowsHide: true });
+  execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+  const skillDirectory = path.join(root, 'skills', 'verify');
+  fs.mkdirSync(skillDirectory, { recursive: true });
+  fs.writeFileSync(path.join(skillDirectory, 'SKILL.md'), '# verify');
+  execFileSync('git', ['add', '.'], { cwd: root });
+  execFileSync('git', ['commit', '-m', 'add aliased fixture skill'], {
+    cwd: root,
+    env: {
+      ...process.env,
+      GIT_AUTHOR_DATE: '2026-06-02T12:00:00Z',
+      GIT_COMMITTER_DATE: '2026-06-02T12:00:00Z',
+    },
+  });
+  fs.symlinkSync(root, alias, process.platform === 'win32' ? 'junction' : 'dir');
+
+  const result = await lastTouchedForSkills([{
+    id: 'verify-alias',
+    directory: path.join(alias, 'skills', 'verify'),
+  }], { cache: false });
+
+  assert.equal(result.get('verify-alias'), '2026-06-02T12:00:00.000Z');
+});
+
 test('git age fails soft outside a repository', async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-skill-nogit-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
