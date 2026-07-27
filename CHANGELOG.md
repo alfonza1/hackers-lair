@@ -7,6 +7,21 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+### Added
+
+- Added the first AI workflow maintenance foundation: an opt-in Skills privacy
+  gate, schema-backed workflow settings, a capped local usage-event reader, and
+  manual log compaction.
+- Added reviewable Claude Code usage-hook setup with exact JSON copying,
+  conflict-safe one-click installation, atomic writes, and timestamped backups.
+- Added a machine-aware agent prompt that configures usage tracking with live
+  paths and disappears once the hook is detected.
+
+### Changed
+
+- New installs keep local Skills scanning disabled until the user opts in.
+  Existing saved panel choices are preserved by the settings v4 migration.
+
 ## [2.1.0-beta.7] - 2026-07-27
 
 ### Added

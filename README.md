@@ -101,8 +101,13 @@ JSON.
   import/export redaction, and Doctor reports.
 - Command palette (`Ctrl+K`), tray controls, global summon shortcut
   (`Ctrl+Shift+L`), and `lair` terminal companion.
-- Skills is enabled by default; the Windows-only Scripts panel is disabled by
-  default. Either panel can be switched on or off from Settings or `Ctrl+K`.
+- Skills and the Windows-only Scripts panel are disabled by default. Either
+  panel can be enabled independently from Settings or `Ctrl+K`; Skills remains
+  an explicit privacy choice because it scans local agent configuration.
+- The Skills view can show, copy, or safely install a local Claude Code usage
+  hook. It records only event type, name, project, timestamp, and source in
+  `.agents/usage-log.jsonl`—never prompts, file contents, arguments,
+  environment variables, tokens, or credentials.
 - Curated phosphor, ultraviolet, ice, volt, and high-contrast ghost themes.
 
 ![Hacker's Lair Targets view with fictional live and dormant projects](docs/screenshots/targets.png)

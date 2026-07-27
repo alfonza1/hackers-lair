@@ -58,12 +58,20 @@ test('protects localhost mutations and verifies the bound service identity', asy
   const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-security-'));
   const port = await freePort();
   fs.writeFileSync(path.join(dataDirectory, 'projects.json'), '{"projects":[]}');
+  const agentsHome = path.join(dataDirectory, '.agents');
+  const claudeHome = path.join(dataDirectory, '.claude');
+  fs.mkdirSync(claudeHome, { recursive: true });
+  fs.writeFileSync(path.join(claudeHome, 'settings.json'), JSON.stringify({
+    permissions: { allow: ['Read'] },
+  }));
   const child = spawn(process.execPath, [path.join(ROOT, 'server.js')], {
     cwd: ROOT,
     env: {
       ...process.env,
       PORT: String(port),
       PROJECT_MANAGER_DATA_DIR: dataDirectory,
+      AGENTS_HOME: agentsHome,
+      CLAUDE_CONFIG_DIR: claudeHome,
     },
     stdio: 'ignore',
     windowsHide: true,
@@ -146,8 +154,15 @@ test('protects localhost mutations and verifies the bound service identity', asy
   const initialSettingsResponse = await request({ port, pathname: '/api/settings' });
   assert.equal(initialSettingsResponse.status, 200);
   const initialSettings = JSON.parse(initialSettingsResponse.body);
-  assert.equal(initialSettings.enableSkills, true);
+  assert.equal(initialSettings.enableSkills, false);
   assert.equal(initialSettings.enableScripts, false);
+  assert.deepEqual(initialSettings.aiWorkflow, {
+    enableUsageStats: true,
+    coldSkillDays: 45,
+    enableSessionFeed: false,
+    contextTaxWarnTokens: 8000,
+  });
+  assert.equal((await request({ port, pathname: '/api/skills' })).status, 404);
   const initialScripts = JSON.parse((await request({ port, pathname: '/api/scripts' })).body);
   assert.equal(initialScripts.enabled, false);
   assert.equal(initialScripts.supported, process.platform === 'win32');
@@ -167,21 +182,69 @@ test('protects localhost mutations and verifies the bound service identity', asy
     pathname: '/api/settings/features',
     headers: authorizedHeaders,
     body: JSON.stringify({
-      enableSkills: false,
+      enableSkills: true,
       enableScripts: true,
     }),
   });
   assert.equal(featureResponse.status, 200);
   assert.deepEqual(JSON.parse(featureResponse.body), {
     ok: true,
-    enableSkills: false,
+    enableSkills: true,
     enableScripts: true,
   });
   const featureSettings = JSON.parse(fs.readFileSync(path.join(dataDirectory, 'settings.json')));
-  assert.equal(featureSettings.enableSkills, false);
+  assert.equal(featureSettings.enableSkills, true);
   assert.equal(featureSettings.enableScripts, true);
-  assert.equal((await request({ port, pathname: '/api/skills' })).status, 404);
+  assert.equal((await request({ port, pathname: '/api/skills' })).status, 200);
   assert.equal(JSON.parse((await request({ port, pathname: '/api/scripts' })).body).enabled, true);
+
+  const setupResponse = await request({ port, pathname: '/api/ai/setup' });
+  assert.equal(setupResponse.status, 200);
+  const setup = JSON.parse(setupResponse.body);
+  assert.equal(setup.hookInstalled, false);
+  assert.equal(setup.usageLogFile, path.join(agentsHome, 'usage-log.jsonl'));
+  assert.equal(setup.claudeSettingsFile, path.join(claudeHome, 'settings.json'));
+  assert.match(setup.hookJson.hooks.PostToolUse[0].hooks[0].command, /hackers-lair-usage-hook/);
+  assert.match(setup.prompt, /Inspect all four files read-only first/);
+  assert.equal(
+    JSON.parse((await request({ port, pathname: '/api/onboarding' })).body)
+      .prompts.some((prompt) => prompt.id === 'usage'),
+    true,
+  );
+  const hookInstall = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/ai/hooks/install',
+    headers: authorizedHeaders,
+    body: '{}',
+  });
+  assert.equal(hookInstall.status, 200);
+  assert.equal(JSON.parse(hookInstall.body).hookInstalled, true);
+  const installedClaudeSettings = JSON.parse(
+    fs.readFileSync(path.join(claudeHome, 'settings.json'), 'utf8'),
+  );
+  assert.deepEqual(installedClaudeSettings.permissions.allow, ['Read']);
+  assert.deepEqual(
+    installedClaudeSettings.hooks.PostToolUse.map((entry) => entry.matcher),
+    ['Skill', 'Task'],
+  );
+  assert.equal(
+    JSON.parse((await request({ port, pathname: '/api/onboarding' })).body)
+      .prompts.some((prompt) => prompt.id === 'usage'),
+    false,
+  );
+  assert.ok(fs.readdirSync(claudeHome).some((name) => name.includes('.backup-')));
+
+  const aiSettings = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/settings/ai-workflow',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ coldSkillDays: 60, enableSessionFeed: true }),
+  });
+  assert.equal(aiSettings.status, 200);
+  assert.equal(JSON.parse(aiSettings.body).aiWorkflow.coldSkillDays, 60);
+  assert.equal(JSON.parse(aiSettings.body).aiWorkflow.enableSessionFeed, true);
 
   const invalidFeatures = await request({
     port,
@@ -373,6 +436,9 @@ test('protects localhost mutations and verifies the bound service identity', asy
   const schemaResponse = await request({ port, pathname: '/api/schema/projects' });
   assert.equal(schemaResponse.status, 200);
   assert.equal(JSON.parse(schemaResponse.body).title, "Hacker's Lair project configuration");
+  const settingsSchemaResponse = await request({ port, pathname: '/api/schema/settings' });
+  assert.equal(settingsSchemaResponse.status, 200);
+  assert.equal(JSON.parse(settingsSchemaResponse.body).title, "Hacker's Lair settings");
 
   const invalidImport = await request({
     port,

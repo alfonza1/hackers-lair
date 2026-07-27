@@ -8,8 +8,19 @@ const os = require('os');
 const { exec, spawn } = require('child_process');
 const { gitAttentionForProject, refreshGitAttention } = require('./lib/git-attention');
 const { compareProjectsForDisplay } = require('./lib/project-order');
-const { onboardingState } = require('./lib/onboarding-prompts');
+const { onboardingState, usageTrackingSetupPrompt } = require('./lib/onboarding-prompts');
 const { listSkills } = require('./lib/skill-registry');
+const {
+  buildUsageHookCommand,
+  inspectUsageHook,
+  installUsageHooks,
+  usageHooksBlock,
+  writeUsageHookShim,
+} = require('./lib/claude-settings');
+const {
+  pruneOlderThan,
+  resolveAgentsHome,
+} = require('./lib/usage-log');
 const { discoverProjects } = require('./lib/project-discovery');
 const { formatDoctorReport, runDoctor } = require('./lib/doctor');
 const { redactValue } = require('./lib/redaction');
@@ -27,7 +38,10 @@ const {
   isZombieComponent,
   splitTargetUrls,
 } = require('./lib/runtime-intelligence');
-const { createRuntimeConfig } = require('./lib/runtime-config');
+const {
+  createRuntimeConfig,
+  normalizeAiWorkflowSettings,
+} = require('./lib/runtime-config');
 const { LogStore } = require('./lib/log-store');
 const { normalizeUiPreferences, validateUiPreferences } = require('./lib/ui-preferences');
 const { createPlatform } = require('./lib/platform');
@@ -60,7 +74,14 @@ const runtimeConfig = createRuntimeConfig(__dirname);
 const runtimeIdentity = createRuntimeIdentity();
 const platform = createPlatform();
 const DATA_DIR = runtimeConfig.dataDirectory;
-const AGENTS_HOME = process.env.AGENTS_HOME || path.join(os.homedir(), '.agents');
+const AGENTS_HOME = resolveAgentsHome();
+const CLAUDE_HOME = path.resolve(
+  process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'),
+);
+const CLAUDE_SETTINGS_FILE = path.join(CLAUDE_HOME, 'settings.json');
+const USAGE_LOG_FILE = path.join(AGENTS_HOME, 'usage-log.jsonl');
+const USAGE_HOOK_SHIM_FILE = path.join(DATA_DIR, 'hackers-lair-usage-hook.js');
+const USAGE_HOOK_COMMAND = buildUsageHookCommand(USAGE_HOOK_SHIM_FILE);
 const STORE = path.join(DATA_DIR, 'stopped.json');
 const MAX_STOPPED = 40;
 const PROJECTS_FILE = runtimeConfig.projects.file;
@@ -71,7 +92,7 @@ let doctorSnapshot = null;
 function loadSettings() {
   const result = runtimeConfig.settings.read();
   return {
-    enableSkills: result.value.enableSkills !== false,
+    enableSkills: result.value.enableSkills === true,
     enableScripts: result.value.enableScripts === true,
     browserPath: String(result.value.browserPath || ''),
     zombieAfterHours: Number(result.value.zombieAfterHours) || 8,
@@ -79,7 +100,61 @@ function loadSettings() {
       ? result.value.workspaceFolders
       : [],
     uiPreferences: normalizeUiPreferences(result.value.uiPreferences),
+    aiWorkflow: normalizeAiWorkflowSettings(result.value.aiWorkflow),
     error: result.error,
+  };
+}
+
+function workspaceInstructionsFile(settings = loadSettings()) {
+  const candidates = [
+    ...settings.workspaceFolders,
+    ...loadProjects().flatMap((project) => (
+      (project.components || []).map((component) => component.cwd).filter(Boolean)
+    )),
+  ];
+  for (const folder of candidates) {
+    const current = path.resolve(folder);
+    for (const filename of ['AGENTS.md', 'CLAUDE.md']) {
+      const candidate = path.join(current, filename);
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+  return '';
+}
+
+function ensureUsageHookShim() {
+  return writeUsageHookShim({
+    shimFile: USAGE_HOOK_SHIM_FILE,
+    usageLogFile: USAGE_LOG_FILE,
+  });
+}
+
+function usageSetupState(settings = loadSettings()) {
+  ensureUsageHookShim();
+  const hook = inspectUsageHook({
+    settingsFile: CLAUDE_SETTINGS_FILE,
+    hookCommand: USAGE_HOOK_COMMAND,
+  });
+  const instructionsFile = workspaceInstructionsFile(settings);
+  return {
+    hookInstalled: hook.installed,
+    hookConflict: hook.conflict,
+    hookError: hook.error,
+    usageLogFile: USAGE_LOG_FILE,
+    claudeSettingsFile: CLAUDE_SETTINGS_FILE,
+    lairSettingsFile: runtimeConfig.settings.file,
+    instructionsFile,
+    hookCommand: USAGE_HOOK_COMMAND,
+    hookJson: {
+      hooks: usageHooksBlock({ hookCommand: USAGE_HOOK_COMMAND }),
+    },
+    prompt: usageTrackingSetupPrompt({
+      usageLogFile: USAGE_LOG_FILE,
+      claudeSettingsFile: CLAUDE_SETTINGS_FILE,
+      lairSettingsFile: runtimeConfig.settings.file,
+      instructionsFile,
+      hookCommand: USAGE_HOOK_COMMAND,
+    }),
   };
 }
 
@@ -1400,6 +1475,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/api/onboarding') {
       const settings = loadSettings();
+      const usageSetup = settings.enableSkills ? usageSetupState(settings) : null;
       const selectedWorkspaceFolders = requestUrl.searchParams
         .getAll('workspaceFolder')
         .map((folder) => folder.trim())
@@ -1417,6 +1493,12 @@ const server = http.createServer(async (req, res) => {
           ...settings.workspaceFolders,
           ...selectedWorkspaceFolders,
         ],
+        usageLogFile: usageSetup?.usageLogFile,
+        claudeSettingsFile: usageSetup?.claudeSettingsFile,
+        lairSettingsFile: usageSetup?.lairSettingsFile,
+        instructionsFile: usageSetup?.instructionsFile || '',
+        hookCommand: usageSetup?.hookCommand,
+        hookInstalled: usageSetup?.hookInstalled ?? true,
       }));
       return;
     }
@@ -1431,6 +1513,62 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && req.url === '/api/ai/setup') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      json(res, 200, usageSetupState(settings));
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/ai/hooks/install') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      try {
+        ensureUsageHookShim();
+        const result = installUsageHooks({
+          settingsFile: CLAUDE_SETTINGS_FILE,
+          hookCommand: USAGE_HOOK_COMMAND,
+        });
+        json(res, 200, {
+          ok: true,
+          installed: result.installed,
+          hookInstalled: true,
+          backupCreated: Boolean(result.backupFile),
+        });
+      } catch (error) {
+        const conflict = /malformed|different Hacker's Lair usage hook/i.test(error.message);
+        json(res, conflict ? 409 : 500, { error: error.message });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/ai/usage/compact') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      let requestedDays;
+      try { requestedDays = Number(JSON.parse(await readBody(req)).days); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const days = Number.isInteger(requestedDays)
+        ? requestedDays
+        : settings.aiWorkflow.coldSkillDays;
+      if (days < 1 || days > 3650) {
+        json(res, 400, { error: 'days must be an integer from 1 to 3650.' });
+        return;
+      }
+      const result = await pruneOlderThan(USAGE_LOG_FILE, days);
+      json(res, 200, { ok: true, days, ...result });
+      return;
+    }
+
     if (req.method === 'GET' && req.url === '/api/settings') {
       const settings = loadSettings();
       json(res, 200, {
@@ -1441,10 +1579,40 @@ const server = http.createServer(async (req, res) => {
         enableScripts: settings.enableScripts,
         workspaceFolders: settings.workspaceFolders,
         uiPreferences: settings.uiPreferences,
+        aiWorkflow: settings.aiWorkflow,
         browserOverride: Boolean(configuredBrowserPath()),
         configError: settings.error,
         backups: runtimeConfig.projects.listBackups().map(({ path: _path, ...backup }) => backup),
       });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/settings/ai-workflow') {
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      if (!input || typeof input !== 'object' || Array.isArray(input)) {
+        json(res, 400, { error: 'AI workflow settings must be a JSON object.' });
+        return;
+      }
+      const current = runtimeConfig.settings.read();
+      if (current.error) {
+        json(res, 409, { error: `Fix settings.json before saving AI workflow settings: ${current.error}` });
+        return;
+      }
+      const aiWorkflow = normalizeAiWorkflowSettings({
+        ...current.value.aiWorkflow,
+        ...input,
+      });
+      try {
+        const saved = runtimeConfig.settings.write({
+          ...current.value,
+          aiWorkflow,
+        });
+        json(res, 200, { ok: true, aiWorkflow: saved.aiWorkflow });
+      } catch (error) {
+        json(res, 400, { error: error.message });
+      }
       return;
     }
 
@@ -1497,7 +1665,7 @@ const server = http.createServer(async (req, res) => {
       });
       json(res, 200, {
         ok: true,
-        enableSkills: saved.enableSkills !== false,
+        enableSkills: saved.enableSkills === true,
         enableScripts: saved.enableScripts === true,
       });
       return;
@@ -1677,6 +1845,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && req.url === '/api/schema/projects') {
       json(res, 200, runtimeConfig.projectsSchema);
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/schema/settings') {
+      json(res, 200, runtimeConfig.settingsSchema);
       return;
     }
 

@@ -24,13 +24,30 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
   fs.writeFileSync(path.join(root, 'scripts.example.json'), '{"scriptsDir":"","autoItExe":"","descriptions":{}}');
   fs.writeFileSync(
     path.join(root, 'settings.example.json'),
-    '{"enableSkills":true,"enableScripts":false,"browserPath":""}',
+    JSON.stringify({
+      $schema: './settings.schema.json',
+      configVersion: 4,
+      enableSkills: false,
+      enableScripts: false,
+      browserPath: '',
+      zombieAfterHours: 8,
+      workspaceFolders: [],
+      uiPreferences: DEFAULT_UI_PREFERENCES,
+      aiWorkflow: {
+        enableUsageStats: true,
+        coldSkillDays: 45,
+        enableSessionFeed: false,
+        contextTaxWarnTokens: 8000,
+      },
+    }),
   );
   fs.mkdirSync(path.join(root, 'schemas'));
-  fs.copyFileSync(
-    path.join(__dirname, '..', 'schemas', 'projects.schema.json'),
-    path.join(root, 'schemas', 'projects.schema.json'),
-  );
+  for (const schema of ['projects.schema.json', 'settings.schema.json']) {
+    fs.copyFileSync(
+      path.join(__dirname, '..', 'schemas', schema),
+      path.join(root, 'schemas', schema),
+    );
+  }
 
   const previous = process.env.PROJECT_MANAGER_DATA_DIR;
   process.env.PROJECT_MANAGER_DATA_DIR = data;
@@ -50,14 +67,21 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
   assert.ok(fs.existsSync(path.join(data, 'scripts.json')));
   assert.ok(fs.existsSync(path.join(data, 'settings.json')));
   const defaultSettings = runtime.settings.read().value;
-  assert.equal(defaultSettings.enableSkills, true);
+  assert.equal(defaultSettings.enableSkills, false);
   assert.equal(defaultSettings.enableScripts, false);
   assert.deepEqual(defaultSettings.uiPreferences, DEFAULT_UI_PREFERENCES);
+  assert.deepEqual(defaultSettings.aiWorkflow, {
+    enableUsageStats: true,
+    coldSkillDays: 45,
+    enableSessionFeed: false,
+    contextTaxWarnTokens: 8000,
+  });
 
   const workspaceFolders = process.platform === 'win32'
     ? ['D:\\Code', 'E:\\Experiments']
     : ['/code', '/experiments'];
   const settings = runtime.settings.write({
+    ...defaultSettings,
     enableSkills: false,
     enableScripts: true,
     browserPath: '',
@@ -74,12 +98,15 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
   assert.equal(settings.enableScripts, true);
   assert.equal(settings.uiPreferences.theme, 'ice');
   assert.throws(() => runtime.settings.write({
+    ...defaultSettings,
     enableScripts: 'yes',
   }), /enableScripts/i);
   assert.throws(() => runtime.settings.write({
+    ...defaultSettings,
     workspaceFolders: ['relative-folder'],
   }), /absolute folder strings/i);
   assert.throws(() => runtime.settings.write({
+    ...defaultSettings,
     uiPreferences: {
       theme: 'rainbow',
       density: 'comfortable',
@@ -100,10 +127,12 @@ test('migrates panel visibility to Skills on and Scripts off', (t) => {
     fs.copyFileSync(path.join(__dirname, '..', file), path.join(root, file));
   }
   fs.mkdirSync(path.join(root, 'schemas'));
-  fs.copyFileSync(
-    path.join(__dirname, '..', 'schemas', 'projects.schema.json'),
-    path.join(root, 'schemas', 'projects.schema.json'),
-  );
+  for (const schema of ['projects.schema.json', 'settings.schema.json']) {
+    fs.copyFileSync(
+      path.join(__dirname, '..', 'schemas', schema),
+      path.join(root, 'schemas', schema),
+    );
+  }
   fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({
     configVersion: 1,
     enableSkills: false,
@@ -137,10 +166,12 @@ test('migrates retired UI themes without losing other preferences', (t) => {
     fs.copyFileSync(path.join(__dirname, '..', file), path.join(root, file));
   }
   fs.mkdirSync(path.join(root, 'schemas'));
-  fs.copyFileSync(
-    path.join(__dirname, '..', 'schemas', 'projects.schema.json'),
-    path.join(root, 'schemas', 'projects.schema.json'),
-  );
+  for (const schema of ['projects.schema.json', 'settings.schema.json']) {
+    fs.copyFileSync(
+      path.join(__dirname, '..', 'schemas', schema),
+      path.join(root, 'schemas', schema),
+    );
+  }
   fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({
     configVersion: 2,
     enableSkills: true,
@@ -171,6 +202,87 @@ test('migrates retired UI themes without losing other preferences', (t) => {
     fontScale: 110,
   });
   assert.equal(runtime.settings.listBackups().length, 1);
+});
+
+test('migrates AI workflow settings without changing an existing Skills choice', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-settings-ai-root-'));
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-settings-ai-data-'));
+  t.after(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(data, { recursive: true, force: true });
+  });
+  for (const file of ['projects.example.json', 'scripts.example.json', 'settings.example.json']) {
+    fs.copyFileSync(path.join(__dirname, '..', file), path.join(root, file));
+  }
+  fs.mkdirSync(path.join(root, 'schemas'));
+  for (const schema of ['projects.schema.json', 'settings.schema.json']) {
+    fs.copyFileSync(
+      path.join(__dirname, '..', 'schemas', schema),
+      path.join(root, 'schemas', schema),
+    );
+  }
+  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({
+    configVersion: 3,
+    enableSkills: false,
+    enableScripts: false,
+    uiPreferences: DEFAULT_UI_PREFERENCES,
+  }));
+
+  const previous = process.env.PROJECT_MANAGER_DATA_DIR;
+  process.env.PROJECT_MANAGER_DATA_DIR = data;
+  t.after(() => {
+    if (previous === undefined) delete process.env.PROJECT_MANAGER_DATA_DIR;
+    else process.env.PROJECT_MANAGER_DATA_DIR = previous;
+  });
+
+  const runtime = createRuntimeConfig(root);
+  const settings = runtime.settings.read();
+  assert.equal(settings.error, null);
+  assert.equal(settings.value.configVersion, 4);
+  assert.equal(settings.value.enableSkills, false);
+  assert.deepEqual(settings.value.aiWorkflow, {
+    enableUsageStats: true,
+    coldSkillDays: 45,
+    enableSessionFeed: false,
+    contextTaxWarnTokens: 8000,
+  });
+  assert.equal(runtime.settings.listBackups().length, 1);
+});
+
+test('validates AI workflow settings through the bundled schema', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-settings-schema-root-'));
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-settings-schema-data-'));
+  t.after(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(data, { recursive: true, force: true });
+  });
+  for (const file of ['projects.example.json', 'scripts.example.json', 'settings.example.json']) {
+    fs.copyFileSync(path.join(__dirname, '..', file), path.join(root, file));
+  }
+  fs.mkdirSync(path.join(root, 'schemas'));
+  for (const schema of ['projects.schema.json', 'settings.schema.json']) {
+    fs.copyFileSync(
+      path.join(__dirname, '..', 'schemas', schema),
+      path.join(root, 'schemas', schema),
+    );
+  }
+  const previous = process.env.PROJECT_MANAGER_DATA_DIR;
+  process.env.PROJECT_MANAGER_DATA_DIR = data;
+  t.after(() => {
+    if (previous === undefined) delete process.env.PROJECT_MANAGER_DATA_DIR;
+    else process.env.PROJECT_MANAGER_DATA_DIR = previous;
+  });
+
+  const runtime = createRuntimeConfig(root);
+  assert.throws(() => runtime.settings.write({
+    ...runtime.settings.read().value,
+    aiWorkflow: {
+      enableUsageStats: true,
+      coldSkillDays: 0,
+      enableSessionFeed: false,
+      contextTaxWarnTokens: 8000,
+    },
+  }), /coldSkillDays.*at least 1/i);
 });
 
 test('migrates legacy config after snapshotting and tolerates newer config fields', (t) => {
@@ -228,10 +340,12 @@ test('validates nested project fields and retains ten restorable backups', (t) =
     fs.copyFileSync(path.join(__dirname, '..', file), path.join(root, file));
   }
   fs.mkdirSync(path.join(root, 'schemas'));
-  fs.copyFileSync(
-    path.join(__dirname, '..', 'schemas', 'projects.schema.json'),
-    path.join(root, 'schemas', 'projects.schema.json'),
-  );
+  for (const schema of ['projects.schema.json', 'settings.schema.json']) {
+    fs.copyFileSync(
+      path.join(__dirname, '..', 'schemas', schema),
+      path.join(root, 'schemas', schema),
+    );
+  }
 
   const previous = process.env.PROJECT_MANAGER_DATA_DIR;
   process.env.PROJECT_MANAGER_DATA_DIR = data;

@@ -637,6 +637,28 @@
     cursor: not-allowed;
   }
 
+  .preference-field input[type="number"] {
+    min-width: 0;
+    min-height: 44px;
+    padding: 7px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    color: var(--text);
+    background: var(--panel-2);
+    font: 11px var(--mono);
+  }
+
+  .settings-section-title {
+    margin-top: 3px;
+    padding-top: 11px;
+    border-top: 1px solid var(--line);
+    color: var(--cyan);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
   .settings-sync {
     min-height: 13px;
     color: var(--dim);
@@ -1628,6 +1650,75 @@
     border-radius: 5px;
     padding: 14px;
     background: rgba(var(--shadow-rgb), .22);
+  }
+
+  .ai-workflow-console {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 14px;
+    border: 1px solid rgba(var(--secondary-rgb), .24);
+    border-left: 3px solid var(--cyan);
+    border-radius: 5px;
+    background: rgba(var(--surface-rgb), .72);
+  }
+
+  .ai-workflow-console.is-ready {
+    border-left-color: var(--green);
+  }
+
+  .ai-workflow-head,
+  .ai-workflow-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ai-workflow-head h3 {
+    margin: 0;
+    color: var(--text);
+    font-size: 13px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .ai-workflow-status {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  .ai-workflow-status strong {
+    color: var(--green);
+  }
+
+  .ai-workflow-console details {
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+
+  .ai-workflow-console summary {
+    color: var(--cyan);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .ai-workflow-console pre {
+    max-height: 220px;
+    margin: 10px 0 0;
+    padding: 10px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    background: var(--panel-2);
+    font: 10px/1.55 var(--mono);
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   .prompt-head {
@@ -2739,7 +2830,7 @@
             <label class="settings-switch" id="skillsPanelField" for="skillsPanelEnabled">
               <span>
                 <strong>Skills panel</strong>
-                <small>Discover local agent skills. Enabled by default.</small>
+                <small>Opt in to scan local agent workflow files. Disabled by default for privacy.</small>
               </span>
               <input id="skillsPanelEnabled" type="checkbox" role="switch" aria-describedby="panelSettingsStatus">
             </label>
@@ -2751,6 +2842,28 @@
               <input id="scriptsPanelEnabled" type="checkbox" role="switch" aria-describedby="panelSettingsStatus">
             </label>
             <span class="settings-status" id="panelSettingsStatus" role="status" aria-live="polite"></span>
+            <div class="settings-section-title">AI workflow</div>
+            <label class="settings-switch" id="usageStatsField" for="usageStatsEnabled">
+              <span>
+                <strong>Usage stats</strong>
+                <small>Read the local hook log and show skill activity. No telemetry.</small>
+              </span>
+              <input id="usageStatsEnabled" type="checkbox" role="switch">
+            </label>
+            <label class="preference-field">Cold after
+              <input id="coldSkillDays" type="number" min="1" max="3650" step="1" aria-label="Cold skill days">
+            </label>
+            <label class="settings-switch" id="sessionFeedField" for="sessionFeedEnabled">
+              <span>
+                <strong>Session feed</strong>
+                <small>Opt in to redacted local transcript summaries. Sensitive and off by default.</small>
+              </span>
+              <input id="sessionFeedEnabled" type="checkbox" role="switch">
+            </label>
+            <label class="preference-field">Tax warning
+              <input id="contextTaxWarnTokens" type="number" min="1000" max="1000000" step="500" aria-label="Context tax warning tokens">
+            </label>
+            <span class="settings-status" id="aiWorkflowSettingsStatus" role="status" aria-live="polite"></span>
             <label class="settings-switch" id="launchOnStartupField" for="launchOnStartup" hidden>
               <span>
                 <strong>Launch on startup</strong>
@@ -2791,7 +2904,7 @@
             <button class="view-tab active" data-view="projects" role="tab" aria-selected="true">Targets</button>
             <button class="view-tab" data-view="processes" role="tab" aria-selected="false">Port Signals</button>
             <button class="view-tab" id="scriptsTab" data-view="scripts" role="tab" aria-selected="false" hidden>Scripts</button>
-            <button class="view-tab" id="skillsTab" data-view="skills" role="tab" aria-selected="false">Skills</button>
+            <button class="view-tab" id="skillsTab" data-view="skills" role="tab" aria-selected="false" hidden>Skills</button>
           </div>
           <button class="utility" id="addProject" type="button">Add Project</button>
           <button class="utility command-trigger" id="commandTrigger" type="button" title="Command palette (Ctrl+K)">Ctrl+K</button>
@@ -3087,6 +3200,8 @@
     scriptsSupported: false,
     skills: [],
     skillsLoaded: false,
+    aiSetup: null,
+    aiWorkflowBusy: false,
     onboarding: null,
     settings: null,
     panelSettings: { busy: false, error: '', saved: false },
@@ -4053,9 +4168,43 @@
       return state.onboarding.prompts.filter((prompt) => ['complete', 'projects'].includes(prompt.id));
     }
     if (state.view === 'skills' && state.skillsLoaded && !state.skills.some((skill) => skill.kind === 'personal')) {
-      return state.onboarding.prompts.filter((prompt) => prompt.id === 'skills');
+      return state.onboarding.prompts.filter((prompt) => ['skills', 'usage'].includes(prompt.id));
     }
     return [];
+  }
+
+  function aiWorkflowSetupHtml() {
+    const setup = state.aiSetup;
+    if (!setup) return '';
+    const ready = setup.hookInstalled;
+    const status = setup.hookError
+      ? `Could not inspect Claude settings: ${setup.hookError}`
+      : setup.hookConflict
+        ? 'A different Hacker’s Lair hook was found. Review the JSON before changing it.'
+        : ready
+          ? '<strong>Usage hook installed.</strong> New Skill and Task events append locally.'
+          : 'Usage tracking is optional. Review or copy the exact hook JSON before installing it.';
+    return `
+      <section class="ai-workflow-console ${ready ? 'is-ready' : ''}" aria-label="AI workflow usage setup">
+        <div class="ai-workflow-head">
+          <h3>Usage tracking</h3>
+          <span class="status ${ready ? 'live' : 'dormant'}">${ready ? 'CONNECTED' : 'NOT CONFIGURED'}</span>
+        </div>
+        <p class="ai-workflow-status">${status}</p>
+        <div class="ai-workflow-actions">
+          <div class="config-controls">
+            <button class="utility" type="button" data-ai-action="copy-json">Copy JSON</button>
+            ${ready ? '' : '<button class="utility" type="button" data-ai-action="install-hook">Install for me</button>'}
+            ${ready ? '' : '<button class="utility" type="button" data-ai-action="copy-prompt">Copy agent prompt</button>'}
+            <button class="utility" type="button" data-ai-action="compact-log">Compact log</button>
+          </div>
+        </div>
+        <details>
+          <summary>Review hook definition</summary>
+          <pre>${esc(JSON.stringify(setup.hookJson, null, 2))}</pre>
+        </details>
+      </section>
+    `;
   }
 
   function onboardingHtml(prompts) {
@@ -4110,7 +4259,10 @@
     $('emptyState').hidden = rows.length > 0;
     if (onboardingPrompts.length) $('emptyState').innerHTML = onboardingHtml(onboardingPrompts);
     else $('emptyState').textContent = scanningSkills ? 'Scanning shared agent skill folder...' : VIEW_CONFIG[state.view].empty;
-    $('targetList').innerHTML = rows.map((row) =>
+    const skillsSetup = state.view === 'skills' && (!onboardingPrompts.length || rows.length)
+      ? aiWorkflowSetupHtml()
+      : '';
+    $('targetList').innerHTML = skillsSetup + rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
       : state.view === 'processes' ? processCard(row)
       : state.view === 'scripts' ? scriptCard(row)
@@ -4278,6 +4430,7 @@
       const data = await fetchJson('/api/skills');
       state.skills = data.skills || [];
       state.skillsLoaded = true;
+      await loadAiSetup(true);
       if (!quiet) {
         const personal = state.skills.filter((skill) => skill.kind === 'personal').length;
         pushFeed('SKILL_REGISTRY_SYNCED', `personal=${personal} total=${state.skills.length}`, 'info');
@@ -4289,6 +4442,24 @@
       renderTargets();
       toast('Signal lost: skill registry unavailable', true);
       pushFeed('SKILL_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    }
+  }
+
+  async function loadAiSetup(quiet = false) {
+    if (state.settings?.enableSkills !== true) {
+      state.aiSetup = null;
+      return;
+    }
+    try {
+      state.aiSetup = await fetchJson('/api/ai/setup');
+      if (!quiet) pushFeed(
+        'USAGE_HOOK_SCANNED',
+        `installed=${Boolean(state.aiSetup.hookInstalled)}`,
+        'info',
+      );
+    } catch (error) {
+      state.aiSetup = null;
+      if (!quiet) pushFeed('USAGE_HOOK_SCAN_FAILED', `reason=${error.message}`, 'warn');
     }
   }
 
@@ -4312,7 +4483,7 @@
   }
 
   function renderPanelSettings() {
-    const skillsEnabled = state.settings?.enableSkills !== false;
+    const skillsEnabled = state.settings?.enableSkills === true;
     const scriptsEnabled = state.settings?.enableScripts === true;
     const busy = state.panelSettings.busy;
     $('skillsPanelEnabled').checked = skillsEnabled;
@@ -4347,6 +4518,75 @@
           : state.panelSettings.saved
             ? 'Saved'
             : '');
+    const aiWorkflow = state.settings?.aiWorkflow || {
+      enableUsageStats: true,
+      coldSkillDays: 45,
+      enableSessionFeed: false,
+      contextTaxWarnTokens: 8000,
+    };
+    $('usageStatsEnabled').checked = aiWorkflow.enableUsageStats !== false;
+    $('coldSkillDays').value = String(aiWorkflow.coldSkillDays || 45);
+    $('sessionFeedEnabled').checked = aiWorkflow.enableSessionFeed === true;
+    $('contextTaxWarnTokens').value = String(aiWorkflow.contextTaxWarnTokens || 8000);
+    for (const control of [
+      $('usageStatsEnabled'),
+      $('coldSkillDays'),
+      $('sessionFeedEnabled'),
+      $('contextTaxWarnTokens'),
+    ]) {
+      control.disabled = !skillsEnabled || state.aiWorkflowBusy;
+    }
+  }
+
+  async function updateAiWorkflowSettings(updates) {
+    if (state.aiWorkflowBusy) return;
+    state.aiWorkflowBusy = true;
+    $('aiWorkflowSettingsStatus').textContent = 'Saving…';
+    renderPanelSettings();
+    try {
+      const result = await postJson('/api/settings/ai-workflow', updates);
+      state.settings = { ...state.settings, aiWorkflow: result.aiWorkflow };
+      $('aiWorkflowSettingsStatus').textContent = 'Saved';
+      pushFeed('AI_WORKFLOW_SETTINGS_SAVED', `keys=${Object.keys(updates).join(',')}`, 'info');
+      if (state.view === 'skills') await loadSkills(true);
+    } catch (error) {
+      $('aiWorkflowSettingsStatus').textContent = `Could not save: ${error.message}`;
+      toast(`Could not save AI workflow settings: ${error.message}`, true);
+    } finally {
+      state.aiWorkflowBusy = false;
+      renderPanelSettings();
+    }
+  }
+
+  async function runAiWorkflowAction(action, button) {
+    button.disabled = true;
+    try {
+      if (action === 'copy-json') {
+        await navigator.clipboard.writeText(JSON.stringify(state.aiSetup?.hookJson || {}, null, 2));
+        toast('Hook JSON copied.');
+        pushFeed('USAGE_HOOK_JSON_COPIED', 'scope=claude_settings', 'info');
+      } else if (action === 'copy-prompt') {
+        await navigator.clipboard.writeText(state.aiSetup?.prompt || '');
+        toast('Usage setup prompt copied.');
+        pushFeed('SETUP_PROMPT_COPIED', 'scope=usage', 'info');
+      } else if (action === 'install-hook') {
+        const result = await postJson('/api/ai/hooks/install', {});
+        pushFeed('HOOK_INSTALLED', `backup=${Boolean(result.backupCreated)}`, 'info');
+        toast(result.installed ? 'Usage hook installed.' : 'Usage hook is already installed.');
+        await Promise.all([loadAiSetup(true), loadOnboarding()]);
+        renderTargets();
+      } else if (action === 'compact-log') {
+        const days = state.settings?.aiWorkflow?.coldSkillDays || 45;
+        const result = await postJson('/api/ai/usage/compact', { days });
+        pushFeed('USAGE_LOG_COMPACTED', `removed=${result.removed} kept=${result.kept}`, 'info');
+        toast(`Usage log compacted: ${result.removed} old event${result.removed === 1 ? '' : 's'} removed.`);
+      }
+    } catch (error) {
+      toast(error.message, true);
+      pushFeed('AI_WORKFLOW_ACTION_FAILED', `action=${slug(action)} reason=${error.message}`, 'error');
+    } finally {
+      button.disabled = false;
+    }
   }
 
   async function updatePanelSetting(field, enabled) {
@@ -5671,6 +5911,11 @@
   }
 
   $('targetList').addEventListener('click', async (event) => {
+    const aiAction = event.target.closest('[data-ai-action]');
+    if (aiAction) {
+      await runAiWorkflowAction(aiAction.dataset.aiAction, aiAction);
+      return;
+    }
     const editButton = event.target.closest('[data-edit-project]');
     if (editButton) {
       const project = state.projects.find((item) => item.name === editButton.dataset.editProject);
@@ -5925,6 +6170,18 @@
   });
   $('scriptsPanelEnabled').addEventListener('change', (event) => {
     void updatePanelSetting('enableScripts', event.target.checked);
+  });
+  $('usageStatsEnabled').addEventListener('change', (event) => {
+    void updateAiWorkflowSettings({ enableUsageStats: event.target.checked });
+  });
+  $('coldSkillDays').addEventListener('change', (event) => {
+    void updateAiWorkflowSettings({ coldSkillDays: Number(event.target.value) });
+  });
+  $('sessionFeedEnabled').addEventListener('change', (event) => {
+    void updateAiWorkflowSettings({ enableSessionFeed: event.target.checked });
+  });
+  $('contextTaxWarnTokens').addEventListener('change', (event) => {
+    void updateAiWorkflowSettings({ contextTaxWarnTokens: Number(event.target.value) });
   });
   $('launchOnStartup').addEventListener('change', (event) => {
     void updateLaunchOnStartup(event.target.checked);

@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hackerslairhq.github.io/desktop/schemas/settings.schema.json",
+  "title": "Hacker's Lair settings",
+  "type": "object",
+  "required": [
+    "configVersion",
+    "enableSkills",
+    "enableScripts",
+    "aiWorkflow"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "configVersion": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "_comment": {
+      "type": "string"
+    },
+    "enableSkills": {
+      "type": "boolean"
+    },
+    "enableScripts": {
+      "type": "boolean"
+    },
+    "browserPath": {
+      "type": "string"
+    },
+    "zombieAfterHours": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 720
+    },
+    "workspaceFolders": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "uiPreferences": {
+      "type": "object",
+      "properties": {
+        "theme": {
+          "type": "string",
+          "enum": [
+            "phosphor",
+            "ultraviolet",
+            "ice",
+            "volt",
+            "ghost"
+          ]
+        },
+        "density": {
+          "type": "string",
+          "enum": [
+            "comfortable",
+            "compact"
+          ]
+        },
+        "motion": {
+          "type": "string",
+          "enum": [
+            "full",
+            "reduced"
+          ]
+        },
+        "fontScale": {
+          "type": "integer",
+          "enum": [
+            90,
+            100,
+            110
+          ]
+        }
+      }
+    },
+    "aiWorkflow": {
+      "type": "object",
+      "required": [
+        "enableUsageStats",
+        "coldSkillDays",
+        "enableSessionFeed",
+        "contextTaxWarnTokens"
+      ],
+      "properties": {
+        "enableUsageStats": {
+          "type": "boolean"
+        },
+        "coldSkillDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3650
+        },
+        "enableSessionFeed": {
+          "type": "boolean"
+        },
+        "contextTaxWarnTokens": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 1000000
+        }
+      }
+    }
+  }
+}

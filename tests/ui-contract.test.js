@@ -95,6 +95,17 @@ test('Settings contains panel visibility, appearance, startup, and release contr
   assert.match(html, /<strong>Release notes<\/strong>/);
 });
 
+test('AI workflow setup is opt-in, reviewable, and local-only', () => {
+  assert.match(html, /Disabled by default for privacy/);
+  assert.match(html, /data-ai-action="copy-json">Copy JSON/);
+  assert.match(html, /data-ai-action="install-hook">Install for me/);
+  assert.match(html, /data-ai-action="copy-prompt">Copy agent prompt/);
+  assert.match(html, /data-ai-action="compact-log">Compact log/);
+  assert.match(html, /Session feed[\s\S]*Sensitive and off by default/);
+  assert.match(html, /HOOK_INSTALLED/);
+  assert.match(html, /USAGE_LOG_COMPACTED/);
+});
+
 test('runtime resilience controls surface backend and log state', () => {
   assert.match(html, /id="backendBanner"/);
   assert.match(html, /syncDesktopBackend/);

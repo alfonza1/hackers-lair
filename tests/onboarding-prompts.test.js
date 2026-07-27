@@ -2,7 +2,11 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 
-const { configurationPrompts, onboardingState } = require('../lib/onboarding-prompts');
+const {
+  configurationPrompts,
+  onboardingState,
+  usageTrackingSetupPrompt,
+} = require('../lib/onboarding-prompts');
 
 const fixtures = process.platform === 'win32'
   ? {
@@ -12,6 +16,11 @@ const fixtures = process.platform === 'win32'
       skillsDirectory: 'C:\\Code\\.agents\\skills',
       workspaceFolders: ['D:\\Code', 'D:\\Experiments'],
       command: 'npm.cmd run dev',
+      usageLogFile: 'D:\\Work\\.agents\\usage-log.jsonl',
+      claudeSettingsFile: 'C:\\Workspaces\\.claude\\settings.json',
+      lairSettingsFile: 'C:\\Workspaces\\.lair-data\\settings.json',
+      instructionsFile: 'D:\\Work\\AGENTS.md',
+      hookCommand: 'node "C:\\Workspaces\\.lair-data\\hackers-lair-usage-hook.js"',
     }
   : {
       projectsFile: '/workspaces/.lair-data/projects.json',
@@ -20,6 +29,11 @@ const fixtures = process.platform === 'win32'
       skillsDirectory: '/code/.agents/skills',
       workspaceFolders: ['/code', '/experiments'],
       command: 'npm run dev',
+      usageLogFile: '/work/.agents/usage-log.jsonl',
+      claudeSettingsFile: '/work/.claude/settings.json',
+      lairSettingsFile: '/workspaces/.lair-data/settings.json',
+      instructionsFile: '/work/AGENTS.md',
+      hookCommand: 'node "/workspaces/.lair-data/hackers-lair-usage-hook.js"',
     };
 
 test('offers complete and focused prompts when nothing is configured', () => {
@@ -124,4 +138,81 @@ test('does not show onboarding prompts once projects and skills exist', () => {
 
   assert.equal(state.configured, true);
   assert.deepEqual(state.prompts, []);
+});
+
+test('usage tracking prompt includes every live path, exact hook command, and safety guardrail', () => {
+  const prompt = usageTrackingSetupPrompt({
+    usageLogFile: fixtures.usageLogFile,
+    claudeSettingsFile: fixtures.claudeSettingsFile,
+    lairSettingsFile: fixtures.lairSettingsFile,
+    instructionsFile: fixtures.instructionsFile,
+    hookCommand: fixtures.hookCommand,
+  });
+  for (const value of [
+    fixtures.usageLogFile,
+    fixtures.claudeSettingsFile,
+    fixtures.lairSettingsFile,
+    fixtures.instructionsFile,
+    fixtures.hookCommand,
+  ]) {
+    assert.ok(prompt.includes(value), `missing ${value}`);
+  }
+  assert.match(prompt, /Inspect all four files read-only first/);
+  assert.match(prompt, /Never log prompt text, file contents, tool arguments/);
+  assert.match(prompt, /confirm exactly one well-formed line/);
+});
+
+test('usage tracking prompt asks for an instructions path when none is known', () => {
+  const prompt = usageTrackingSetupPrompt({
+    usageLogFile: fixtures.usageLogFile,
+    claudeSettingsFile: fixtures.claudeSettingsFile,
+    lairSettingsFile: fixtures.lairSettingsFile,
+    instructionsFile: '',
+    hookCommand: fixtures.hookCommand,
+  });
+  assert.match(
+    prompt,
+    /Ask me where my workspace instructions file lives before adding the fallback instruction/,
+  );
+});
+
+test('usage setup prompt is gated by Skills and hook detection and joins complete setup last', () => {
+  const base = {
+    projectsFile: fixtures.projectsFile,
+    projectsSchemaFile: fixtures.schemaFile,
+    projectsSchemaUrl: 'http://localhost:4953/api/schema/projects',
+    skillsDirectory: fixtures.skillsDirectory,
+    projectCount: 0,
+    personalSkillCount: 0,
+    enableSkills: true,
+    usageLogFile: fixtures.usageLogFile,
+    claudeSettingsFile: fixtures.claudeSettingsFile,
+    lairSettingsFile: fixtures.lairSettingsFile,
+    instructionsFile: fixtures.instructionsFile,
+    hookCommand: fixtures.hookCommand,
+  };
+  const prompts = configurationPrompts({ ...base, hookInstalled: false });
+  assert.deepEqual(prompts.map((prompt) => prompt.id), [
+    'complete',
+    'projects',
+    'skills',
+    'usage',
+  ]);
+  const complete = prompts[0].prompt;
+  const lowerComplete = complete.toLowerCase();
+  assert.ok(lowerComplete.indexOf("set up hacker's lair targets") < lowerComplete.indexOf('configure my personal agent skills'));
+  assert.ok(lowerComplete.indexOf('configure my personal agent skills') < lowerComplete.indexOf('set up ai workflow usage tracking'));
+
+  assert.doesNotMatch(
+    configurationPrompts({ ...base, hookInstalled: true })
+      .map((prompt) => prompt.id)
+      .join(','),
+    /usage/,
+  );
+  assert.doesNotMatch(
+    configurationPrompts({ ...base, enableSkills: false, hookInstalled: false })
+      .map((prompt) => prompt.id)
+      .join(','),
+    /usage/,
+  );
 });
