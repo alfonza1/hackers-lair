@@ -49,6 +49,8 @@ test('target cards expose compact details and truthful port groups', () => {
   assert.match(html, />PORTS</);
   assert.match(html, /port-detected/);
   assert.match(html, /points\.length < 5/);
+  assert.match(html, /<div class="action-cluster compact">\s*\$\{active\s*\?\s*actionButton\('project', 'terminate'/);
+  assert.doesNotMatch(html, /\$\{actionButton\('project', 'terminate'[^}]+}\s*\$\{actionButton\('project', 'initiate'/);
 });
 
 test('command palette includes setup, release, conditional update, and every preference family', () => {

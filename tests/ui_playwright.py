@@ -231,18 +231,22 @@ def assert_target_states(page, live_port: int, dormant_port: int) -> None:
     expect(dormant.get_by_text("DETECTED", exact=True)).to_have_count(0)
 
     live_actions = live.locator(".action-cluster .action")
-    expect(live_actions).to_have_count(2)
-    expect(live_actions.nth(0)).to_have_text("TERMINATE")
-    expect(live_actions.nth(0)).to_be_enabled()
-    expect(live_actions.nth(1)).to_have_text("INITIATE")
-    expect(live_actions.nth(1)).to_be_disabled()
+    expect(live_actions).to_have_count(1)
+    expect(live_actions).to_have_text("TERMINATE")
+    expect(live_actions).to_be_enabled()
+    expect(live.get_by_role("button", name="INITIATE", exact=True)).to_have_count(0)
 
     dormant_actions = dormant.locator(".action-cluster .action")
-    expect(dormant_actions).to_have_count(2)
-    expect(dormant_actions.nth(0)).to_have_text("TERMINATE")
-    expect(dormant_actions.nth(0)).to_be_disabled()
-    expect(dormant_actions.nth(1)).to_have_text("INITIATE")
-    expect(dormant_actions.nth(1)).to_be_enabled()
+    expect(dormant_actions).to_have_count(1)
+    expect(dormant_actions).to_have_text("INITIATE")
+    expect(dormant_actions).to_be_enabled()
+    expect(dormant.get_by_role("button", name="TERMINATE", exact=True)).to_have_count(0)
+
+    for card, actions in ((live, live_actions), (dormant, dormant_actions)):
+        tray_box = card.locator(".action-cluster").bounding_box()
+        action_box = actions.bounding_box()
+        assert tray_box is not None and action_box is not None
+        assert tray_box["width"] <= action_box["width"] + 20
 
     assert "N/A" not in page.locator("body").inner_text()
 

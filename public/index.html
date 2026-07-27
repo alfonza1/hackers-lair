@@ -3555,8 +3555,6 @@
       : '';
     const lastSignal = formatDateTime(lastActionFor(key, project.lastActionAt || project.lastStartedAt));
     const isBusy = state.busy.has(key);
-    const initiateDisabled = isBusy || status.key === 'live' || status.key === 'booting';
-    const terminateDisabled = isBusy || status.key === 'dormant';
     const detectedUrls = [...new Set(project.components.flatMap((component) => component.detectedUrls || []))].slice(0, 5);
     const portDetected = active && !pids && project.components.some((component) => (
       component.running && component.livePorts?.length
@@ -3636,9 +3634,10 @@
               <button class="micro-action" type="button" data-open-in="copy">COPY COMMAND</button>
             </div>
           </div>
-          <div class="action-cluster">
-            ${actionButton('project', 'terminate', 'TERMINATE', terminateDisabled)}
-            ${actionButton('project', 'initiate', 'INITIATE', initiateDisabled)}
+          <div class="action-cluster compact">
+            ${active
+              ? actionButton('project', 'terminate', 'TERMINATE', isBusy)
+              : actionButton('project', 'initiate', 'INITIATE', isBusy)}
           </div>
         </div>
       </article>
