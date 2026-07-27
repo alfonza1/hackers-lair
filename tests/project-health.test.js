@@ -39,6 +39,18 @@ test('release notes are extracted from the matching changelog section', () => {
   assert.throws(() => releaseNotes(changelog, '9.9.9'), /no release section/);
 });
 
+test('published release notes point readers at the checksum-verifying install', () => {
+  const { publishedReleaseNotes } = require('../scripts/extract-release-notes');
+  const changelog = fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8');
+  const notes = publishedReleaseNotes(changelog, '2.1.0-beta.1');
+  assert.match(notes, /Self-contained Electron packages/);
+  assert.match(notes, /verify the published SHA256 checksum/);
+  assert.match(notes, /install\.ps1 \| iex/);
+  assert.match(notes, /hackerslairhq\.github\.io\/desktop\/docs\//);
+  const installSection = notes.slice(notes.indexOf('### Install'));
+  assert.doesNotMatch(installSection, /winget/i);
+});
+
 test('issue and pull request templates enforce support-safe reports', () => {
   const bug = fs.readFileSync(path.join(root, '.github', 'ISSUE_TEMPLATE', 'bug.yml'), 'utf8');
   const pullRequest = fs.readFileSync(
