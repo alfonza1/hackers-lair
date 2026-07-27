@@ -1,7 +1,8 @@
 {
-  "configVersion": 1,
-  "_comment": "Optional Hacker's Lair preferences. Skills stay disabled unless explicitly enabled because discovery scans local agent configuration outside this repository. browserPath may point to a preferred browser executable; leave it empty to use the system default browser. workspaceFolders may list absolute development roots to include in first-run agent prompts.",
-  "enableSkills": false,
+  "configVersion": 2,
+  "_comment": "Optional Hacker's Lair preferences. Skills are enabled by default; Scripts are disabled by default and remain Windows-only. Both panels can be toggled in Settings. browserPath may point to a preferred browser executable; leave it empty to use the system default browser. workspaceFolders may list absolute development roots to include in first-run agent prompts.",
+  "enableSkills": true,
+  "enableScripts": false,
   "browserPath": "",
   "zombieAfterHours": 8,
   "workspaceFolders": [],

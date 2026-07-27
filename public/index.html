@@ -28,7 +28,7 @@
   }
 </script>
 <style nonce="__LAIR_CSP_NONCE__">
-  /* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 */
+  /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
   :root {
     --void: #010504;
     --bg: #050b0a;
@@ -567,7 +567,7 @@
     display: grid;
     gap: 11px;
     width: min(320px, calc(100vw - 32px));
-    max-height: calc(100vh - 72px);
+    max-height: calc(100dvh - 96px);
     margin: 0;
     padding: 14px;
     border: 1px solid var(--line-strong);
@@ -674,7 +674,7 @@
     cursor: not-allowed;
   }
 
-  .startup-setting {
+  .settings-switch {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
@@ -687,31 +687,31 @@
     cursor: pointer;
   }
 
-  .startup-setting:active {
+  .settings-switch:active {
     border-color: var(--cyan);
     background: rgba(var(--secondary-rgb), .12);
   }
 
-  .startup-setting > span:first-child {
+  .settings-switch > span:first-child {
     display: grid;
     gap: 5px;
     min-width: 0;
   }
 
-  .startup-setting strong {
+  .settings-switch strong {
     color: var(--text);
     font-size: 10px;
     letter-spacing: .05em;
     text-transform: uppercase;
   }
 
-  .startup-setting small {
+  .settings-switch small {
     color: var(--muted);
     font-size: 9px;
     line-height: 1.4;
   }
 
-  .startup-setting input {
+  .settings-switch input {
     width: 20px;
     height: 20px;
     margin: 0;
@@ -719,29 +719,29 @@
     cursor: pointer;
   }
 
-  .startup-setting input:focus-visible {
+  .settings-switch input:focus-visible {
     outline: 2px solid var(--cyan);
     outline-offset: 3px;
   }
 
-  .startup-setting:has(input:disabled) {
+  .settings-switch:has(input:disabled) {
     opacity: .55;
     cursor: not-allowed;
   }
 
-  .startup-setting:has(input:disabled) input { cursor: not-allowed; }
-  .startup-setting.is-busy { border-style: dashed; }
-  .startup-setting.is-error { border-color: var(--red); }
-  .startup-setting.is-success { border-color: rgba(var(--accent-rgb), .42); }
+  .settings-switch:has(input:disabled) input { cursor: not-allowed; }
+  .settings-switch.is-busy { border-style: dashed; }
+  .settings-switch.is-error { border-color: var(--red); }
+  .settings-switch.is-success { border-color: rgba(var(--accent-rgb), .42); }
 
-  .startup-status {
+  .settings-status {
     min-height: 13px;
     color: var(--dim);
     font-size: 9px;
   }
 
-  .startup-setting.is-error + .startup-status { color: var(--red); }
-  .startup-setting.is-success + .startup-status { color: var(--green); }
+  .settings-status.is-error { color: var(--red); }
+  .settings-status.is-success { color: var(--green); }
 
   .header-action:active {
     border-color: var(--cyan);
@@ -790,7 +790,7 @@
       background: rgba(var(--warning-rgb), .11);
     }
 
-    .startup-setting:hover {
+    .settings-switch:hover {
       border-color: var(--cyan);
       background: rgba(var(--secondary-rgb), .08);
     }
@@ -2724,14 +2724,29 @@
               </select>
             </label>
             <span class="settings-sync" id="settingsSync" role="status" aria-live="polite"></span>
-            <label class="startup-setting" id="launchOnStartupField" for="launchOnStartup" hidden>
+            <label class="settings-switch" id="skillsPanelField" for="skillsPanelEnabled">
+              <span>
+                <strong>Skills panel</strong>
+                <small>Discover local agent skills. Enabled by default.</small>
+              </span>
+              <input id="skillsPanelEnabled" type="checkbox" role="switch" aria-describedby="panelSettingsStatus">
+            </label>
+            <label class="settings-switch" id="scriptsPanelField" for="scriptsPanelEnabled" hidden>
+              <span>
+                <strong>Scripts panel</strong>
+                <small>Show configured AutoIt scripts on Windows. Disabled by default.</small>
+              </span>
+              <input id="scriptsPanelEnabled" type="checkbox" role="switch" aria-describedby="panelSettingsStatus">
+            </label>
+            <span class="settings-status" id="panelSettingsStatus" role="status" aria-live="polite"></span>
+            <label class="settings-switch" id="launchOnStartupField" for="launchOnStartup" hidden>
               <span>
                 <strong>Launch on startup</strong>
                 <small>Open Hacker's Lair when you sign in to Windows.</small>
               </span>
               <input id="launchOnStartup" type="checkbox" role="switch">
             </label>
-            <span class="startup-status" id="launchOnStartupStatus" role="status" aria-live="polite" hidden></span>
+            <span class="settings-status" id="launchOnStartupStatus" role="status" aria-live="polite" hidden></span>
             <button class="settings-link" id="releaseNotesTrigger" type="button">
               <strong>Release notes</strong>
               <small>Open the current release on GitHub.</small>
@@ -2763,7 +2778,7 @@
           <div class="view-tabs" role="tablist" aria-label="Console view">
             <button class="view-tab active" data-view="projects" role="tab" aria-selected="true">Targets</button>
             <button class="view-tab" data-view="processes" role="tab" aria-selected="false">Port Signals</button>
-            <button class="view-tab" id="scriptsTab" data-view="scripts" role="tab" aria-selected="false">Scripts</button>
+            <button class="view-tab" id="scriptsTab" data-view="scripts" role="tab" aria-selected="false" hidden>Scripts</button>
             <button class="view-tab" id="skillsTab" data-view="skills" role="tab" aria-selected="false">Skills</button>
           </div>
           <button class="utility" id="addProject" type="button">Add Project</button>
@@ -3052,10 +3067,13 @@
     projects: [],
     processes: [],
     scripts: [],
+    scriptsConfigured: false,
+    scriptsSupported: false,
     skills: [],
     skillsLoaded: false,
     onboarding: null,
     settings: null,
+    panelSettings: { busy: false, error: '', saved: false },
     update: null,
     backend: null,
     launchAtLogin: { supported: false, enabled: false, busy: false, error: '' },
@@ -4208,9 +4226,14 @@
     try {
       const data = await fetchJson('/api/scripts');
       state.scripts = data.scripts || [];
-      $('scriptsTab').hidden = !data.configured;
+      state.scriptsConfigured = Boolean(data.configured);
+      state.scriptsSupported = Boolean(data.supported);
+      state.settings = {
+        ...(state.settings || {}),
+        enableScripts: data.enabled === true,
+      };
+      renderPanelSettings();
       setConfigError('scripts', data.configError);
-      if (!data.configured && state.view === 'scripts') setView('projects');
       if (!quiet) pushFeed('SCRIPT_REGISTRY_SYNCED', `count=${state.scripts.length}`, 'info');
       renderTargets();
       updateIntel();
@@ -4264,11 +4287,99 @@
       const uiPreferences = normalizeUiPreferences(data.uiPreferences);
       localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(uiPreferences));
       applyUiPreferences(uiPreferences);
-      $('skillsTab').hidden = !data.enableSkills;
+      renderPanelSettings();
       setConfigError('settings', data.configError);
-      if (!data.enableSkills && state.view === 'skills') setView('projects');
     } catch (error) {
       setConfigError('settings', `Settings unavailable: ${error.message}`);
+    }
+  }
+
+  function renderPanelSettings() {
+    const skillsEnabled = state.settings?.enableSkills !== false;
+    const scriptsEnabled = state.settings?.enableScripts === true;
+    const busy = state.panelSettings.busy;
+    $('skillsPanelEnabled').checked = skillsEnabled;
+    $('scriptsPanelEnabled').checked = scriptsEnabled;
+    $('skillsPanelEnabled').disabled = busy;
+    $('scriptsPanelEnabled').disabled = busy;
+    $('skillsPanelEnabled').setAttribute('aria-busy', String(busy));
+    $('scriptsPanelEnabled').setAttribute('aria-busy', String(busy));
+    $('scriptsPanelField').hidden = !state.scriptsSupported;
+    $('skillsPanelField').classList.toggle('is-busy', busy);
+    $('scriptsPanelField').classList.toggle('is-busy', busy);
+    $('skillsPanelField').classList.toggle('is-error', Boolean(state.panelSettings.error));
+    $('scriptsPanelField').classList.toggle('is-error', Boolean(state.panelSettings.error));
+    $('skillsPanelField').classList.toggle('is-success', state.panelSettings.saved);
+    $('scriptsPanelField').classList.toggle('is-success', state.panelSettings.saved);
+    $('skillsTab').hidden = !skillsEnabled;
+    $('scriptsTab').hidden = !scriptsEnabled || !state.scriptsConfigured;
+    if (
+      (state.view === 'skills' && !skillsEnabled)
+      || (state.view === 'scripts' && (!scriptsEnabled || !state.scriptsConfigured))
+    ) {
+      setView('projects');
+    }
+    const status = $('panelSettingsStatus');
+    status.classList.toggle('is-error', Boolean(state.panelSettings.error));
+    status.classList.toggle('is-success', state.panelSettings.saved);
+    status.textContent = state.panelSettings.error
+      || (busy
+        ? 'Saving…'
+        : scriptsEnabled && !state.scriptsConfigured
+          ? `${state.panelSettings.saved ? 'Saved. ' : ''}Configure scripts.json to show Scripts on Windows.`
+          : state.panelSettings.saved
+            ? 'Saved'
+            : '');
+  }
+
+  async function updatePanelSetting(field, enabled) {
+    if (state.panelSettings.busy) return false;
+    const previousSettings = { ...(state.settings || {}) };
+    state.settings = {
+      ...previousSettings,
+      [field]: Boolean(enabled),
+    };
+    state.panelSettings = { busy: true, error: '', saved: false };
+    renderPanelSettings();
+    try {
+      const result = await postJson('/api/settings/features', {
+        [field]: Boolean(enabled),
+      });
+      state.settings = {
+        ...state.settings,
+        enableSkills: result.enableSkills,
+        enableScripts: result.enableScripts,
+      };
+      state.panelSettings = { busy: true, error: '', saved: false };
+      renderPanelSettings();
+      if (field === 'enableSkills') {
+        if (result.enableSkills) await loadSkills(true);
+        else {
+          state.skills = [];
+          state.skillsLoaded = false;
+        }
+        await loadOnboarding();
+      } else {
+        await loadScripts(true);
+      }
+      state.panelSettings = { busy: false, error: '', saved: true };
+      renderPanelSettings();
+      pushFeed(
+        'PANEL_SETTING_SAVED',
+        `panel=${field === 'enableSkills' ? 'skills' : 'scripts'} enabled=${Boolean(enabled)}`,
+        'info',
+      );
+      return true;
+    } catch (error) {
+      state.settings = previousSettings;
+      state.panelSettings = {
+        busy: false,
+        error: `Could not save: ${error.message}`,
+        saved: false,
+      };
+      renderPanelSettings();
+      toast(state.panelSettings.error, true);
+      return false;
     }
   }
 
@@ -5440,6 +5551,20 @@
       hint: fontScale === state.uiPreferences.fontScale ? 'selected' : 'UI scale',
       run: () => saveUiPreferences({ ...state.uiPreferences, fontScale }),
     }));
+    commands.push({
+      verb: 'PANEL',
+      label: state.settings?.enableSkills === false ? 'Enable Skills panel' : 'Disable Skills panel',
+      hint: 'Settings',
+      run: () => updatePanelSetting('enableSkills', state.settings?.enableSkills === false),
+    });
+    if (state.scriptsSupported) {
+      commands.push({
+        verb: 'PANEL',
+        label: state.settings?.enableScripts === true ? 'Disable Scripts panel' : 'Enable Scripts panel',
+        hint: 'Settings',
+        run: () => updatePanelSetting('enableScripts', state.settings?.enableScripts !== true),
+      });
+    }
     if (state.launchAtLogin.supported) {
       commands.push({
         verb: 'STARTUP',
@@ -5777,6 +5902,12 @@
   });
   $('fontScalePreference').addEventListener('change', (event) => {
     void saveUiPreferences({ ...state.uiPreferences, fontScale: Number(event.target.value) });
+  });
+  $('skillsPanelEnabled').addEventListener('change', (event) => {
+    void updatePanelSetting('enableSkills', event.target.checked);
+  });
+  $('scriptsPanelEnabled').addEventListener('change', (event) => {
+    void updatePanelSetting('enableScripts', event.target.checked);
   });
   $('launchOnStartup').addEventListener('change', (event) => {
     void updateLaunchOnStartup(event.target.checked);

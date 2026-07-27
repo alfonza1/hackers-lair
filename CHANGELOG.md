@@ -7,6 +7,20 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+## [2.1.0-beta.5] - 2026-07-27
+
+### Added
+
+- Added independent Skills and Scripts panel switches to Settings and the
+  command palette.
+
+### Changed
+
+- Skills is enabled by default and uses the current user's `.agents/skills`
+  folder; existing settings are backed up before the one-time migration.
+- The Windows-only Scripts panel is disabled by default and does not enumerate
+  or launch scripts until explicitly enabled.
+
 ## [2.1.0-beta.4] - 2026-07-27
 
 ### Fixed

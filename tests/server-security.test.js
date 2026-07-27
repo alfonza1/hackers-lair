@@ -143,6 +143,66 @@ test('protects localhost mutations and verifies the bound service identity', asy
     'Content-Type': 'application/json',
     'X-Lair-Token': identity.token,
   };
+  const initialSettingsResponse = await request({ port, pathname: '/api/settings' });
+  assert.equal(initialSettingsResponse.status, 200);
+  const initialSettings = JSON.parse(initialSettingsResponse.body);
+  assert.equal(initialSettings.enableSkills, true);
+  assert.equal(initialSettings.enableScripts, false);
+  const initialScripts = JSON.parse((await request({ port, pathname: '/api/scripts' })).body);
+  assert.equal(initialScripts.enabled, false);
+  assert.equal(initialScripts.supported, process.platform === 'win32');
+  assert.deepEqual(initialScripts.scripts, []);
+  const disabledScriptStart = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/scripts/start',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ file: 'disabled.au3' }),
+  });
+  assert.equal(disabledScriptStart.status, 404);
+
+  const featureResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/settings/features',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      enableSkills: false,
+      enableScripts: true,
+    }),
+  });
+  assert.equal(featureResponse.status, 200);
+  assert.deepEqual(JSON.parse(featureResponse.body), {
+    ok: true,
+    enableSkills: false,
+    enableScripts: true,
+  });
+  const featureSettings = JSON.parse(fs.readFileSync(path.join(dataDirectory, 'settings.json')));
+  assert.equal(featureSettings.enableSkills, false);
+  assert.equal(featureSettings.enableScripts, true);
+  assert.equal((await request({ port, pathname: '/api/skills' })).status, 404);
+  assert.equal(JSON.parse((await request({ port, pathname: '/api/scripts' })).body).enabled, true);
+
+  const invalidFeatures = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/settings/features',
+    headers: authorizedHeaders,
+    body: JSON.stringify({
+      enableSkills: 'yes',
+      enableScripts: true,
+    }),
+  });
+  assert.equal(invalidFeatures.status, 400);
+  const invalidFeatureShape = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/settings/features',
+    headers: authorizedHeaders,
+    body: 'null',
+  });
+  assert.equal(invalidFeatureShape.status, 400);
+
   const runtimeLogDirectory = path.join(dataDirectory, 'logs');
   fs.mkdirSync(runtimeLogDirectory, { recursive: true });
   fs.writeFileSync(path.join(runtimeLogDirectory, 'runtime-errors.log'), 'sanitized fixture');
