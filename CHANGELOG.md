@@ -7,6 +7,13 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+## [2.1.0-beta.4] - 2026-07-27
+
+### Fixed
+
+- Restored the compact gear icon for Settings without removing any settings
+  controls or the Release notes action.
+
 ## [2.1.0-beta.3] - 2026-07-27
 
 ### Added
