@@ -20,6 +20,9 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ### Fixed
 
+- PowerShell installs now migrate retired `launcher.vbs` taskbar and desktop
+  shortcuts to the packaged executable and remove the obsolete forced-startup
+  shortcut after preserving backups.
 - PowerShell installs started from an administrator terminal no longer leave an
   elevated tray process that blocks later normal-user launches.
 
