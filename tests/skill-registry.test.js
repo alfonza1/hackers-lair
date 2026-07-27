@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const { listSkills, readSkillFile } = require('../lib/skill-registry');
+const { listSkills, readSkillFile, skillRoots } = require('../lib/skill-registry');
 
 function temporaryDirectory() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'hackers-lair-skills-'));
@@ -48,6 +48,27 @@ test('lists personal skills from the shared workspace agent folder', (t) => {
     { name: 'review-notes', origin: 'Workspace' },
   ]);
   assert.ok(personal.every((skill) => !('path' in skill) && !('llm' in skill) && !('invocation' in skill)));
+
+  const internal = listSkills({
+    agentsHome,
+    codexHome,
+    claudeHome,
+    includeFiles: true,
+  }).find((skill) => skill.name === 'release-check');
+  assert.equal(internal.directory, path.join(agentsHome, 'skills', 'release-check'));
+  assert.equal(internal.skillFile, path.join(agentsHome, 'skills', 'release-check', 'SKILL.md'));
+  assert.equal(internal.skillsRoot, path.join(agentsHome, 'skills'));
+});
+
+test('skill roots expose the same environment resolution used by the registry', () => {
+  const roots = skillRoots({
+    agentsHome: path.resolve('agents'),
+    codexHome: path.resolve('codex'),
+    claudeHome: path.resolve('claude'),
+  });
+  assert.equal(roots.personalSkills, path.join(path.resolve('agents'), 'skills'));
+  assert.equal(roots.codexPluginCache, path.join(path.resolve('codex'), 'plugins', 'cache'));
+  assert.equal(roots.claudePluginCache, path.join(path.resolve('claude'), 'plugins', 'cache'));
 });
 
 test('discovers Codex system and plugin skills behind the default classification', (t) => {

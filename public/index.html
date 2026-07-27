@@ -1721,6 +1721,183 @@
     word-break: break-word;
   }
 
+  .context-tax-trigger {
+    color: var(--muted);
+  }
+
+  .context-tax-trigger.warn {
+    color: var(--amber);
+    border-color: rgba(var(--warning-rgb), .5);
+  }
+
+  .skill-health {
+    width: 9px;
+    height: 9px;
+    flex: none;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px rgba(var(--accent-rgb), .28);
+  }
+
+  .skill-health.warn { background: var(--amber); box-shadow: none; }
+  .skill-health.error { background: var(--red); box-shadow: none; }
+
+  .skill-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .skill-tag {
+    padding: 3px 6px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--muted);
+    background: rgba(var(--surface-strong-rgb), .42);
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: .08em;
+  }
+
+  .skill-tag.cold,
+  .skill-tag.rewrite {
+    color: var(--amber);
+    border-color: rgba(var(--warning-rgb), .44);
+  }
+
+  .skill-usage {
+    display: grid;
+    grid-template-columns: auto minmax(90px, 1fr);
+    gap: 10px;
+    align-items: end;
+    margin-top: 11px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+
+  .skill-usage-copy {
+    display: grid;
+    gap: 3px;
+    color: var(--muted);
+    font-size: 9px;
+  }
+
+  .skill-usage-copy strong {
+    color: var(--text);
+    font-size: 11px;
+  }
+
+  .skill-sparkline {
+    width: 100%;
+    height: 34px;
+    overflow: visible;
+  }
+
+  .skill-sparkline path.area { fill: rgba(var(--accent-rgb), .11); }
+  .skill-sparkline polyline {
+    fill: none;
+    stroke: var(--green);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .skill-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  .skill-rating {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .skill-rating button {
+    min-height: 30px;
+    padding: 0 8px;
+    border: 0;
+    border-right: 1px solid var(--line);
+    color: var(--muted);
+    background: var(--panel-2);
+    font: 9px var(--mono);
+    cursor: pointer;
+  }
+
+  .skill-rating button:last-child { border-right: 0; }
+  .skill-rating button:hover { color: var(--text); background: rgba(var(--secondary-rgb), .1); }
+  .skill-rating button:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+  .skill-rating button:disabled { opacity: .5; cursor: wait; }
+
+  .skill-findings {
+    margin-top: 10px;
+    border-top: 1px solid var(--line);
+    padding-top: 9px;
+  }
+
+  .skill-findings summary,
+  .archived-skills summary {
+    color: var(--cyan);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .skill-findings ul {
+    display: grid;
+    gap: 6px;
+    margin: 9px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
+  .archived-skills {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+  }
+
+  .archived-skill-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    background: rgba(var(--surface-rgb), .5);
+    font-size: 10px;
+  }
+
+  .context-breakdown {
+    display: grid;
+    gap: 7px;
+  }
+
+  .context-source {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 10px;
+  }
+
+  .context-source span { color: var(--muted); }
+  .context-source code { min-width: 0; overflow: hidden; color: var(--dim); text-overflow: ellipsis; white-space: nowrap; }
+  .context-source strong { color: var(--text); }
+
   .prompt-head {
     display: flex;
     gap: 12px;
@@ -2907,6 +3084,8 @@
             <button class="view-tab" id="skillsTab" data-view="skills" role="tab" aria-selected="false" hidden>Skills</button>
           </div>
           <button class="utility" id="addProject" type="button">Add Project</button>
+          <button class="utility" id="newSkill" type="button" hidden>+ New Skill</button>
+          <button class="utility context-tax-trigger" id="contextTaxTrigger" type="button" hidden>Context tax</button>
           <button class="utility command-trigger" id="commandTrigger" type="button" title="Command palette (Ctrl+K)">Ctrl+K</button>
           <button class="utility" id="refreshBtn" type="button">Refresh</button>
         </div>
@@ -3125,6 +3304,66 @@
     </div>
   </form>
 </dialog>
+<dialog class="lair-dialog update-dialog" id="newSkillDialog" aria-labelledby="newSkillTitle">
+  <form method="dialog">
+    <div class="dialog-head">
+      <div>
+        <div class="section-kicker">Personal workflow</div>
+        <h2 id="newSkillTitle">New Skill</h2>
+      </div>
+      <button class="utility" value="cancel" type="submit">Close</button>
+    </div>
+    <div class="dialog-body">
+      <label class="editor-field">Skill name
+        <input id="newSkillName" type="text" autocomplete="off" maxlength="64" pattern="[a-z0-9][a-z0-9-]{1,63}" placeholder="release-helper">
+      </label>
+      <p class="setup-copy">Creates a lint-clean SKILL.md in your personal workspace Skills folder. Edit the generated routing description before relying on it.</p>
+      <p class="editor-error" id="newSkillError" role="alert"></p>
+    </div>
+    <div class="dialog-actions">
+      <button class="utility" value="cancel" type="submit">Cancel</button>
+      <button class="utility" id="createSkill" type="button">Create Skill</button>
+    </div>
+  </form>
+</dialog>
+<dialog class="lair-dialog update-dialog" id="archiveSkillDialog" aria-labelledby="archiveSkillTitle">
+  <form method="dialog">
+    <div class="dialog-head">
+      <div>
+        <div class="section-kicker">Personal workflow</div>
+        <h2 id="archiveSkillTitle">Archive Skill</h2>
+      </div>
+      <button class="utility" value="cancel" type="submit">Close</button>
+    </div>
+    <div class="dialog-body">
+      <p class="update-message" id="archiveSkillMessage"></p>
+      <p class="setup-copy">Hacker’s Lair creates a timestamped backup, then moves the folder into <code>.archive</code>. You can restore it from the archived list.</p>
+      <p class="editor-error" id="archiveSkillError" role="alert"></p>
+    </div>
+    <div class="dialog-actions">
+      <button class="utility" value="cancel" type="submit">Cancel</button>
+      <button class="utility remove-project" id="confirmArchiveSkill" type="button">Archive</button>
+    </div>
+  </form>
+</dialog>
+<dialog class="lair-dialog update-dialog" id="contextCostDialog" aria-labelledby="contextCostTitle">
+  <form method="dialog">
+    <div class="dialog-head">
+      <div>
+        <div class="section-kicker">Loaded instructions</div>
+        <h2 id="contextCostTitle">Context Tax</h2>
+      </div>
+      <button class="utility" value="cancel" type="submit">Close</button>
+    </div>
+    <div class="dialog-body">
+      <p class="update-message" id="contextCostSummary"></p>
+      <div class="context-breakdown" id="contextCostBreakdown"></div>
+    </div>
+    <div class="dialog-actions">
+      <button class="utility" value="cancel" type="submit">Close</button>
+    </div>
+  </form>
+</dialog>
 <div class="command-palette" id="commandPalette" role="dialog" aria-modal="true" aria-labelledby="commandTitle" hidden>
   <div class="command-core">
     <div class="command-head">
@@ -3199,8 +3438,11 @@
     scriptsConfigured: false,
     scriptsSupported: false,
     skills: [],
+    archivedSkills: [],
+    skillUsage: null,
     skillsLoaded: false,
     aiSetup: null,
+    contextCost: null,
     aiWorkflowBusy: false,
     onboarding: null,
     settings: null,
@@ -3233,6 +3475,7 @@
   };
   const editorState = { originalName: '', components: [] };
   const wizardState = { step: 0, folders: [], discovery: null, imported: null };
+  const skillDialogState = { archiveId: '', archiveName: '' };
   let workspacePickerPromise = null;
 
   function setConfigError(source, message) {
@@ -4045,6 +4288,16 @@
   function skillCard(skill) {
     const personal = skill.kind === 'personal';
     const status = { key: personal ? 'live' : 'dormant', label: personal ? 'PERSONAL' : 'DEFAULT' };
+    const findings = skill.lint?.findings || [];
+    const rating = skill.rating || { positive: 0, negative: 0 };
+    const usage = skill.usage;
+    const usageSummary = usage
+      ? `${usage.count} use${usage.count === 1 ? '' : 's'}`
+      : 'No usage data yet';
+    const lastUsed = usage?.lastUsedAt ? relativeAge(usage.lastUsedAt) : '';
+    const sparkline = usage?.weeklyBuckets?.some((value) => value > 0)
+      ? skillSparkline(usage.weeklyBuckets)
+      : '';
     return `
       <article class="target-card skill-card ${esc(skill.kind)}" data-card-kind="skill" data-skill-id="${esc(skill.id)}">
         <div class="machine-bar">
@@ -4055,19 +4308,91 @@
         <div class="machine-screen">
           <div class="target-main">
             <div class="target-title">
+              <span class="skill-health ${esc(skill.lint?.level || 'ok')}" title="Skill health: ${esc(skill.lint?.level || 'ok')}"></span>
               <h3><span class="target-prefix">SKILL</span>${esc(skill.name)}</h3>
               <span class="target-type">${esc(skill.origin)}</span>
               ${statusBadge(status)}
+              <span class="skill-badges">
+                ${skill.cold ? '<span class="skill-tag cold">COLD</span>' : ''}
+                ${skill.rewriteSuggested ? '<span class="skill-tag rewrite">REWRITE?</span>' : ''}
+              </span>
             </div>
             <p class="skill-desc">${esc(skill.description)}</p>
             <div class="target-fields">
               ${field('Source', personal ? '.agents/skills' : skill.origin)}
               ${field('Scope', personal ? 'Personal workspace' : 'Default catalog')}
-              ${field('Visibility', personal ? 'Shown by default' : 'Filtered by default')}
+              ${field('Edited', skill.lastTouchedAt ? relativeAge(skill.lastTouchedAt) : '')}
             </div>
+            <div class="skill-usage">
+              <div class="skill-usage-copy">
+                <strong>${esc(usageSummary)}</strong>
+                ${lastUsed ? `<span>last used ${esc(lastUsed)}</span>` : '<span>install the local hook to collect counts</span>'}
+              </div>
+              ${sparkline}
+            </div>
+            <div class="skill-actions">
+              <span class="skill-rating" aria-label="Effectiveness marks">
+                <button type="button" data-skill-rate="positive" title="Worked well" aria-label="Mark ${esc(skill.name)} effective">+ ${rating.positive}</button>
+                <button type="button" data-skill-rate="negative" title="Needs improvement" aria-label="Mark ${esc(skill.name)} ineffective">− ${rating.negative}</button>
+              </span>
+              ${skill.canManage ? `<button class="utility" type="button" data-skill-archive>Archive</button>` : ''}
+            </div>
+            ${findings.length ? `
+              <details class="skill-findings">
+                <summary>${findings.length} health finding${findings.length === 1 ? '' : 's'}</summary>
+                <ul>${findings.map((finding) => `<li>${esc(finding.message)}</li>`).join('')}</ul>
+              </details>
+            ` : ''}
           </div>
         </div>
       </article>
+    `;
+  }
+
+  function relativeAge(value) {
+    const elapsed = Date.now() - new Date(value).getTime();
+    if (!Number.isFinite(elapsed)) return '';
+    const minutes = Math.max(0, Math.floor(elapsed / 60000));
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 60) return `${days}d ago`;
+    const months = Math.floor(days / 30);
+    if (months < 24) return `${months}mo ago`;
+    return `${Math.floor(months / 12)}y ago`;
+  }
+
+  function skillSparkline(buckets) {
+    const values = buckets.map((value) => Number(value) || 0);
+    const maximum = Math.max(...values, 1);
+    const points = values.map((value, index) => {
+      const x = Math.round((index / Math.max(values.length - 1, 1)) * 100);
+      const y = Math.round(30 - (value / maximum) * 25);
+      return `${x},${y}`;
+    });
+    const area = `M ${points[0]} L ${points.slice(1).join(' L ')} L 100,34 L 0,34 Z`;
+    return `
+      <svg class="skill-sparkline" viewBox="0 0 100 34" preserveAspectRatio="none" aria-label="Eight week usage history">
+        <path class="area" d="${area}"></path>
+        <polyline points="${points.join(' ')}"></polyline>
+      </svg>
+    `;
+  }
+
+  function archivedSkillsHtml() {
+    if (!state.archivedSkills.length) return '';
+    return `
+      <details class="archived-skills">
+        <summary>Archived skills (${state.archivedSkills.length})</summary>
+        ${state.archivedSkills.map((skill) => `
+          <div class="archived-skill-row">
+            <span>${esc(skill.name)}</span>
+            <button class="utility" type="button" data-skill-unarchive="${esc(skill.name)}">Restore</button>
+          </div>
+        `).join('')}
+      </details>
     `;
   }
 
@@ -4178,7 +4503,7 @@
     if (!setup) return '';
     const ready = setup.hookInstalled;
     const status = setup.hookError
-      ? `Could not inspect Claude settings: ${setup.hookError}`
+      ? `Could not inspect Claude settings: ${esc(setup.hookError)}`
       : setup.hookConflict
         ? 'A different Hacker’s Lair hook was found. Review the JSON before changing it.'
         : ready
@@ -4262,12 +4587,15 @@
     const skillsSetup = state.view === 'skills' && (!onboardingPrompts.length || rows.length)
       ? aiWorkflowSetupHtml()
       : '';
+    const archived = state.view === 'skills' && !state.showDefaultSkills
+      ? archivedSkillsHtml()
+      : '';
     $('targetList').innerHTML = skillsSetup + rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
       : state.view === 'processes' ? processCard(row)
       : state.view === 'scripts' ? scriptCard(row)
       : skillCard(row)
-    ).join('');
+    ).join('') + archived;
   }
 
   function setView(view) {
@@ -4280,6 +4608,9 @@
     $('search').placeholder = config.placeholder;
     $('systemToggle').hidden = view !== 'processes';
     $('defaultSkillsToggle').hidden = view !== 'skills';
+    $('newSkill').hidden = view !== 'skills';
+    $('contextTaxTrigger').hidden = view !== 'skills';
+    $('addProject').hidden = view !== 'projects';
     document.querySelectorAll('.view-tab').forEach((tab) => {
       const active = tab.dataset.view === view;
       tab.classList.toggle('active', active);
@@ -4429,8 +4760,10 @@
     try {
       const data = await fetchJson('/api/skills');
       state.skills = data.skills || [];
+      state.archivedSkills = data.archived || [];
+      state.skillUsage = data.usage || null;
       state.skillsLoaded = true;
-      await loadAiSetup(true);
+      await Promise.all([loadAiSetup(true), loadContextCost(true)]);
       if (!quiet) {
         const personal = state.skills.filter((skill) => skill.kind === 'personal').length;
         pushFeed('SKILL_REGISTRY_SYNCED', `personal=${personal} total=${state.skills.length}`, 'info');
@@ -4443,6 +4776,41 @@
       toast('Signal lost: skill registry unavailable', true);
       pushFeed('SKILL_REGISTRY_FAILED', `reason=${error.message}`, 'error');
     }
+  }
+
+  async function loadContextCost(quiet = false) {
+    if (state.settings?.enableSkills !== true) {
+      state.contextCost = null;
+      return;
+    }
+    try {
+      state.contextCost = await fetchJson('/api/ai/context-cost');
+      renderContextCost();
+      if (!quiet) pushFeed('CONTEXT_TAX_SCANNED', `tokens=${state.contextCost.totalTokens}`, 'info');
+    } catch (error) {
+      state.contextCost = null;
+      renderContextCost();
+      if (!quiet) pushFeed('CONTEXT_TAX_SCAN_FAILED', `reason=${error.message}`, 'warn');
+    }
+  }
+
+  function renderContextCost() {
+    const cost = state.contextCost;
+    const trigger = $('contextTaxTrigger');
+    trigger.classList.toggle('warn', Boolean(cost?.warn));
+    trigger.textContent = cost ? `Context ≈ ${cost.totalTokens.toLocaleString()} tokens` : 'Context tax';
+    $('contextCostSummary').textContent = cost
+      ? `Estimated ${cost.totalTokens.toLocaleString()} tokens across ${cost.sources.length} local sources. Warning threshold: ${cost.warnTokens.toLocaleString()}.`
+      : 'Context sources are unavailable.';
+    $('contextCostBreakdown').innerHTML = cost?.sources?.length
+      ? cost.sources.map((source) => `
+        <div class="context-source">
+          <span>${esc(source.kind)}</span>
+          <code title="${esc(source.path)}">${esc(source.label)}</code>
+          <strong>${Number(source.tokens).toLocaleString()}</strong>
+        </div>
+      `).join('')
+      : '<p class="setup-copy">No auto-loaded context sources were found.</p>';
   }
 
   async function loadAiSetup(quiet = false) {
@@ -5776,6 +6144,12 @@
       { verb: 'CONFIG', label: 'Export redacted config', hint: 'backup', run: exportRedactedConfig },
       { verb: 'CONFIG', label: 'Restore previous config', hint: 'recovery', run: restorePreviousConfig },
     ];
+    if (state.settings?.enableSkills === true) {
+      commands.push(
+        { verb: 'SKILL', label: 'Create personal skill', hint: 'lint-clean scaffold', run: openNewSkillDialog },
+        { verb: 'CONTEXT', label: 'Show context tax', hint: 'local estimate', run: openContextCostDialog },
+      );
+    }
     if (['available', 'ready', 'blocked'].includes(state.update?.status)) {
       commands.splice(4, 0, {
         verb: 'UPDATE',
@@ -5903,6 +6277,85 @@
     $('commandPalette').hidden = true;
   }
 
+  function openNewSkillDialog() {
+    $('newSkillName').value = '';
+    $('newSkillError').textContent = '';
+    $('newSkillDialog').showModal();
+    $('newSkillName').focus();
+  }
+
+  async function createSkill() {
+    const button = $('createSkill');
+    button.disabled = true;
+    $('newSkillError').textContent = '';
+    try {
+      const result = await postJson('/api/skills', { name: $('newSkillName').value.trim() });
+      $('newSkillDialog').close();
+      pushFeed('SKILL_SCAFFOLDED', `name=${slug(result.name)}`, 'info');
+      toast(`Created ${result.name}.`);
+      await Promise.all([loadSkills(true), loadOnboarding()]);
+    } catch (error) {
+      $('newSkillError').textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function openArchiveSkill(skill) {
+    skillDialogState.archiveId = skill.id;
+    skillDialogState.archiveName = skill.name;
+    $('archiveSkillMessage').textContent = `Archive “${skill.name}”?`;
+    $('archiveSkillError').textContent = '';
+    $('archiveSkillDialog').showModal();
+  }
+
+  async function confirmArchiveSkill() {
+    const button = $('confirmArchiveSkill');
+    button.disabled = true;
+    $('archiveSkillError').textContent = '';
+    try {
+      const result = await postJson('/api/skills/archive', { id: skillDialogState.archiveId });
+      $('archiveSkillDialog').close();
+      pushFeed('SKILL_ARCHIVED', `name=${slug(result.name)} backup=${Boolean(result.backupCreated)}`, 'warn');
+      await loadSkills(true);
+    } catch (error) {
+      $('archiveSkillError').textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function unarchiveSkillByName(name, button) {
+    button.disabled = true;
+    try {
+      const result = await postJson('/api/skills/unarchive', { name });
+      pushFeed('SKILL_UNARCHIVED', `name=${slug(result.name)} backup=${Boolean(result.backupCreated)}`, 'info');
+      await loadSkills(true);
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function rateSkill(skill, rating, button) {
+    button.disabled = true;
+    try {
+      const result = await postJson('/api/skills/rate', { id: skill.id, rating });
+      skill.rating = result.rating;
+      pushFeed('SKILL_RATED', `name=${slug(skill.name)} mark=${rating}`, 'info');
+      renderTargets();
+    } catch (error) {
+      toast(error.message, true);
+      button.disabled = false;
+    }
+  }
+
+  function openContextCostDialog() {
+    renderContextCost();
+    $('contextCostDialog').showModal();
+  }
+
   async function executeCommand(index = commandSelection) {
     const command = visibleCommands[index];
     if (!command || command.disabled) return;
@@ -5914,6 +6367,25 @@
     const aiAction = event.target.closest('[data-ai-action]');
     if (aiAction) {
       await runAiWorkflowAction(aiAction.dataset.aiAction, aiAction);
+      return;
+    }
+    const ratingButton = event.target.closest('[data-skill-rate]');
+    if (ratingButton) {
+      const card = ratingButton.closest('[data-skill-id]');
+      const skill = state.skills.find((item) => item.id === card?.dataset.skillId);
+      if (skill) await rateSkill(skill, ratingButton.dataset.skillRate, ratingButton);
+      return;
+    }
+    const archiveButton = event.target.closest('[data-skill-archive]');
+    if (archiveButton) {
+      const card = archiveButton.closest('[data-skill-id]');
+      const skill = state.skills.find((item) => item.id === card?.dataset.skillId);
+      if (skill) openArchiveSkill(skill);
+      return;
+    }
+    const unarchiveButton = event.target.closest('[data-skill-unarchive]');
+    if (unarchiveButton) {
+      await unarchiveSkillByName(unarchiveButton.dataset.skillUnarchive, unarchiveButton);
       return;
     }
     const editButton = event.target.closest('[data-edit-project]');
@@ -6055,6 +6527,16 @@
   });
 
   $('addProject').addEventListener('click', () => openProjectEditor());
+  $('newSkill').addEventListener('click', openNewSkillDialog);
+  $('createSkill').addEventListener('click', createSkill);
+  $('newSkillName').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void createSkill();
+    }
+  });
+  $('confirmArchiveSkill').addEventListener('click', confirmArchiveSkill);
+  $('contextTaxTrigger').addEventListener('click', openContextCostDialog);
   $('saveProject').addEventListener('click', saveProjectEditor);
   $('removeProject').addEventListener('click', removeEditedProject);
   $('addEditorComponent').addEventListener('click', () => {

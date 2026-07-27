@@ -16,6 +16,12 @@ and this project follows [Semantic Versioning](VERSIONING.md).
   conflict-safe one-click installation, atomic writes, and timestamped backups.
 - Added a machine-aware agent prompt that configures usage tracking with live
   paths and disappears once the hook is detected.
+- Added Skills maintenance cards with eight-week usage history, cold and rewrite
+  signals, deterministic lint and routing-overlap findings, effectiveness marks,
+  and cached Git edit age.
+- Added a local context-tax breakdown, lint-clean personal skill scaffolding,
+  and backed-up archive/restore actions. Default and plugin skills remain
+  read-only.
 
 ### Changed
 

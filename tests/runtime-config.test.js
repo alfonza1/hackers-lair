@@ -66,6 +66,7 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
   assert.equal(runtime.projects.file, path.join(data, 'projects.json'));
   assert.ok(fs.existsSync(path.join(data, 'scripts.json')));
   assert.ok(fs.existsSync(path.join(data, 'settings.json')));
+  assert.ok(fs.existsSync(path.join(data, 'skill-ratings.json')));
   const defaultSettings = runtime.settings.read().value;
   assert.equal(defaultSettings.enableSkills, false);
   assert.equal(defaultSettings.enableScripts, false);
@@ -76,6 +77,19 @@ test('initializes sanitized runtime configuration outside the repository', (t) =
     enableSessionFeed: false,
     contextTaxWarnTokens: 8000,
   });
+  assert.deepEqual(runtime.skillRatings.read().value, { ratings: {} });
+  runtime.skillRatings.write({
+    ratings: {
+      'personal-workspace-verify': { positive: 2, negative: 1 },
+    },
+  });
+  assert.equal(
+    runtime.skillRatings.read().value.ratings['personal-workspace-verify'].positive,
+    2,
+  );
+  assert.throws(() => runtime.skillRatings.write({
+    ratings: { bad: { positive: -1, negative: 0 } },
+  }), /non-negative integers/i);
 
   const workspaceFolders = process.platform === 'win32'
     ? ['D:\\Code', 'E:\\Experiments']

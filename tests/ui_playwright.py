@@ -409,14 +409,16 @@ def assert_settings_panel(page, scripts_supported: bool) -> None:
 
     skills = page.get_by_role("switch", name=re.compile(r"Skills panel"))
     scripts = page.get_by_role("switch", name=re.compile(r"Scripts panel"))
-    expect(skills).to_be_checked()
-    expect(page.locator("#skillsTab")).to_be_visible()
+    expect(skills).not_to_be_checked()
+    expect(page.locator("#skillsTab")).to_be_hidden()
     expect(page.locator("#scriptsTab")).to_be_hidden()
 
-    skills.uncheck()
-    expect(page.locator("#skillsTab")).to_be_hidden()
     skills.check()
     expect(page.locator("#skillsTab")).to_be_visible()
+    expect(page.get_by_role("switch", name=re.compile(r"Usage stats"))).to_be_checked()
+    expect(page.get_by_role("switch", name=re.compile(r"Session feed"))).not_to_be_checked()
+    expect(page.locator("#coldSkillDays")).to_have_value("45")
+    expect(page.locator("#contextTaxWarnTokens")).to_have_value("8000")
 
     if scripts_supported:
         expect(scripts).to_be_visible()
@@ -459,6 +461,49 @@ def assert_settings_panel(page, scripts_supported: bool) -> None:
     page.keyboard.press("Escape")
     expect(popover).to_be_hidden()
     page.set_viewport_size({"width": 1440, "height": 900})
+
+
+def assert_skills_maintenance(page) -> None:
+    page.get_by_role("tab", name="Skills", exact=True).click()
+    verify = page.locator('[data-card-kind="skill"]').filter(has_text="verify")
+    expect(verify).to_be_visible(timeout=15_000)
+    expect(verify).to_contain_text("1 use")
+    expect(verify.locator(".skill-health")).to_have_class(re.compile(r"\bok\b"))
+    expect(verify.get_by_role("button", name=re.compile(r"Mark verify effective"))).to_have_text("+ 0")
+    verify.get_by_role("button", name=re.compile(r"Mark verify effective")).click()
+    expect(verify.get_by_role("button", name=re.compile(r"Mark verify effective"))).to_have_text("+ 1")
+
+    context_trigger = page.locator("#contextTaxTrigger")
+    expect(context_trigger).to_contain_text("Context")
+    context_trigger.click()
+    context_dialog = page.get_by_role("dialog", name="Context Tax")
+    expect(context_dialog).to_be_visible()
+    expect(context_dialog.locator("#contextCostSummary")).to_contain_text("Estimated")
+    context_dialog.get_by_role("button", name="Close", exact=True).first.click()
+
+    page.locator("#newSkill").click()
+    new_skill = page.get_by_role("dialog", name="New Skill")
+    expect(new_skill).to_be_visible()
+    new_skill.locator("#newSkillName").fill("browser-helper")
+    new_skill.get_by_role("button", name="Create Skill").click()
+    expect(new_skill).to_be_hidden()
+
+    helper = page.locator('[data-card-kind="skill"]').filter(has_text="browser-helper")
+    expect(helper).to_be_visible()
+    helper.get_by_role("button", name="Archive").click()
+    archive = page.get_by_role("dialog", name="Archive Skill")
+    expect(archive).to_be_visible()
+    expect(archive).to_contain_text("timestamped backup")
+    archive.get_by_role("button", name="Archive", exact=True).click()
+    expect(archive).to_be_hidden()
+    expect(helper).to_have_count(0)
+
+    archived = page.locator(".archived-skills")
+    expect(archived).to_be_visible()
+    archived.locator("summary").click()
+    archived.get_by_role("button", name="Restore").click()
+    expect(page.locator('[data-card-kind="skill"]').filter(has_text="browser-helper")).to_be_visible()
+    page.get_by_role("tab", name="Targets", exact=True).click()
 
 
 def assert_palette_and_theme(page) -> None:
@@ -523,12 +568,40 @@ def run() -> None:
     dormant_directory.mkdir()
     write_projects(data_directory, [])
     script_name = write_script_fixture(data_directory) if os.name == "nt" else None
+    agents_home = data_directory / "agents"
+    verify_skill = agents_home / "skills" / "verify"
+    verify_skill.mkdir(parents=True)
+    (verify_skill / "SKILL.md").write_text(
+        "---\n"
+        "name: verify\n"
+        "description: Verify repository changes through public interfaces before release.\n"
+        "---\n\n"
+        "# Verify\n",
+        encoding="utf-8",
+    )
+    (agents_home / "usage-log.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "skill",
+                "name": "verify",
+                "project": str(data_directory),
+                "ts": "2026-07-27T18:04:11.000Z",
+                "source": "manual",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    claude_home = data_directory / "claude"
+    claude_home.mkdir()
+    (claude_home / "settings.json").write_text("{}", encoding="utf-8")
 
     environment = {
         **os.environ,
         "PORT": str(manager_port),
         "PROJECT_MANAGER_DATA_DIR": str(data_directory),
-        "AGENTS_HOME": str(data_directory / "agents-disabled"),
+        "AGENTS_HOME": str(agents_home),
+        "CLAUDE_CONFIG_DIR": str(claude_home),
     }
     service = subprocess.Popen(
         ["node", str(ROOT / "server.js")],
@@ -645,6 +718,7 @@ def run() -> None:
             assert_port_signal_action_tray(page, live_listener.port)
             assert_minimal_update_controls(page)
             assert_settings_panel(page, scripts_supported=script_name is not None)
+            assert_skills_maintenance(page)
             if script_name:
                 assert_script_action_tray(page, script_name)
             assert_palette_and_theme(page)

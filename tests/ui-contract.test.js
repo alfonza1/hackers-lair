@@ -106,6 +106,22 @@ test('AI workflow setup is opt-in, reviewable, and local-only', () => {
   assert.match(html, /USAGE_LOG_COMPACTED/);
 });
 
+test('Skills maintenance cards expose health, usage, ratings, context, and guarded lifecycle actions', () => {
+  assert.match(html, /id="newSkill"[^>]*>\+ New Skill/);
+  assert.match(html, /id="contextTaxTrigger"/);
+  assert.match(html, /class="skill-health/);
+  assert.match(html, /skillSparkline/);
+  assert.match(html, /data-skill-rate="positive"/);
+  assert.match(html, /data-skill-rate="negative"/);
+  assert.match(html, /data-skill-archive/);
+  assert.match(html, /id="archiveSkillDialog"/);
+  assert.match(html, /timestamped backup/);
+  assert.doesNotMatch(html, /confirm\(`Archive|window\.confirm\([^)]*skill/i);
+  assert.match(html, /Archived skills/);
+  assert.match(html, /data-skill-unarchive/);
+  assert.match(html, /CONTEXT_TAX_SCANNED/);
+});
+
 test('runtime resilience controls surface backend and log state', () => {
   assert.match(html, /id="backendBanner"/);
   assert.match(html, /syncDesktopBackend/);

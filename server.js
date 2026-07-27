@@ -9,7 +9,16 @@ const { exec, spawn } = require('child_process');
 const { gitAttentionForProject, refreshGitAttention } = require('./lib/git-attention');
 const { compareProjectsForDisplay } = require('./lib/project-order');
 const { onboardingState, usageTrackingSetupPrompt } = require('./lib/onboarding-prompts');
-const { listSkills } = require('./lib/skill-registry');
+const { listSkills, skillRoots } = require('./lib/skill-registry');
+const { lintSkills } = require('./lib/skill-lint');
+const { contextCost } = require('./lib/context-cost');
+const {
+  archiveSkill,
+  listArchivedSkills,
+  scaffoldSkill,
+  unarchiveSkill,
+} = require('./lib/skill-maintenance');
+const { lastTouchedForSkills } = require('./lib/skill-git');
 const {
   buildUsageHookCommand,
   inspectUsageHook,
@@ -18,6 +27,9 @@ const {
   writeUsageHookShim,
 } = require('./lib/claude-settings');
 const {
+  aggregateUsageLog,
+  eventKey,
+  isColdUsage,
   pruneOlderThan,
   resolveAgentsHome,
 } = require('./lib/usage-log');
@@ -82,6 +94,13 @@ const CLAUDE_SETTINGS_FILE = path.join(CLAUDE_HOME, 'settings.json');
 const USAGE_LOG_FILE = path.join(AGENTS_HOME, 'usage-log.jsonl');
 const USAGE_HOOK_SHIM_FILE = path.join(DATA_DIR, 'hackers-lair-usage-hook.js');
 const USAGE_HOOK_COMMAND = buildUsageHookCommand(USAGE_HOOK_SHIM_FILE);
+const SKILL_ROOTS = skillRoots({
+  agentsHome: AGENTS_HOME,
+  claudeHome: CLAUDE_HOME,
+});
+const PERSONAL_SKILLS_ROOT = SKILL_ROOTS.personalSkills;
+const SKILL_BACKUP_ROOT = path.join(DATA_DIR, 'backups', 'skills');
+const REWRITE_USAGE_THRESHOLD = 3;
 const STORE = path.join(DATA_DIR, 'stopped.json');
 const MAX_STOPPED = 40;
 const PROJECTS_FILE = runtimeConfig.projects.file;
@@ -155,6 +174,75 @@ function usageSetupState(settings = loadSettings()) {
       instructionsFile,
       hookCommand: USAGE_HOOK_COMMAND,
     }),
+  };
+}
+
+function internalSkills() {
+  return listSkills({
+    agentsHome: AGENTS_HOME,
+    claudeHome: CLAUDE_HOME,
+    includeFiles: true,
+  });
+}
+
+function publicSkillRecord(skill) {
+  const {
+    directory: _directory,
+    skillFile: _skillFile,
+    skillsRoot: _skillsRoot,
+    modifiedAt: _modifiedAt,
+    ...record
+  } = skill;
+  return record;
+}
+
+async function annotatedSkills(settings = loadSettings()) {
+  const skills = internalSkills();
+  const usage = settings.aiWorkflow.enableUsageStats
+    ? await aggregateUsageLog(USAGE_LOG_FILE)
+    : {
+        byKey: {},
+        bytesRead: 0,
+        events: 0,
+        logStartedAt: null,
+        malformedLines: 0,
+      };
+  const lint = lintSkills(skills);
+  const lastTouched = await lastTouchedForSkills(
+    skills.filter((skill) => skill.kind === 'personal'),
+  );
+  const ratingsResult = runtimeConfig.skillRatings.read();
+  const ratings = ratingsResult.value.ratings || {};
+  return {
+    skills: skills.map((skill) => {
+      const skillUsage = usage.byKey[eventKey('skill', skill.name)] || null;
+      const rating = ratings[skill.id] || { positive: 0, negative: 0 };
+      return {
+        ...publicSkillRecord(skill),
+        canManage: skill.kind === 'personal',
+        usage: skillUsage,
+        cold: isColdUsage({
+          usage: skillUsage,
+          logStartedAt: usage.logStartedAt,
+          coldSkillDays: settings.aiWorkflow.coldSkillDays,
+        }),
+        lint: lint.get(skill.id) || { level: 'ok', findings: [] },
+        rating,
+        rewriteSuggested: Boolean(
+          skillUsage?.count >= REWRITE_USAGE_THRESHOLD
+          && rating.negative > rating.positive,
+        ),
+        lastTouchedAt: lastTouched.get(skill.id) || null,
+      };
+    }),
+    archived: listArchivedSkills(PERSONAL_SKILLS_ROOT),
+    usage: {
+      enabled: settings.aiWorkflow.enableUsageStats,
+      events: usage.events,
+      logStartedAt: usage.logStartedAt,
+      malformedLines: usage.malformedLines,
+    },
+    ratingsError: ratingsResult.error,
   };
 }
 
@@ -1509,7 +1597,180 @@ const server = http.createServer(async (req, res) => {
         json(res, 404, { error: 'The Skills view is disabled. Enable it in Settings.' });
         return;
       }
-      json(res, 200, { skills: listSkills({ agentsHome: AGENTS_HOME }) });
+      json(res, 200, await annotatedSkills(settings));
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/skills') {
+      if (!loadSettings().enableSkills) {
+        json(res, 404, { error: 'The Skills view is disabled. Enable it in Settings.' });
+        return;
+      }
+      let name;
+      try { name = String(JSON.parse(await readBody(req)).name || ''); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = 'skills:write';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'A Skills change is already in progress.' });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
+        const created = scaffoldSkill({ skillsRoot: PERSONAL_SKILLS_ROOT, name });
+        json(res, 201, {
+          ok: true,
+          name: created.name,
+          event: 'SKILL_SCAFFOLDED',
+        });
+      } catch (error) {
+        json(res, /already exists/i.test(error.message) ? 409 : 400, { error: error.message });
+      } finally {
+        actionLocks.delete(actionKey);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/skills/archive') {
+      if (!loadSettings().enableSkills) {
+        json(res, 404, { error: 'The Skills view is disabled. Enable it in Settings.' });
+        return;
+      }
+      let id;
+      try { id = String(JSON.parse(await readBody(req)).id || ''); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const skill = internalSkills().find((candidate) => candidate.id === id);
+      if (!skill) {
+        json(res, 404, { error: 'Skill was not found.' });
+        return;
+      }
+      if (skill.kind !== 'personal' || skill.skillsRoot !== PERSONAL_SKILLS_ROOT) {
+        json(res, 403, { error: 'Only personal workspace skills can be archived.' });
+        return;
+      }
+      const actionKey = 'skills:write';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'A Skills change is already in progress.' });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
+        const result = archiveSkill({
+          skillsRoot: PERSONAL_SKILLS_ROOT,
+          backupRoot: SKILL_BACKUP_ROOT,
+          name: path.basename(skill.directory),
+        });
+        json(res, 200, {
+          ok: true,
+          name: result.name,
+          backupCreated: Boolean(result.backupDirectory),
+          event: 'SKILL_ARCHIVED',
+        });
+      } catch (error) {
+        json(res, 409, { error: error.message });
+      } finally {
+        actionLocks.delete(actionKey);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/skills/unarchive') {
+      if (!loadSettings().enableSkills) {
+        json(res, 404, { error: 'The Skills view is disabled. Enable it in Settings.' });
+        return;
+      }
+      let name;
+      try { name = String(JSON.parse(await readBody(req)).name || ''); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const actionKey = 'skills:write';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'A Skills change is already in progress.' });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
+        const result = unarchiveSkill({
+          skillsRoot: PERSONAL_SKILLS_ROOT,
+          backupRoot: SKILL_BACKUP_ROOT,
+          name,
+        });
+        json(res, 200, {
+          ok: true,
+          name: result.name,
+          backupCreated: Boolean(result.backupDirectory),
+          event: 'SKILL_UNARCHIVED',
+        });
+      } catch (error) {
+        json(res, /already exists/i.test(error.message) ? 409 : 400, { error: error.message });
+      } finally {
+        actionLocks.delete(actionKey);
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/skills/rate') {
+      if (!loadSettings().enableSkills) {
+        json(res, 404, { error: 'The Skills view is disabled. Enable it in Settings.' });
+        return;
+      }
+      let input;
+      try { input = JSON.parse(await readBody(req)); }
+      catch { json(res, 400, { error: 'Invalid JSON body' }); return; }
+      const id = String(input.id || '');
+      const rating = String(input.rating || '');
+      if (!['positive', 'negative'].includes(rating)) {
+        json(res, 400, { error: 'rating must be positive or negative.' });
+        return;
+      }
+      if (!internalSkills().some((skill) => skill.id === id)) {
+        json(res, 404, { error: 'Skill was not found.' });
+        return;
+      }
+      const actionKey = 'skills:ratings';
+      if (actionLocks.has(actionKey)) {
+        json(res, 409, { error: 'A skill rating is already being saved.' });
+        return;
+      }
+      actionLocks.add(actionKey);
+      try {
+        const current = runtimeConfig.skillRatings.read();
+        if (current.error) {
+          json(res, 409, { error: `Fix skill-ratings.json before rating: ${current.error}` });
+          return;
+        }
+        const existing = current.value.ratings[id] || { positive: 0, negative: 0 };
+        const nextRating = { ...existing, [rating]: existing[rating] + 1 };
+        runtimeConfig.skillRatings.write({
+          ratings: {
+            ...current.value.ratings,
+            [id]: nextRating,
+          },
+        });
+        json(res, 200, { ok: true, id, rating: nextRating, event: 'SKILL_RATED' });
+      } finally {
+        actionLocks.delete(actionKey);
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/ai/context-cost') {
+      const settings = loadSettings();
+      if (!settings.enableSkills) {
+        json(res, 404, { error: 'The AI workflow area is disabled. Enable Skills in Settings.' });
+        return;
+      }
+      const workspaceRoots = [
+        ...settings.workspaceFolders,
+        ...loadProjects().flatMap((project) => (
+          (project.components || []).map((component) => component.cwd).filter(Boolean)
+        )),
+      ];
+      json(res, 200, contextCost({
+        workspaceRoots,
+        skills: internalSkills(),
+        claudeHome: CLAUDE_HOME,
+        codexHome: SKILL_ROOTS.codexHome,
+        warnTokens: settings.aiWorkflow.contextTaxWarnTokens,
+      }));
       return;
     }
 

@@ -108,6 +108,12 @@ JSON.
   hook. It records only event type, name, project, timestamp, and source in
   `.agents/usage-log.jsonl`—never prompts, file contents, arguments,
   environment variables, tokens, or credentials.
+- Skill cards combine local usage history, cold detection, lint and routing
+  overlap findings, effectiveness marks, and Git edit age. Personal skills can
+  be scaffolded or moved into a recoverable `.archive`; bundled and plugin
+  skills stay read-only.
+- The context-tax meter estimates auto-loaded instructions, skill descriptions,
+  memory, and MCP configuration with the offline `characters / 4` rule.
 - Curated phosphor, ultraviolet, ice, volt, and high-contrast ghost themes.
 
 ![Hacker's Lair Targets view with fictional live and dormant projects](docs/screenshots/targets.png)

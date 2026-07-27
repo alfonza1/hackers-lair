@@ -60,6 +60,24 @@ test('protects localhost mutations and verifies the bound service identity', asy
   fs.writeFileSync(path.join(dataDirectory, 'projects.json'), '{"projects":[]}');
   const agentsHome = path.join(dataDirectory, '.agents');
   const claudeHome = path.join(dataDirectory, '.claude');
+  const verifySkillDirectory = path.join(agentsHome, 'skills', 'verify');
+  fs.mkdirSync(verifySkillDirectory, { recursive: true });
+  fs.writeFileSync(path.join(verifySkillDirectory, 'SKILL.md'), [
+    '---',
+    'name: verify',
+    'description: Verify repository changes through public interfaces before release.',
+    '---',
+    '',
+    '# Verify',
+    '',
+  ].join('\n'));
+  fs.writeFileSync(path.join(agentsHome, 'usage-log.jsonl'), `${JSON.stringify({
+    type: 'skill',
+    name: 'verify',
+    project: dataDirectory,
+    ts: new Date().toISOString(),
+    source: 'manual',
+  })}\n`);
   fs.mkdirSync(claudeHome, { recursive: true });
   fs.writeFileSync(path.join(claudeHome, 'settings.json'), JSON.stringify({
     permissions: { allow: ['Read'] },
@@ -195,8 +213,89 @@ test('protects localhost mutations and verifies the bound service identity', asy
   const featureSettings = JSON.parse(fs.readFileSync(path.join(dataDirectory, 'settings.json')));
   assert.equal(featureSettings.enableSkills, true);
   assert.equal(featureSettings.enableScripts, true);
-  assert.equal((await request({ port, pathname: '/api/skills' })).status, 200);
+  const enabledSkillsResponse = await request({ port, pathname: '/api/skills' });
+  assert.equal(enabledSkillsResponse.status, 200);
+  const enabledSkills = JSON.parse(enabledSkillsResponse.body);
+  const verifySkill = enabledSkills.skills.find((skill) => skill.name === 'verify');
+  assert.equal(verifySkill.usage.count, 1);
+  assert.equal(verifySkill.lint.level, 'ok');
+  assert.deepEqual(verifySkill.rating, { positive: 0, negative: 0 });
+  assert.equal(verifySkill.canManage, true);
+  assert.equal('directory' in verifySkill, false);
   assert.equal(JSON.parse((await request({ port, pathname: '/api/scripts' })).body).enabled, true);
+
+  const contextCostResponse = await request({ port, pathname: '/api/ai/context-cost' });
+  assert.equal(contextCostResponse.status, 200);
+  assert.ok(Number.isInteger(JSON.parse(contextCostResponse.body).totalTokens));
+
+  const unsafeScaffold = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/skills',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ name: '../escape' }),
+  });
+  assert.equal(unsafeScaffold.status, 400);
+  assert.equal(fs.existsSync(path.join(agentsHome, 'escape')), false);
+
+  const scaffold = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/skills',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ name: 'release-helper' }),
+  });
+  assert.equal(scaffold.status, 201);
+  const scaffoldedSkills = JSON.parse((await request({ port, pathname: '/api/skills' })).body);
+  const releaseHelper = scaffoldedSkills.skills.find((skill) => skill.name === 'release-helper');
+  assert.ok(releaseHelper);
+  assert.equal(releaseHelper.lint.level, 'ok');
+
+  const ratingResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/skills/rate',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ id: verifySkill.id, rating: 'positive' }),
+  });
+  assert.equal(ratingResponse.status, 200);
+  assert.deepEqual(JSON.parse(ratingResponse.body).rating, { positive: 1, negative: 0 });
+
+  const bundledSkill = scaffoldedSkills.skills.find((skill) => skill.kind === 'default');
+  const protectedArchive = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/skills/archive',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ id: bundledSkill.id }),
+  });
+  assert.equal(protectedArchive.status, 403);
+
+  const archiveResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/skills/archive',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ id: releaseHelper.id }),
+  });
+  assert.equal(archiveResponse.status, 200);
+  const afterArchive = JSON.parse((await request({ port, pathname: '/api/skills' })).body);
+  assert.equal(afterArchive.skills.some((skill) => skill.name === 'release-helper'), false);
+  assert.equal(afterArchive.archived.some((skill) => skill.name === 'release-helper'), true);
+
+  const unarchiveResponse = await request({
+    port,
+    method: 'POST',
+    pathname: '/api/skills/unarchive',
+    headers: authorizedHeaders,
+    body: JSON.stringify({ name: 'release-helper' }),
+  });
+  assert.equal(unarchiveResponse.status, 200);
+  assert.equal(
+    JSON.parse((await request({ port, pathname: '/api/skills' })).body)
+      .skills.some((skill) => skill.name === 'release-helper'),
+    true,
+  );
 
   const setupResponse = await request({ port, pathname: '/api/ai/setup' });
   assert.equal(setupResponse.status, 200);
