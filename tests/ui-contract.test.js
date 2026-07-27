@@ -31,13 +31,13 @@ test('a raw app shell fails closed with an actionable stale-server message', () 
   );
 });
 
-test('UI omits N/A placeholders and ships the curated preference surface', () => {
+test('UI omits N/A placeholders and keeps persisted preference behavior out of the header', () => {
   assert.doesNotMatch(html, /\bN\/A\b/);
   for (const theme of ['phosphor', 'amber', 'ice', 'crimson', 'ghost']) {
-    assert.match(html, new RegExp(`data-theme="${theme}"|value="${theme}"`));
+    assert.match(html, new RegExp(`data-theme="${theme}"|'${theme}'`));
   }
   for (const preference of ['themePreference', 'densityPreference', 'motionPreference', 'fontScalePreference']) {
-    assert.match(html, new RegExp(`id="${preference}"`));
+    assert.doesNotMatch(html, new RegExp(`id="${preference}"`));
   }
   assert.match(html, /\/api\/settings\/preferences/);
   assert.match(html, /if \(pollInFlight \|\| document\.hidden\) return/);
@@ -51,23 +51,26 @@ test('target cards expose compact details and truthful port groups', () => {
   assert.match(html, /points\.length < 5/);
 });
 
-test('command palette includes setup and every preference family', () => {
-  for (const verb of ['ADD', 'SCAN', 'SETTINGS', 'UPDATES', 'THEME', 'DENSITY', 'MOTION', 'FONT']) {
+test('command palette includes setup, release, conditional update, and every preference family', () => {
+  for (const verb of ['ADD', 'SCAN', 'RELEASE', 'UPDATE', 'THEME', 'DENSITY', 'MOTION', 'FONT']) {
     assert.match(html, new RegExp(`verb: '${verb}'`));
   }
+  assert.doesNotMatch(html, /verb: 'SETTINGS'/);
   assert.match(html, /component\.hasLog/);
 });
 
-test('updates and release notes live in the Settings dialog', () => {
+test('update command and release notes use separate minimal controls', () => {
   assert.doesNotMatch(html, /id="updateBanner"/);
-  assert.match(html, /aria-label="Settings"/);
-  assert.doesNotMatch(html, />UI preferences</);
-  assert.match(html, /id="updatesTrigger"/);
-  assert.match(html, /id="settingsUpdateDot"/);
-  assert.match(html, /id="settingsUpdateBadge"/);
+  assert.doesNotMatch(html, />Settings</);
+  assert.doesNotMatch(html, /Curated local presets/);
+  assert.match(html, /id="updateAvailableTrigger"/);
+  assert.match(html, /id="releaseNotesTrigger"/);
   assert.match(html, /id="updateDialog"/);
   assert.match(html, /id="copyUpdateCommand"/);
-  assert.match(html, /id="releaseNotesBody"/);
+  assert.doesNotMatch(html, /id="releaseNotesBody"/);
+  assert.doesNotMatch(html, /id="updateCurrentVersion"/);
+  assert.doesNotMatch(html, /id="updateChannel"/);
+  assert.doesNotMatch(html, /id="updateStatus"/);
 });
 
 test('runtime resilience controls surface backend and log state', () => {

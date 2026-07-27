@@ -279,19 +279,21 @@ def assert_script_action_tray(page, script_name: str) -> None:
     page.get_by_role("tab", name="Targets", exact=True).click()
 
 
-def assert_update_settings_dialog(page) -> None:
+def assert_minimal_update_controls(page) -> None:
     expect(page.locator("#updateBanner")).to_have_count(0)
-    expect(page.locator("#settingsUpdateDot")).to_be_hidden()
-    page.evaluate("window.__lairUpdateListener(window.__availableUpdate)")
-    expect(page.locator("#settingsUpdateDot")).to_be_visible()
-    page.get_by_role("button", name="Settings").click()
-    updates = page.get_by_role("button", name=re.compile(r"Updates & release notes"))
-    expect(updates).to_be_visible()
-    expect(updates).to_contain_text("Update available")
-    expect(page.locator("#settingsUpdateBadge")).to_be_visible()
-    updates.click()
+    update_trigger = page.locator("#updateAvailableTrigger")
+    expect(update_trigger).to_be_hidden()
+    release_notes = page.get_by_role("button", name="Release notes")
+    expect(release_notes).to_be_visible()
+    release_notes.click()
+    assert page.evaluate("window.__releaseNotesOpened") is True
 
-    dialog = page.get_by_role("dialog", name="Updates & release notes")
+    page.evaluate("window.__lairUpdateListener(window.__availableUpdate)")
+    expect(update_trigger).to_be_visible()
+    expect(update_trigger).to_contain_text("v2.1.0-beta.3")
+    update_trigger.click()
+
+    dialog = page.get_by_role("dialog", name="Update available")
     expect(dialog).to_be_visible()
     expect(dialog).to_contain_text(
         "v2.1.0-beta.3 is available."
@@ -299,17 +301,17 @@ def assert_update_settings_dialog(page) -> None:
     expect(dialog.locator("#updateCommand")).to_have_text(
         "irm https://hackerslairhq.github.io/desktop/install.ps1 | iex"
     )
-    expect(dialog.locator("#releaseNotesBody")).to_contain_text(
-        "Portable update fixture notes."
-    )
+    expect(dialog.locator("#releaseNotesBody")).to_have_count(0)
+    expect(dialog.locator("#updateCurrentVersion")).to_have_count(0)
+    expect(dialog.locator("#updateChannel")).to_have_count(0)
+    expect(dialog.locator("#updateStatus")).to_have_count(0)
     dialog.get_by_role("button", name="Copy command").click()
     expect(page.locator("#toast")).to_have_text("Update command copied.")
     dialog.get_by_role("button", name="Close", exact=True).click()
     expect(dialog).to_be_hidden()
 
     page.set_viewport_size({"width": 900, "height": 620})
-    page.get_by_role("button", name="Settings").click()
-    page.get_by_role("button", name=re.compile(r"Updates & release notes")).click()
+    update_trigger.click()
     dialog_box = dialog.bounding_box()
     assert dialog_box is not None
     assert dialog_box["x"] >= 0 and dialog_box["y"] >= 0
@@ -433,7 +435,10 @@ def run() -> None:
                     window.__lairUpdateListener = callback;
                     return () => {};
                   },
-                  openUpdateNotes: async () => true,
+                  openUpdateNotes: async () => {
+                    window.__releaseNotesOpened = true;
+                    return true;
+                  },
                 };
                 """
             )
@@ -469,7 +474,7 @@ def run() -> None:
             assert_port_signal_action_tray(page, live_listener.port)
             if script_name:
                 assert_script_action_tray(page, script_name)
-            assert_update_settings_dialog(page)
+            assert_minimal_update_controls(page)
             assert_palette_and_theme(page)
             assert_responsive_layout(page)
             assert not console_errors, f"Browser console errors: {console_errors}"
@@ -477,7 +482,7 @@ def run() -> None:
             browser = None
         print(
             "Playwright UI smoke passed: empty state, port conflict warning, target states, "
-            "compact action trays, update settings dialog, palette, theme, and 900x620."
+            "compact action trays, minimal update controls, palette, theme, and 900x620."
         )
     except Exception:
         OUTPUT_DIRECTORY.mkdir(exist_ok=True)
