@@ -322,6 +322,38 @@ def assert_minimal_update_controls(page) -> None:
     page.set_viewport_size({"width": 1440, "height": 900})
 
 
+def assert_launch_on_startup_setting(page) -> None:
+    settings = page.get_by_role("button", name="Settings", exact=True)
+    expect(settings).to_be_visible()
+    settings.click()
+
+    popover = page.locator("#settingsPopover")
+    expect(popover).to_be_visible()
+    launch = page.get_by_role("switch", name=re.compile(r"Launch on startup"))
+    expect(launch).not_to_be_checked()
+    expect(page.locator("#launchOnStartupStatus")).to_have_text("Disabled")
+
+    launch.check()
+    expect(launch).to_be_checked()
+    expect(page.locator("#launchOnStartupStatus")).to_have_text("Enabled")
+    assert page.evaluate("window.__launchOnStartup") is True
+
+    launch.uncheck()
+    expect(launch).not_to_be_checked()
+    expect(page.locator("#launchOnStartupStatus")).to_have_text("Disabled")
+    assert page.evaluate("window.__launchOnStartup") is False
+
+    page.set_viewport_size({"width": 900, "height": 620})
+    popover_box = popover.bounding_box()
+    assert popover_box is not None
+    assert popover_box["x"] >= 0
+    assert popover_box["x"] + popover_box["width"] <= 900
+
+    page.keyboard.press("Escape")
+    expect(popover).to_be_hidden()
+    page.set_viewport_size({"width": 1440, "height": 900})
+
+
 def assert_palette_and_theme(page) -> None:
     page.keyboard.press("Control+K")
     palette = page.locator("#commandPalette")
@@ -418,6 +450,14 @@ def run() -> None:
                   restart: () => {},
                   shutdown: () => {},
                   onMaximizeChange: () => () => {},
+                  getLaunchAtLogin: async () => ({
+                    supported: true,
+                    enabled: Boolean(window.__launchOnStartup),
+                  }),
+                  setLaunchAtLogin: async (enabled) => {
+                    window.__launchOnStartup = Boolean(enabled);
+                    return { supported: true, enabled: window.__launchOnStartup };
+                  },
                   getUpdateState: async () => ({
                     channel: 'powershell',
                     channelLabel: 'PowerShell portable',
@@ -475,6 +515,7 @@ def run() -> None:
             if script_name:
                 assert_script_action_tray(page, script_name)
             assert_minimal_update_controls(page)
+            assert_launch_on_startup_setting(page)
             assert_palette_and_theme(page)
             assert_responsive_layout(page)
             assert not console_errors, f"Browser console errors: {console_errors}"
@@ -482,7 +523,8 @@ def run() -> None:
             browser = None
         print(
             "Playwright UI smoke passed: empty state, port conflict warning, target states, "
-            "compact action trays, minimal update controls, palette, theme, and 900x620."
+            "compact action trays, launch-on-startup setting, minimal update controls, "
+            "palette, theme, and 900x620."
         )
     except Exception:
         OUTPUT_DIRECTORY.mkdir(exist_ok=True)

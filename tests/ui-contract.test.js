@@ -56,12 +56,13 @@ test('command palette includes setup, release, conditional update, and every pre
     assert.match(html, new RegExp(`verb: '${verb}'`));
   }
   assert.doesNotMatch(html, /verb: 'SETTINGS'/);
+  assert.match(html, /Enable launch on startup/);
+  assert.doesNotMatch(html, /Enable launch at login/);
   assert.match(html, /component\.hasLog/);
 });
 
 test('update command and release notes use separate minimal controls', () => {
   assert.doesNotMatch(html, /id="updateBanner"/);
-  assert.doesNotMatch(html, />Settings</);
   assert.doesNotMatch(html, /Curated local presets/);
   assert.match(html, /id="updateAvailableTrigger"/);
   assert.match(html, /id="releaseNotesTrigger"/);
@@ -71,6 +72,17 @@ test('update command and release notes use separate minimal controls', () => {
   assert.doesNotMatch(html, /id="updateCurrentVersion"/);
   assert.doesNotMatch(html, /id="updateChannel"/);
   assert.doesNotMatch(html, /id="updateStatus"/);
+});
+
+test('Settings contains only the renamed launch-on-startup control', () => {
+  assert.match(html, /id="settingsTrigger"[^>]*>Settings</);
+  assert.match(html, /id="settingsPopover"[^>]*hidden/);
+  assert.match(html, /id="launchOnStartup"[^>]*role="switch"/);
+  assert.match(html, /<strong>Launch on startup<\/strong>/);
+  assert.doesNotMatch(html, /Launch at login/);
+  for (const preference of ['themePreference', 'densityPreference', 'motionPreference', 'fontScalePreference']) {
+    assert.doesNotMatch(html, new RegExp(`id="${preference}"`));
+  }
 });
 
 test('runtime resilience controls surface backend and log state', () => {

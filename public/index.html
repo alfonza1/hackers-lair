@@ -531,6 +531,11 @@
     margin-left: auto;
   }
 
+  .settings-shell {
+    position: relative;
+    flex: none;
+  }
+
   .header-action {
     display: inline-flex;
     gap: 7px;
@@ -548,6 +553,97 @@
     white-space: nowrap;
     cursor: pointer;
   }
+
+  .settings-popover {
+    position: absolute;
+    inset: 52px 0 auto auto;
+    z-index: 50;
+    display: grid;
+    gap: 11px;
+    width: min(280px, calc(100vw - 32px));
+    margin: 0;
+    padding: 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 5px;
+    color: var(--text);
+    background: var(--panel-solid);
+    box-shadow: var(--shadow);
+  }
+
+  .settings-popover h2 {
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .startup-setting {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    min-height: 58px;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: rgba(var(--secondary-rgb), .04);
+    cursor: pointer;
+  }
+
+  .startup-setting:active {
+    border-color: var(--cyan);
+    background: rgba(var(--secondary-rgb), .12);
+  }
+
+  .startup-setting > span:first-child {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .startup-setting strong {
+    color: var(--text);
+    font-size: 10px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .startup-setting small {
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .startup-setting input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--green);
+    cursor: pointer;
+  }
+
+  .startup-setting input:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 3px;
+  }
+
+  .startup-setting:has(input:disabled) {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .startup-setting:has(input:disabled) input { cursor: not-allowed; }
+  .startup-setting.is-busy { border-style: dashed; }
+  .startup-setting.is-error { border-color: var(--red); }
+  .startup-setting.is-success { border-color: rgba(var(--accent-rgb), .42); }
+
+  .startup-status {
+    min-height: 13px;
+    color: var(--dim);
+    font-size: 9px;
+  }
+
+  .startup-setting.is-error + .startup-status { color: var(--red); }
+  .startup-setting.is-success + .startup-status { color: var(--green); }
 
   .header-action:active {
     border-color: var(--cyan);
@@ -594,6 +690,11 @@
       border-color: var(--amber);
       color: var(--text);
       background: rgba(var(--warning-rgb), .11);
+    }
+
+    .startup-setting:hover {
+      border-color: var(--cyan);
+      background: rgba(var(--secondary-rgb), .08);
     }
   }
 
@@ -2029,6 +2130,10 @@
       margin-top: 12px;
       margin-left: 0;
     }
+    .settings-popover {
+      right: auto;
+      left: 0;
+    }
     h1 { font-size: 18px; line-height: 1.18; }
     .top-sub { max-width: 28ch; font-size: 11px; }
     .view-tabs { display: grid; grid-template-columns: 1fr; }
@@ -2481,6 +2586,20 @@
         <button class="header-action update-available-trigger" id="updateAvailableTrigger" type="button" hidden>
           <span id="updateAvailableLabel">Update available</span>
         </button>
+        <div class="settings-shell" id="settingsShell" hidden>
+          <button class="header-action" id="settingsTrigger" type="button" aria-expanded="false" aria-controls="settingsPopover">Settings</button>
+          <div class="settings-popover" id="settingsPopover" hidden>
+            <h2>Settings</h2>
+            <label class="startup-setting" id="launchOnStartupField" for="launchOnStartup">
+              <span>
+                <strong>Launch on startup</strong>
+                <small>Open Hacker's Lair when you sign in to Windows.</small>
+              </span>
+              <input id="launchOnStartup" type="checkbox" role="switch">
+            </label>
+            <span class="startup-status" id="launchOnStartupStatus" role="status" aria-live="polite"></span>
+          </div>
+        </div>
         <button class="header-action" id="releaseNotesTrigger" type="button">Release notes</button>
       </div>
     </div>
@@ -2802,7 +2921,7 @@
     settings: null,
     update: null,
     backend: null,
-    launchAtLogin: { supported: false, enabled: false },
+    launchAtLogin: { supported: false, enabled: false, busy: false, error: '' },
     discovery: null,
     uiPreferences: normalizeUiPreferences(loadJson(UI_PREFERENCES_KEY, {})),
     expandedCards: new Set(),
@@ -4009,11 +4128,58 @@
 
   async function syncDesktopSettings() {
     const desktop = window.hackerLairWindow;
-    if (!desktop?.getLaunchAtLogin) return;
+    if (!desktop?.getLaunchAtLogin) {
+      renderLaunchOnStartup();
+      return;
+    }
     try {
-      state.launchAtLogin = await desktop.getLaunchAtLogin();
+      state.launchAtLogin = {
+        ...(await desktop.getLaunchAtLogin()),
+        busy: false,
+        error: '',
+      };
     } catch {
-      state.launchAtLogin = { supported: false, enabled: false };
+      state.launchAtLogin = { supported: false, enabled: false, busy: false, error: '' };
+    }
+    renderLaunchOnStartup();
+  }
+
+  function renderLaunchOnStartup() {
+    const setting = state.launchAtLogin;
+    $('settingsShell').hidden = !setting.supported;
+    $('launchOnStartup').checked = Boolean(setting.enabled);
+    $('launchOnStartup').disabled = !setting.supported || Boolean(setting.busy);
+    $('launchOnStartup').setAttribute('aria-busy', String(Boolean(setting.busy)));
+    $('launchOnStartupField').classList.toggle('is-busy', Boolean(setting.busy));
+    $('launchOnStartupField').classList.toggle('is-error', Boolean(setting.error));
+    $('launchOnStartupField').classList.toggle(
+      'is-success',
+      setting.supported && setting.enabled && !setting.busy && !setting.error,
+    );
+    $('launchOnStartupStatus').textContent = setting.error
+      || (setting.busy ? 'Saving…' : setting.enabled ? 'Enabled' : 'Disabled');
+  }
+
+  async function updateLaunchOnStartup(enabled) {
+    const previous = { ...state.launchAtLogin };
+    state.launchAtLogin = { ...previous, enabled: Boolean(enabled), busy: true, error: '' };
+    renderLaunchOnStartup();
+    try {
+      const setting = await window.hackerLairWindow.setLaunchAtLogin(Boolean(enabled));
+      if (!setting?.supported) throw new Error('Launch on startup is unavailable on this system.');
+      state.launchAtLogin = { ...setting, busy: false, error: '' };
+      renderLaunchOnStartup();
+      pushFeed('STARTUP_PREFERENCE_SAVED', `enabled=${Boolean(setting.enabled)}`, 'info');
+      return true;
+    } catch (error) {
+      state.launchAtLogin = {
+        ...previous,
+        busy: false,
+        error: `Could not save: ${error.message}`,
+      };
+      renderLaunchOnStartup();
+      toast(state.launchAtLogin.error, true);
+      return false;
     }
   }
 
@@ -5063,6 +5229,15 @@
     $('updateDialog').showModal();
   }
 
+  function setSettingsOpen(open) {
+    const popover = $('settingsPopover');
+    const trigger = $('settingsTrigger');
+    const shouldOpen = Boolean(open) && !$('settingsShell').hidden;
+    popover.hidden = !shouldOpen;
+    trigger.setAttribute('aria-expanded', String(shouldOpen));
+    if (shouldOpen) $('launchOnStartup').focus();
+  }
+
   function openReleaseNotes() {
     const desktop = window.hackerLairWindow;
     if (desktop?.openUpdateNotes) {
@@ -5120,11 +5295,9 @@
     if (state.launchAtLogin.supported) {
       commands.push({
         verb: 'STARTUP',
-        label: state.launchAtLogin.enabled ? 'Disable launch at login' : 'Enable launch at login',
+        label: state.launchAtLogin.enabled ? 'Disable launch on startup' : 'Enable launch on startup',
         hint: 'desktop setting',
-        run: async () => {
-          state.launchAtLogin = await window.hackerLairWindow.setLaunchAtLogin(!state.launchAtLogin.enabled);
-        },
+        run: () => updateLaunchOnStartup(!state.launchAtLogin.enabled),
       });
     }
     state.projects.forEach((project) => {
@@ -5445,6 +5618,23 @@
   });
   $('updateAvailableTrigger').addEventListener('click', openUpdatesDialog);
   $('releaseNotesTrigger').addEventListener('click', openReleaseNotes);
+  $('launchOnStartup').addEventListener('change', (event) => {
+    void updateLaunchOnStartup(event.target.checked);
+  });
+  $('settingsTrigger').addEventListener('click', () => {
+    setSettingsOpen($('settingsPopover').hidden);
+  });
+  document.addEventListener('click', (event) => {
+    if (!$('settingsPopover').hidden && !$('settingsShell').contains(event.target)) {
+      setSettingsOpen(false);
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !$('settingsPopover').hidden) {
+      setSettingsOpen(false);
+      $('settingsTrigger').focus();
+    }
+  });
   $('applyUpdate').addEventListener('click', async () => {
     const update = await window.hackerLairWindow?.applyUpdate?.();
     if (update) renderUpdateState(update);
