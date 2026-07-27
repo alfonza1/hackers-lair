@@ -126,6 +126,53 @@ test('migrates panel visibility to Skills on and Scripts off', (t) => {
   assert.equal(runtime.settings.listBackups().length, 1);
 });
 
+test('migrates retired UI themes without losing other preferences', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-settings-theme-root-'));
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-settings-theme-data-'));
+  t.after(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(data, { recursive: true, force: true });
+  });
+  for (const file of ['projects.example.json', 'scripts.example.json', 'settings.example.json']) {
+    fs.copyFileSync(path.join(__dirname, '..', file), path.join(root, file));
+  }
+  fs.mkdirSync(path.join(root, 'schemas'));
+  fs.copyFileSync(
+    path.join(__dirname, '..', 'schemas', 'projects.schema.json'),
+    path.join(root, 'schemas', 'projects.schema.json'),
+  );
+  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({
+    configVersion: 2,
+    enableSkills: true,
+    enableScripts: false,
+    uiPreferences: {
+      theme: 'amber',
+      density: 'compact',
+      motion: 'reduced',
+      fontScale: 110,
+    },
+  }));
+
+  const previous = process.env.PROJECT_MANAGER_DATA_DIR;
+  process.env.PROJECT_MANAGER_DATA_DIR = data;
+  t.after(() => {
+    if (previous === undefined) delete process.env.PROJECT_MANAGER_DATA_DIR;
+    else process.env.PROJECT_MANAGER_DATA_DIR = previous;
+  });
+
+  const runtime = createRuntimeConfig(root);
+  const settings = runtime.settings.read();
+  assert.equal(settings.error, null);
+  assert.equal(settings.value.configVersion, SETTINGS_CONFIG_VERSION);
+  assert.deepEqual(settings.value.uiPreferences, {
+    theme: 'ultraviolet',
+    density: 'compact',
+    motion: 'reduced',
+    fontScale: 110,
+  });
+  assert.equal(runtime.settings.listBackups().length, 1);
+});
+
 test('migrates legacy config after snapshotting and tolerates newer config fields', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-config-migration-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
