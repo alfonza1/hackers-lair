@@ -103,7 +103,7 @@ JSON.
   (`Ctrl+Shift+L`), and `lair` terminal companion.
 - Skills is enabled by default; the Windows-only Scripts panel is disabled by
   default. Either panel can be switched on or off from Settings or `Ctrl+K`.
-- Curated phosphor, amber, ice, crimson, and high-contrast ghost themes.
+- Curated phosphor, ultraviolet, ice, volt, and high-contrast ghost themes.
 
 ![Hacker's Lair Targets view with fictional live and dormant projects](docs/screenshots/targets.png)
 

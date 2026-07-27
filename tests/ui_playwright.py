@@ -331,7 +331,7 @@ def assert_settings_panel(page, scripts_supported: bool) -> None:
 
     popover = page.locator("#settingsPopover")
     expect(popover).to_be_visible()
-    for theme in ["phosphor", "amber", "ice", "crimson", "ghost"]:
+    for theme in ["phosphor", "ultraviolet", "ice", "volt", "ghost"]:
         page.locator("html").evaluate("(root, value) => { root.dataset.theme = value; }", theme)
         option_style = page.locator("#themePreference option").first.evaluate(
             """option => {
@@ -349,10 +349,33 @@ def assert_settings_panel(page, scripts_supported: bool) -> None:
                 const background = luminance(style.backgroundColor);
                 const contrastRatio = (Math.max(foreground, background) + 0.05)
                     / (Math.min(foreground, background) + 0.05);
+                const rootStyle = getComputedStyle(document.documentElement);
+                const surface = rootStyle.getPropertyValue('--panel-solid').trim();
+                const resolveColor = value => {
+                    const probe = document.createElement('span');
+                    probe.style.color = value;
+                    document.body.append(probe);
+                    const resolved = getComputedStyle(probe).color;
+                    probe.remove();
+                    return resolved;
+                };
+                const surfaceLuminance = luminance(resolveColor(surface));
+                const tokenContrastRatios = Object.fromEntries(
+                    ['--text', '--muted', '--dim', '--green', '--cyan', '--amber', '--red']
+                        .map(token => {
+                            const tokenLuminance = luminance(resolveColor(
+                                rootStyle.getPropertyValue(token).trim()
+                            ));
+                            const ratio = (Math.max(tokenLuminance, surfaceLuminance) + 0.05)
+                                / (Math.min(tokenLuminance, surfaceLuminance) + 0.05);
+                            return [token, ratio];
+                        })
+                );
                 return {
                     color: style.color,
                     backgroundColor: style.backgroundColor,
                     contrastRatio,
+                    tokenContrastRatios,
                 };
             }"""
         )
@@ -366,6 +389,11 @@ def assert_settings_panel(page, scripts_supported: bool) -> None:
         assert (
             option_style["contrastRatio"] >= 4.5
         ), f"{theme} option contrast is below WCAG AA: {option_style}"
+        if theme in {"ultraviolet", "volt"}:
+            assert all(
+                ratio >= 4.5
+                for ratio in option_style["tokenContrastRatios"].values()
+            ), f"{theme} has a token below WCAG AA: {option_style}"
     page.locator("html").evaluate("(root) => { root.dataset.theme = 'phosphor'; }")
     expect(page.locator("#themePreference")).to_have_value("phosphor")
     page.locator("#themePreference").select_option("ice")
@@ -443,13 +471,37 @@ def assert_palette_and_theme(page) -> None:
     expect(results.filter(has_text="START").filter(has_text="Dormant Fixture")).to_have_count(1)
     expect(results.filter(has_text="STOP").filter(has_text="Dormant Fixture")).to_have_count(0)
 
-    page.locator("#commandInput").fill("amber")
-    amber = results.filter(has_text="THEME").filter(has_text="amber")
-    expect(amber).to_have_count(1)
-    amber.click()
-    expect(page.locator("html")).to_have_attribute("data-theme", "amber")
+    page.locator("#commandInput").fill("ultraviolet")
+    ultraviolet = results.filter(has_text="THEME").filter(has_text="ultraviolet")
+    expect(ultraviolet).to_have_count(1)
+    ultraviolet.click()
+    expect(page.locator("html")).to_have_attribute("data-theme", "ultraviolet")
     page.reload(wait_until="networkidle")
-    expect(page.locator("html")).to_have_attribute("data-theme", "amber")
+    expect(page.locator("html")).to_have_attribute("data-theme", "ultraviolet")
+
+
+def capture_theme_previews(page) -> None:
+    OUTPUT_DIRECTORY.mkdir(exist_ok=True)
+    page.locator(".compact-path").evaluate_all(
+        """paths => paths.forEach((path, index) => {
+            path.textContent = index ? 'C:\\\\Dev\\\\sample-api' : 'C:\\\\Dev\\\\sample-web';
+            path.title = path.textContent;
+        })"""
+    )
+    for theme in ["ultraviolet", "volt"]:
+        page.locator("html").evaluate("(root, value) => { root.dataset.theme = value; }", theme)
+        for width, height in [(1440, 900), (900, 620)]:
+            page.set_viewport_size({"width": width, "height": height})
+            page.wait_for_timeout(150)
+            page.screenshot(
+                path=str(OUTPUT_DIRECTORY / f"theme-{theme}-{width}x{height}.png"),
+                full_page=False,
+            )
+            has_overflow = page.evaluate(
+                "() => document.documentElement.scrollWidth > document.documentElement.clientWidth"
+            )
+            assert not has_overflow, f"{theme} has horizontal overflow at {width}x{height}."
+    page.set_viewport_size({"width": 1440, "height": 900})
 
 
 def assert_responsive_layout(page) -> None:
@@ -596,6 +648,7 @@ def run() -> None:
             if script_name:
                 assert_script_action_tray(page, script_name)
             assert_palette_and_theme(page)
+            capture_theme_previews(page)
             assert_responsive_layout(page)
             assert not console_errors, f"Browser console errors: {console_errors}"
             browser.close()

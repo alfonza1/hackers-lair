@@ -1,0 +1,14 @@
+{
+  "scannedAt": "2026-07-27",
+  "fontStack": "Cascadia Mono with platform monospace fallbacks",
+  "palette": "CSS custom properties in public/index.html",
+  "motion": "CSS motion with a persisted reduced-motion preference and OS override",
+  "spacing": "Existing compact console spacing",
+  "framework": "Vanilla HTML, CSS, and JavaScript served by Node and Electron",
+  "preserve": [
+    "terminal typography",
+    "semantic color tokens",
+    "compact console layout",
+    "reduced-motion behavior"
+  ]
+}

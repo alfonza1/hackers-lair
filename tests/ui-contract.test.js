@@ -33,9 +33,12 @@ test('a raw app shell fails closed with an actionable stale-server message', () 
 
 test('UI omits N/A placeholders and keeps persisted preference behavior', () => {
   assert.doesNotMatch(html, /\bN\/A\b/);
-  for (const theme of ['phosphor', 'amber', 'ice', 'crimson', 'ghost']) {
+  for (const theme of ['phosphor', 'ultraviolet', 'ice', 'volt', 'ghost']) {
     assert.match(html, new RegExp(`data-theme="${theme}"|'${theme}'`));
   }
+  assert.doesNotMatch(html, /<option value="(?:amber|crimson)">/);
+  assert.match(html, /amber:\s*'ultraviolet'/);
+  assert.match(html, /crimson:\s*'volt'/);
   assert.match(html, /\/api\/settings\/preferences/);
   assert.match(html, /if \(pollInFlight \|\| document\.hidden\) return/);
 });

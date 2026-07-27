@@ -7,6 +7,19 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+## [2.1.0-beta.7] - 2026-07-27
+
+### Added
+
+- Added Ultraviolet, a deep ink-and-lilac console theme, and Volt, a restrained
+  graphite theme with an acid-lime signal color.
+
+### Changed
+
+- Replaced the Amber and Crimson presets. Existing preferences migrate to
+  Ultraviolet and Volt respectively without changing density, motion, or font
+  scale.
+
 ## [2.1.0-beta.6] - 2026-07-27
 
 ### Fixed

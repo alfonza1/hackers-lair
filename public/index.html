@@ -16,7 +16,8 @@
   try {
     const preferences = JSON.parse(localStorage.getItem('hackersLair.uiPreferences') || '{}');
     const root = document.documentElement;
-    root.dataset.theme = preferences.theme || 'phosphor';
+    const legacyThemeAliases = { amber: 'ultraviolet', crimson: 'volt' };
+    root.dataset.theme = legacyThemeAliases[preferences.theme] || preferences.theme || 'phosphor';
     root.dataset.density = preferences.density || 'comfortable';
     root.dataset.motion = preferences.motion || 'full';
     root.style.setProperty('--font-scale', `${Number(preferences.fontScale) || 100}%`);
@@ -29,6 +30,9 @@
 </script>
 <style nonce="__LAIR_CSP_NONCE__">
   /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
+  /* Hallmark · component: theme presets · genre: atmospheric · theme: curated console
+   * contrast: pass (40–41) · tokens: pass (48)
+   */
   :root {
     color-scheme: dark;
     --void: #010504;
@@ -61,29 +65,29 @@
     --mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   }
 
-  :root[data-theme="amber"] {
-    --void: #080500;
-    --bg: #100a02;
-    --panel: rgba(24, 16, 4, .92);
-    --panel-solid: #1a1105;
-    --panel-2: #241807;
-    --line: rgba(255, 200, 90, .2);
-    --line-strong: rgba(255, 200, 90, .46);
-    --cyan-line: rgba(255, 234, 155, .24);
-    --red-line: rgba(255, 128, 109, .34);
-    --text: #fff2d2;
-    --muted: #c4ae7f;
-    --dim: #8e7953;
-    --green: #ffc85a;
-    --cyan: #ffea9b;
-    --amber: #ffd166;
-    --red: #ff806d;
-    --accent-rgb: 255, 200, 90;
-    --secondary-rgb: 255, 234, 155;
-    --warning-rgb: 255, 209, 102;
-    --danger-rgb: 255, 128, 109;
-    --surface-rgb: 24, 16, 4;
-    --surface-strong-rgb: 12, 8, 1;
+  :root[data-theme="ultraviolet"] {
+    --void: #05040b;
+    --bg: #0a0814;
+    --panel: rgba(15, 12, 27, .92);
+    --panel-solid: #100d20;
+    --panel-2: #18132c;
+    --line: rgba(170, 141, 255, .18);
+    --line-strong: rgba(170, 141, 255, .44);
+    --cyan-line: rgba(118, 217, 189, .22);
+    --red-line: rgba(255, 109, 143, .32);
+    --text: #f4f0ff;
+    --muted: #aaa0c2;
+    --dim: #81779a;
+    --green: #aa8dff;
+    --cyan: #76d9bd;
+    --amber: #f6c86e;
+    --red: #ff6d8f;
+    --accent-rgb: 170, 141, 255;
+    --secondary-rgb: 118, 217, 189;
+    --warning-rgb: 246, 200, 110;
+    --danger-rgb: 255, 109, 143;
+    --surface-rgb: 15, 12, 27;
+    --surface-strong-rgb: 5, 4, 11;
   }
 
   :root[data-theme="ice"] {
@@ -111,29 +115,29 @@
     --surface-strong-rgb: 2, 9, 18;
   }
 
-  :root[data-theme="crimson"] {
-    --void: #080303;
-    --bg: #120706;
-    --panel: rgba(27, 10, 8, .92);
-    --panel-solid: #210c09;
-    --panel-2: #31110c;
-    --line: rgba(255, 138, 107, .2);
-    --line-strong: rgba(255, 138, 107, .46);
-    --cyan-line: rgba(255, 188, 143, .26);
-    --red-line: rgba(255, 107, 117, .4);
-    --text: #fff0ec;
-    --muted: #c5a39d;
-    --dim: #8f6b64;
-    --green: #ff8a6b;
-    --cyan: #ffbc8f;
-    --amber: #ffd166;
-    --red: #ff6b75;
-    --accent-rgb: 255, 138, 107;
-    --secondary-rgb: 255, 188, 143;
-    --warning-rgb: 255, 209, 102;
-    --danger-rgb: 255, 107, 117;
-    --surface-rgb: 27, 10, 8;
-    --surface-strong-rgb: 13, 4, 3;
+  :root[data-theme="volt"] {
+    --void: #060708;
+    --bg: #0b0d0f;
+    --panel: rgba(15, 18, 20, .94);
+    --panel-solid: #111518;
+    --panel-2: #192024;
+    --line: rgba(198, 240, 99, .14);
+    --line-strong: rgba(198, 240, 99, .38);
+    --cyan-line: rgba(111, 217, 223, .2);
+    --red-line: rgba(255, 113, 133, .28);
+    --text: #f2f5ee;
+    --muted: #a8b0a1;
+    --dim: #788174;
+    --green: #c6f063;
+    --cyan: #6fd9df;
+    --amber: #f4c76b;
+    --red: #ff7185;
+    --accent-rgb: 198, 240, 99;
+    --secondary-rgb: 111, 217, 223;
+    --warning-rgb: 244, 199, 107;
+    --danger-rgb: 255, 113, 133;
+    --surface-rgb: 15, 18, 20;
+    --surface-strong-rgb: 6, 7, 8;
   }
 
   :root[data-theme="ghost"] {
@@ -2706,9 +2710,9 @@
             <label class="preference-field">Theme
               <select id="themePreference">
                 <option value="phosphor">Phosphor</option>
-                <option value="amber">Amber</option>
+                <option value="ultraviolet">Ultraviolet</option>
                 <option value="ice">Ice</option>
-                <option value="crimson">Crimson</option>
+                <option value="volt">Volt</option>
                 <option value="ghost">Ghost</option>
               </select>
             </label>
@@ -3049,8 +3053,12 @@
     motion: 'full',
     fontScale: 100,
   });
+  const LEGACY_UI_THEME_ALIASES = Object.freeze({
+    amber: 'ultraviolet',
+    crimson: 'volt',
+  });
   const UI_PREFERENCE_VALUES = Object.freeze({
-    theme: ['phosphor', 'amber', 'ice', 'crimson', 'ghost'],
+    theme: ['phosphor', 'ultraviolet', 'ice', 'volt', 'ghost'],
     density: ['comfortable', 'compact'],
     motion: ['full', 'reduced'],
     fontScale: [90, 100, 110],
@@ -3352,8 +3360,9 @@
   function normalizeUiPreferences(value = {}) {
     const candidate = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const fontScale = Number(candidate.fontScale);
+    const theme = LEGACY_UI_THEME_ALIASES[candidate.theme] || candidate.theme;
     return {
-      theme: UI_PREFERENCE_VALUES.theme.includes(candidate.theme) ? candidate.theme : DEFAULT_UI_PREFERENCES.theme,
+      theme: UI_PREFERENCE_VALUES.theme.includes(theme) ? theme : DEFAULT_UI_PREFERENCES.theme,
       density: UI_PREFERENCE_VALUES.density.includes(candidate.density) ? candidate.density : DEFAULT_UI_PREFERENCES.density,
       motion: UI_PREFERENCE_VALUES.motion.includes(candidate.motion) ? candidate.motion : DEFAULT_UI_PREFERENCES.motion,
       fontScale: UI_PREFERENCE_VALUES.fontScale.includes(fontScale) ? fontScale : DEFAULT_UI_PREFERENCES.fontScale,
