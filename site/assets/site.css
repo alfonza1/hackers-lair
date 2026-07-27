@@ -461,7 +461,7 @@ kbd {
   text-transform: uppercase;
 }
 
-.platform-tab[aria-selected="true"] {
+.platform-tab[aria-pressed="true"] {
   border-color: var(--color-border-strong);
   color: var(--color-accent);
   background: rgba(102, 255, 181, .06);
@@ -483,6 +483,28 @@ kbd {
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
+}
+
+.linux-channel-list {
+  margin: 22px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.linux-channel {
+  padding: 22px 0 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.linux-channel h3,
+.unsupported-platform h3 {
+  margin: 0 0 12px;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.unsupported-platform {
+  min-height: 190px;
 }
 
 .command-block {

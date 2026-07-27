@@ -103,6 +103,11 @@ async function main() {
         response.end(JSON.stringify(releasePayload));
         return;
       }
+      if (request.url === '/release-unavailable') {
+        response.statusCode = 429;
+        response.end('rate limited');
+        return;
+      }
       const filename = request.url === `/${archiveName}`
         ? archive
         : request.url === '/checksums.txt'
@@ -125,23 +130,42 @@ async function main() {
         { name: 'checksums.txt', browser_download_url: `http://127.0.0.1:${port}/checksums.txt` },
       ],
     };
+    const releaseBaseUrl = `http://127.0.0.1:${port}`;
+    const installerArguments = (releaseApi) => [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      path.join(root, 'install.ps1'),
+      '-InstallDirectory',
+      installRoot,
+      '-ReleaseApi',
+      `${releaseBaseUrl}/${releaseApi}`,
+      '-ReleaseDownloadBase',
+      releaseBaseUrl,
+      '-NoLaunch',
+      '-NoStartup',
+      '-NoShortcut',
+      '-NoPath',
+    ];
 
     try {
-      await runAsync('powershell', [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        path.join(root, 'install.ps1'),
-        '-InstallDirectory',
-        installRoot,
-        '-ReleaseApi',
-        `http://127.0.0.1:${port}/release`,
-        '-NoLaunch',
-        '-NoStartup',
-        '-NoShortcut',
-        '-NoPath',
-      ]);
+      fs.writeFileSync(checksums, `${'0'.repeat(64)}  ${archiveName}\n`);
+      let checksumFailure = null;
+      try {
+        await runAsync('powershell', installerArguments('release'));
+      } catch (error) {
+        checksumFailure = error;
+      }
+      if (!checksumFailure || !checksumFailure.message.includes('SHA256 mismatch')) {
+        throw new Error('Installer did not reject the deliberately incorrect checksum.');
+      }
+      if (fs.existsSync(installRoot)) {
+        throw new Error('Checksum failure created an installation directory.');
+      }
+
+      fs.writeFileSync(checksums, `${hash}  ${archiveName}\n`);
+      await runAsync('powershell', installerArguments('release-unavailable'));
       const installedExecutable = path.join(installRoot, 'HackersLair.exe');
       const installedCli = path.join(installRoot, 'resources', 'app.asar', 'bin', 'lair.js');
       if (!fs.existsSync(installedExecutable) || !fs.existsSync(path.join(installRoot, 'lair.cmd'))) {

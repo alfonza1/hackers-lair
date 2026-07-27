@@ -2,6 +2,7 @@
 param(
     [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'Programs\HackersLair'),
     [string]$ReleaseApi = 'https://api.github.com/repos/hackerslairhq/desktop/releases/latest',
+    [string]$ReleaseDownloadBase = 'https://github.com/hackerslairhq/desktop/releases/latest/download',
     [switch]$NoLaunch,
     [switch]$NoStartup,
     [switch]$NoShortcut,
@@ -80,16 +81,27 @@ try {
         Accept = 'application/vnd.github+json'
         'User-Agent' = 'Hackers-Lair-Installer'
     }
-    $release = Invoke-RestMethod -Uri $ReleaseApi -Headers $headers
-    $archiveAsset = $release.assets | Where-Object name -eq $AssetName | Select-Object -First 1
-    $checksumAsset = $release.assets | Where-Object name -eq $ChecksumName | Select-Object -First 1
-    if (-not $archiveAsset -or -not $checksumAsset) {
-        throw "Release $($release.tag_name) does not contain $AssetName and $ChecksumName."
+    $releaseLabel = 'latest release'
+    $downloadBase = $ReleaseDownloadBase.TrimEnd('/')
+    $archiveUrl = "$downloadBase/$AssetName"
+    $checksumUrl = "$downloadBase/$ChecksumName"
+    try {
+        $release = Invoke-RestMethod -Uri $ReleaseApi -Headers $headers
+        $archiveAsset = $release.assets | Where-Object name -eq $AssetName | Select-Object -First 1
+        $checksumAsset = $release.assets | Where-Object name -eq $ChecksumName | Select-Object -First 1
+        if (-not $archiveAsset -or -not $checksumAsset) {
+            throw "Release $($release.tag_name) does not contain $AssetName and $ChecksumName."
+        }
+        $releaseLabel = $release.tag_name
+        $archiveUrl = $archiveAsset.browser_download_url
+        $checksumUrl = $checksumAsset.browser_download_url
+    } catch {
+        Write-Warning "Release API lookup failed; using stable latest-download URLs. $($_.Exception.Message)"
     }
 
-    Write-Output "Downloading Hacker's Lair $($release.tag_name)..."
-    Invoke-WebRequest -Uri $archiveAsset.browser_download_url -OutFile $archivePath -Headers $headers
-    Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $checksumPath -Headers $headers
+    Write-Output "Downloading Hacker's Lair $releaseLabel..."
+    Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath -Headers $headers
+    Invoke-WebRequest -Uri $checksumUrl -OutFile $checksumPath -Headers $headers
 
     $escapedName = [Regex]::Escape($AssetName)
     $checksumLine = Get-Content -LiteralPath $checksumPath |
