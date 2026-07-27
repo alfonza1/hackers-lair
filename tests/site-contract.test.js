@@ -33,19 +33,17 @@ test('static site ships complete metadata, docs navigation, and local assets', (
   }
 });
 
-test('site typography is self-hosted and assigns industrial display and mono-first body roles', () => {
+test('site typography is self-hosted and uses one deliberate developer-mono family', () => {
   const stylesheet = fs.readFileSync(path.join(site, 'assets', 'site.css'), 'utf8');
   const fontFiles = [
-    'big-shoulders-bold.ttf',
-    'geist-mono-regular.ttf',
-    'geist-mono-bold.ttf',
+    'jetbrains-mono-regular.ttf',
+    'jetbrains-mono-bold.ttf',
   ];
   const licenseFiles = [
-    'OFL-Big-Shoulders.txt',
-    'OFL-Geist-Mono.txt',
+    'OFL-JetBrains-Mono.txt',
   ];
 
-  assert.match(stylesheet, /--font-display:\s*"Lair Display"/);
+  assert.match(stylesheet, /--font-display:\s*"Lair Mono"/);
   assert.match(stylesheet, /--font-body:\s*"Lair Mono"/);
   assert.match(stylesheet, /--font-mono:\s*"Lair Mono"/);
   assert.match(stylesheet, /body\s*\{[\s\S]*font:\s*15px\/1\.68 var\(--font-body\)/);
@@ -164,9 +162,8 @@ test('landing page transfer stays below 500 KB before optional release metadata'
     'assets/site.js',
     'assets/command-line-mark.png',
     'assets/targets.jpg',
-    'assets/fonts/big-shoulders-bold.ttf',
-    'assets/fonts/geist-mono-regular.ttf',
-    'assets/fonts/geist-mono-bold.ttf',
+    'assets/fonts/jetbrains-mono-regular.ttf',
+    'assets/fonts/jetbrains-mono-bold.ttf',
   ];
   const bytes = criticalFiles.reduce((total, relative) => (
     total + fs.statSync(path.join(site, relative)).size

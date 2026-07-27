@@ -3,23 +3,11 @@
  * Genre: operator console / technical documentation
  * Tone: cyber-industrial, local-first, restrained
  * Anchor: phosphor green
- * Fingerprint: condensed industrial display + mono-first operator copy + dense documentation sidebar
+ * Fingerprint: single-family developer mono + terminal transcript + dense documentation sidebar
  */
 @font-face {
-  font-family: "Lair Display";
-  src: url("./fonts/big-shoulders-bold.ttf") format("truetype");
-  font-display: swap;
-  font-style: normal;
-  font-weight: 700;
-  size-adjust: 100%;
-  ascent-override: 96%;
-  descent-override: 24%;
-  line-gap-override: 0%;
-}
-
-@font-face {
   font-family: "Lair Mono";
-  src: url("./fonts/geist-mono-regular.ttf") format("truetype");
+  src: url("./fonts/jetbrains-mono-regular.ttf") format("truetype");
   font-display: swap;
   font-style: normal;
   font-weight: 400;
@@ -31,7 +19,7 @@
 
 @font-face {
   font-family: "Lair Mono";
-  src: url("./fonts/geist-mono-bold.ttf") format("truetype");
+  src: url("./fonts/jetbrains-mono-bold.ttf") format("truetype");
   font-display: swap;
   font-style: normal;
   font-weight: 700;
@@ -57,7 +45,7 @@
   --color-danger: #ff6070;
   --color-code: #020806;
   --shadow-panel: 0 24px 70px rgba(0, 0, 0, .45);
-  --font-display: "Lair Display", "Arial Narrow", sans-serif;
+  --font-display: "Lair Mono", "Cascadia Mono", "SFMono-Regular", monospace;
   --font-body: "Lair Mono", "Cascadia Mono", "SFMono-Regular", monospace;
   --font-mono: "Lair Mono", "Cascadia Mono", "SFMono-Regular", monospace;
   --page-width: 1180px;
@@ -178,9 +166,9 @@ kbd {
   align-items: center;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: .055em;
+  letter-spacing: -.02em;
   text-decoration: none;
   text-transform: uppercase;
   white-space: nowrap;
@@ -260,10 +248,10 @@ kbd {
   max-width: 720px;
   margin: 14px 0 22px;
   font-family: var(--font-display);
-  font-size: clamp(48px, 7vw, 92px);
+  font-size: clamp(38px, 5.4vw, 72px);
   font-weight: 700;
-  line-height: .9;
-  letter-spacing: -.012em;
+  line-height: 1.02;
+  letter-spacing: -.06em;
   text-wrap: balance;
 }
 
@@ -434,10 +422,10 @@ kbd {
 .docs-content h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(36px, 4.6vw, 60px);
+  font-size: clamp(30px, 4vw, 50px);
   font-weight: 700;
-  line-height: .96;
-  letter-spacing: -.01em;
+  line-height: 1.06;
+  letter-spacing: -.055em;
 }
 
 .section-heading p {
@@ -575,10 +563,10 @@ kbd {
   margin: 0;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: .005em;
+  line-height: 1.25;
+  letter-spacing: -.035em;
 }
 
 .feature-row p {
@@ -647,10 +635,10 @@ kbd {
   max-width: 720px;
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(36px, 4.6vw, 60px);
+  font-size: clamp(30px, 4vw, 50px);
   font-weight: 700;
-  line-height: .96;
-  letter-spacing: -.01em;
+  line-height: 1.06;
+  letter-spacing: -.055em;
   overflow-wrap: anywhere;
 }
 
@@ -838,19 +826,20 @@ kbd {
   padding-top: 12px;
   border-top: 1px solid var(--color-border);
   font-family: var(--font-display);
-  font-size: 34px;
+  font-size: 27px;
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0;
+  line-height: 1.2;
+  letter-spacing: -.045em;
 }
 
 .docs-content h3 {
   margin: 34px 0 10px;
   color: var(--color-signal);
   font-family: var(--font-display);
-  font-size: 23px;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.3;
+  letter-spacing: -.03em;
 }
 
 .docs-content p,
@@ -950,8 +939,8 @@ kbd {
   font-family: var(--font-display);
   font-size: clamp(80px, 18vw, 190px);
   font-weight: 700;
-  line-height: .78;
-  letter-spacing: -.015em;
+  line-height: .9;
+  letter-spacing: -.07em;
 }
 
 .not-found p {
