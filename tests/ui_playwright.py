@@ -331,6 +331,42 @@ def assert_settings_panel(page, scripts_supported: bool) -> None:
 
     popover = page.locator("#settingsPopover")
     expect(popover).to_be_visible()
+    for theme in ["phosphor", "amber", "ice", "crimson", "ghost"]:
+        page.locator("html").evaluate("(root, value) => { root.dataset.theme = value; }", theme)
+        option_style = page.locator("#themePreference option").first.evaluate(
+            """option => {
+                const style = getComputedStyle(option);
+                const luminance = color => {
+                    const channels = color.match(/[\\d.]+/g).slice(0, 3).map(value => {
+                        const normalized = Number(value) / 255;
+                        return normalized <= 0.04045
+                            ? normalized / 12.92
+                            : ((normalized + 0.055) / 1.055) ** 2.4;
+                    });
+                    return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2]);
+                };
+                const foreground = luminance(style.color);
+                const background = luminance(style.backgroundColor);
+                const contrastRatio = (Math.max(foreground, background) + 0.05)
+                    / (Math.min(foreground, background) + 0.05);
+                return {
+                    color: style.color,
+                    backgroundColor: style.backgroundColor,
+                    contrastRatio,
+                };
+            }"""
+        )
+        assert option_style["backgroundColor"] not in {
+            "transparent",
+            "rgba(0, 0, 0, 0)",
+        }, f"{theme} option background is transparent: {option_style}"
+        assert (
+            option_style["color"] != option_style["backgroundColor"]
+        ), f"{theme} option text matches its background: {option_style}"
+        assert (
+            option_style["contrastRatio"] >= 4.5
+        ), f"{theme} option contrast is below WCAG AA: {option_style}"
+    page.locator("html").evaluate("(root) => { root.dataset.theme = 'phosphor'; }")
     expect(page.locator("#themePreference")).to_have_value("phosphor")
     page.locator("#themePreference").select_option("ice")
     expect(page.locator("html")).to_have_attribute("data-theme", "ice")

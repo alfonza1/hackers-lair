@@ -88,6 +88,7 @@ test('Settings contains panel visibility, appearance, startup, and release contr
     assert.match(html, new RegExp(`id="${preference}"`));
   }
   assert.match(html, /id="settingsSync"/);
+  assert.match(html, /select option[\s\S]*background(?:-color)?:\s*var\(--panel-solid\)/);
   assert.match(html, /<strong>Release notes<\/strong>/);
 });
 
