@@ -7,16 +7,22 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+## [2.1.0-beta.3] - 2026-07-27
+
 ### Added
 
 - Packaged portable, Scoop, and Linux installs now check the official GitHub
-  releases feed hourly and show a quiet Settings badge when an update is
+  releases feed hourly and show a quiet update badge when an update is
   available; installation remains user-initiated through the detected channel.
 
 ### Changed
 
-- Moved update channel commands and release notes from the Targets page into a
-  focused Settings dialog with one-click command copying.
+- Restored the complete Settings panel with theme, density, motion, font scale,
+  launch-on-startup, and release-note controls.
+- Moved update commands into a focused dialog opened by the update badge, with
+  one-click command copying.
+- Target cards now show only the action valid for their current state, matching
+  the compact Scripts and Port Signals controls.
 
 ### Fixed
 
