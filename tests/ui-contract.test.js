@@ -31,13 +31,10 @@ test('a raw app shell fails closed with an actionable stale-server message', () 
   );
 });
 
-test('UI omits N/A placeholders and keeps persisted preference behavior out of the header', () => {
+test('UI omits N/A placeholders and keeps persisted preference behavior', () => {
   assert.doesNotMatch(html, /\bN\/A\b/);
   for (const theme of ['phosphor', 'amber', 'ice', 'crimson', 'ghost']) {
     assert.match(html, new RegExp(`data-theme="${theme}"|'${theme}'`));
-  }
-  for (const preference of ['themePreference', 'densityPreference', 'motionPreference', 'fontScalePreference']) {
-    assert.doesNotMatch(html, new RegExp(`id="${preference}"`));
   }
   assert.match(html, /\/api\/settings\/preferences/);
   assert.match(html, /if \(pollInFlight \|\| document\.hidden\) return/);
@@ -63,11 +60,11 @@ test('command palette includes setup, release, conditional update, and every pre
   assert.match(html, /component\.hasLog/);
 });
 
-test('update command and release notes use separate minimal controls', () => {
+test('update badge and Settings keep release controls minimal', () => {
   assert.doesNotMatch(html, /id="updateBanner"/);
-  assert.doesNotMatch(html, /Curated local presets/);
   assert.match(html, /id="updateAvailableTrigger"/);
   assert.match(html, /id="releaseNotesTrigger"/);
+  assert.match(html, /id="settingsPopover"[\s\S]+id="releaseNotesTrigger"/);
   assert.match(html, /id="updateDialog"/);
   assert.match(html, /id="copyUpdateCommand"/);
   assert.doesNotMatch(html, /id="releaseNotesBody"/);
@@ -76,15 +73,17 @@ test('update command and release notes use separate minimal controls', () => {
   assert.doesNotMatch(html, /id="updateStatus"/);
 });
 
-test('Settings contains only the renamed launch-on-startup control', () => {
+test('Settings contains appearance, startup, and release controls', () => {
   assert.match(html, /id="settingsTrigger"[^>]*>Settings</);
   assert.match(html, /id="settingsPopover"[^>]*hidden/);
   assert.match(html, /id="launchOnStartup"[^>]*role="switch"/);
   assert.match(html, /<strong>Launch on startup<\/strong>/);
   assert.doesNotMatch(html, /Launch at login/);
   for (const preference of ['themePreference', 'densityPreference', 'motionPreference', 'fontScalePreference']) {
-    assert.doesNotMatch(html, new RegExp(`id="${preference}"`));
+    assert.match(html, new RegExp(`id="${preference}"`));
   }
+  assert.match(html, /id="settingsSync"/);
+  assert.match(html, /<strong>Release notes<\/strong>/);
 });
 
 test('runtime resilience controls surface backend and log state', () => {

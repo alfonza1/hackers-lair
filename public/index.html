@@ -560,7 +560,8 @@
     z-index: 50;
     display: grid;
     gap: 11px;
-    width: min(280px, calc(100vw - 32px));
+    width: min(320px, calc(100vw - 32px));
+    max-height: calc(100vh - 72px);
     margin: 0;
     padding: 14px;
     border: 1px solid var(--line-strong);
@@ -568,12 +569,103 @@
     color: var(--text);
     background: var(--panel-solid);
     box-shadow: var(--shadow);
+    overflow-y: auto;
   }
 
   .settings-popover h2 {
     font-size: 12px;
     letter-spacing: .08em;
     text-transform: uppercase;
+  }
+
+  .settings-intro {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  .preference-field {
+    display: grid;
+    grid-template-columns: minmax(90px, .7fr) minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-height: 44px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .preference-field select {
+    min-width: 0;
+    min-height: 44px;
+    padding: 7px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    color: var(--text);
+    background: var(--panel-2);
+    font: 11px var(--mono);
+    cursor: pointer;
+  }
+
+  .preference-field select:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+  }
+
+  .preference-field select:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .settings-sync {
+    min-height: 13px;
+    color: var(--dim);
+    font-size: 9px;
+  }
+
+  .settings-link {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    min-height: 54px;
+    padding: 9px 10px;
+    border: 1px solid rgba(var(--secondary-rgb), .28);
+    border-radius: 3px;
+    color: var(--text);
+    background: rgba(var(--secondary-rgb), .055);
+    font-family: var(--mono);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .settings-link strong {
+    color: var(--cyan);
+    font-size: 10px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .settings-link small {
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .settings-link:active {
+    border-color: var(--cyan);
+    background: rgba(var(--secondary-rgb), .14);
+  }
+
+  .settings-link:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+  }
+
+  .settings-link:disabled {
+    opacity: .55;
+    cursor: not-allowed;
   }
 
   .startup-setting {
@@ -695,6 +787,12 @@
     .startup-setting:hover {
       border-color: var(--cyan);
       background: rgba(var(--secondary-rgb), .08);
+    }
+
+    .preference-field select:hover,
+    .settings-link:hover {
+      border-color: var(--cyan);
+      background: rgba(var(--secondary-rgb), .1);
     }
   }
 
@@ -2586,21 +2684,54 @@
         <button class="header-action update-available-trigger" id="updateAvailableTrigger" type="button" hidden>
           <span id="updateAvailableLabel">Update available</span>
         </button>
-        <div class="settings-shell" id="settingsShell" hidden>
+        <div class="settings-shell" id="settingsShell">
           <button class="header-action" id="settingsTrigger" type="button" aria-expanded="false" aria-controls="settingsPopover">Settings</button>
           <div class="settings-popover" id="settingsPopover" hidden>
             <h2>Settings</h2>
-            <label class="startup-setting" id="launchOnStartupField" for="launchOnStartup">
+            <p class="settings-intro">Appearance and desktop behavior. Saved across the app and browser tabs.</p>
+            <label class="preference-field">Theme
+              <select id="themePreference">
+                <option value="phosphor">Phosphor</option>
+                <option value="amber">Amber</option>
+                <option value="ice">Ice</option>
+                <option value="crimson">Crimson</option>
+                <option value="ghost">Ghost</option>
+              </select>
+            </label>
+            <label class="preference-field">Density
+              <select id="densityPreference">
+                <option value="comfortable">Comfortable</option>
+                <option value="compact">Compact</option>
+              </select>
+            </label>
+            <label class="preference-field">Motion
+              <select id="motionPreference">
+                <option value="full">Full</option>
+                <option value="reduced">Reduced</option>
+              </select>
+            </label>
+            <label class="preference-field">Font scale
+              <select id="fontScalePreference">
+                <option value="90">90%</option>
+                <option value="100">100%</option>
+                <option value="110">110%</option>
+              </select>
+            </label>
+            <span class="settings-sync" id="settingsSync" role="status" aria-live="polite"></span>
+            <label class="startup-setting" id="launchOnStartupField" for="launchOnStartup" hidden>
               <span>
                 <strong>Launch on startup</strong>
                 <small>Open Hacker's Lair when you sign in to Windows.</small>
               </span>
               <input id="launchOnStartup" type="checkbox" role="switch">
             </label>
-            <span class="startup-status" id="launchOnStartupStatus" role="status" aria-live="polite"></span>
+            <span class="startup-status" id="launchOnStartupStatus" role="status" aria-live="polite" hidden></span>
+            <button class="settings-link" id="releaseNotesTrigger" type="button">
+              <strong>Release notes</strong>
+              <small>Open the current release on GitHub.</small>
+            </button>
           </div>
         </div>
-        <button class="header-action" id="releaseNotesTrigger" type="button">Release notes</button>
       </div>
     </div>
     <div class="node-strip" aria-label="System state">
@@ -3206,6 +3337,13 @@
     const osReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     root.dataset.motion = osReducedMotion ? 'reduced' : normalized.motion;
     root.style.setProperty('--font-scale', `${normalized.fontScale}%`);
+    $('themePreference').value = normalized.theme;
+    $('densityPreference').value = normalized.density;
+    $('motionPreference').value = normalized.motion;
+    $('motionPreference').title = osReducedMotion
+      ? 'Your operating system currently forces reduced motion.'
+      : '';
+    $('fontScalePreference').value = String(normalized.fontScale);
     renderTargets();
   }
 
@@ -3213,11 +3351,14 @@
     const normalized = normalizeUiPreferences(nextPreferences);
     localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(normalized));
     applyUiPreferences(normalized);
+    $('settingsSync').textContent = 'Saving…';
     try {
       const result = await postJson('/api/settings/preferences', normalized);
       state.settings = { ...(state.settings || {}), uiPreferences: result.uiPreferences };
+      $('settingsSync').textContent = 'Saved';
       pushFeed('UI_PREFERENCES_SAVED', `theme=${normalized.theme} density=${normalized.density} motion=${normalized.motion} font=${normalized.fontScale}`, 'info');
     } catch (error) {
+      $('settingsSync').textContent = 'Saved in this tab; desktop sync failed.';
       toast(error.message, true);
     }
   }
@@ -4145,7 +4286,8 @@
 
   function renderLaunchOnStartup() {
     const setting = state.launchAtLogin;
-    $('settingsShell').hidden = !setting.supported;
+    $('launchOnStartupField').hidden = !setting.supported;
+    $('launchOnStartupStatus').hidden = !setting.supported;
     $('launchOnStartup').checked = Boolean(setting.enabled);
     $('launchOnStartup').disabled = !setting.supported || Boolean(setting.busy);
     $('launchOnStartup').setAttribute('aria-busy', String(Boolean(setting.busy)));
@@ -5231,13 +5373,14 @@
   function setSettingsOpen(open) {
     const popover = $('settingsPopover');
     const trigger = $('settingsTrigger');
-    const shouldOpen = Boolean(open) && !$('settingsShell').hidden;
+    const shouldOpen = Boolean(open);
     popover.hidden = !shouldOpen;
     trigger.setAttribute('aria-expanded', String(shouldOpen));
-    if (shouldOpen) $('launchOnStartup').focus();
+    if (shouldOpen) $('themePreference').focus();
   }
 
   function openReleaseNotes() {
+    setSettingsOpen(false);
     const desktop = window.hackerLairWindow;
     if (desktop?.openUpdateNotes) {
       void desktop.openUpdateNotes();
@@ -5617,6 +5760,18 @@
   });
   $('updateAvailableTrigger').addEventListener('click', openUpdatesDialog);
   $('releaseNotesTrigger').addEventListener('click', openReleaseNotes);
+  $('themePreference').addEventListener('change', (event) => {
+    void saveUiPreferences({ ...state.uiPreferences, theme: event.target.value });
+  });
+  $('densityPreference').addEventListener('change', (event) => {
+    void saveUiPreferences({ ...state.uiPreferences, density: event.target.value });
+  });
+  $('motionPreference').addEventListener('change', (event) => {
+    void saveUiPreferences({ ...state.uiPreferences, motion: event.target.value });
+  });
+  $('fontScalePreference').addEventListener('change', (event) => {
+    void saveUiPreferences({ ...state.uiPreferences, fontScale: Number(event.target.value) });
+  });
   $('launchOnStartup').addEventListener('change', (event) => {
     void updateLaunchOnStartup(event.target.checked);
   });

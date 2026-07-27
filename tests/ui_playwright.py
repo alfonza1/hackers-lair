@@ -288,9 +288,7 @@ def assert_minimal_update_controls(page) -> None:
     update_trigger = page.locator("#updateAvailableTrigger")
     expect(update_trigger).to_be_hidden()
     release_notes = page.get_by_role("button", name="Release notes")
-    expect(release_notes).to_be_visible()
-    release_notes.click()
-    assert page.evaluate("window.__releaseNotesOpened") is True
+    expect(release_notes).to_be_hidden()
 
     page.evaluate("window.__lairUpdateListener(window.__availableUpdate)")
     expect(update_trigger).to_be_visible()
@@ -333,6 +331,18 @@ def assert_launch_on_startup_setting(page) -> None:
 
     popover = page.locator("#settingsPopover")
     expect(popover).to_be_visible()
+    expect(page.locator("#themePreference")).to_have_value("phosphor")
+    page.locator("#themePreference").select_option("ice")
+    expect(page.locator("html")).to_have_attribute("data-theme", "ice")
+    expect(page.locator("#densityPreference")).to_have_value("comfortable")
+    page.locator("#densityPreference").select_option("compact")
+    expect(page.locator("html")).to_have_attribute("data-density", "compact")
+    page.locator("#motionPreference").select_option("reduced")
+    expect(page.locator("html")).to_have_attribute("data-motion", "reduced")
+    page.locator("#fontScalePreference").select_option("110")
+    expect(page.locator("html")).to_have_attribute("style", re.compile(r"--font-scale:\s*110%"))
+    expect(page.locator("#settingsSync")).to_have_text("Saved")
+
     launch = page.get_by_role("switch", name=re.compile(r"Launch on startup"))
     expect(launch).not_to_be_checked()
     expect(page.locator("#launchOnStartupStatus")).to_have_text("Disabled")
@@ -347,11 +357,20 @@ def assert_launch_on_startup_setting(page) -> None:
     expect(page.locator("#launchOnStartupStatus")).to_have_text("Disabled")
     assert page.evaluate("window.__launchOnStartup") is False
 
+    release_notes = page.get_by_role("button", name="Release notes")
+    expect(release_notes).to_be_visible()
+    release_notes.click()
+    assert page.evaluate("window.__releaseNotesOpened") is True
+    expect(popover).to_be_hidden()
+    settings.click()
+    expect(popover).to_be_visible()
+
     page.set_viewport_size({"width": 900, "height": 620})
     popover_box = popover.bounding_box()
     assert popover_box is not None
-    assert popover_box["x"] >= 0
+    assert popover_box["x"] >= 0 and popover_box["y"] >= 0
     assert popover_box["x"] + popover_box["width"] <= 900
+    assert popover_box["y"] + popover_box["height"] <= 620
 
     page.keyboard.press("Escape")
     expect(popover).to_be_hidden()
