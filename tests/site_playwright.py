@@ -142,6 +142,20 @@ def run() -> None:
             )
             assert_no_browser_errors(windows_errors)
 
+            workflow_docs = windows_context.new_page()
+            stub_release_metadata(workflow_docs)
+            workflow_docs.goto(f"{origin}docs/ai-workflow.html", wait_until="networkidle")
+            expect(
+                workflow_docs.get_by_role(
+                    "heading",
+                    name="Maintain the workflow around your agents.",
+                )
+            ).to_be_visible()
+            assert not workflow_docs.evaluate(
+                "document.documentElement.scrollWidth > "
+                "document.documentElement.clientWidth"
+            )
+
             linux_context = browser.new_context(
                 viewport={"width": 1440, "height": 900},
                 user_agent=LINUX_USER_AGENT,
@@ -247,7 +261,7 @@ def run() -> None:
 
     print(
         "Static site Playwright passed: Windows, Linux distro choice, unsupported "
-        "platform, copy, no-JavaScript, mobile layout, and nested 404."
+        "platform, copy, no-JavaScript, mobile AI docs, layout, and nested 404."
     )
 
 

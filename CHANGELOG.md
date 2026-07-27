@@ -41,6 +41,13 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - New installs keep local Skills scanning disabled until the user opts in.
   Existing saved panel choices are preserved by the settings v4 migration.
 
+### Fixed
+
+- Open-in-editor on Windows now passes instruction paths directly to Explorer,
+  so command metacharacters in a legitimate folder name are never interpreted.
+- Skills-repository status is cached across rapid UI polls, and hook setup now
+  exposes the privacy-safe workspace-instruction fallback beside its JSON.
+
 ## [2.1.0-beta.7] - 2026-07-27
 
 ### Added

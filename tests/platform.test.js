@@ -113,16 +113,17 @@ test('instruction files open in the associated editor and reveal without shell i
   const windows = createWin32Platform({
     spawnCommand: async (command, args) => { windowsCalls.push({ command, args }); },
   });
-  await windows.openTarget('editor-file', { file: 'C:\\Work\\AGENTS.md' });
-  await windows.openTarget('reveal-file', { file: 'C:\\Work\\AGENTS.md' });
+  const windowsFile = 'C:\\Work & Notes\\AGENTS.md';
+  await windows.openTarget('editor-file', { file: windowsFile });
+  await windows.openTarget('reveal-file', { file: windowsFile });
   assert.deepEqual(windowsCalls, [
     {
-      command: 'cmd.exe',
-      args: ['/d', '/s', '/c', 'start', '', 'C:\\Work\\AGENTS.md'],
+      command: 'explorer.exe',
+      args: [windowsFile],
     },
     {
       command: 'explorer.exe',
-      args: ['/select,C:\\Work\\AGENTS.md'],
+      args: [`/select,${windowsFile}`],
     },
   ]);
 

@@ -12,10 +12,12 @@ test('workflow export copies skills, instructions, hook JSON, and a manifest', (
   const instructions = path.join(root, 'AGENTS.md');
   fs.mkdirSync(path.join(skills, 'verify'), { recursive: true });
   fs.writeFileSync(path.join(skills, 'verify', 'SKILL.md'), '# Verify');
+  const skillsLink = path.join(root, 'skills-link');
+  fs.symlinkSync(skills, skillsLink, process.platform === 'win32' ? 'junction' : 'dir');
   fs.writeFileSync(instructions, '# Instructions');
   const result = exportWorkflowBundle({
     exportsDirectory: path.join(root, 'exports'),
-    skillsDirectory: skills,
+    skillsDirectory: skillsLink,
     instructionFiles: [instructions],
     hooks: { PostToolUse: [] },
     now: new Date('2026-07-27T12:34:56Z'),

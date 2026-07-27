@@ -58,6 +58,18 @@ test('protects localhost mutations and verifies the bound service identity', asy
   const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-security-'));
   const port = await freePort();
   fs.writeFileSync(path.join(dataDirectory, 'projects.json'), '{"projects":[]}');
+  fs.writeFileSync(path.join(dataDirectory, 'settings.json'), JSON.stringify({
+    configVersion: 4,
+    enableSkills: false,
+    enableScripts: false,
+    workspaceFolders: [dataDirectory],
+    aiWorkflow: {
+      enableUsageStats: true,
+      coldSkillDays: 45,
+      enableSessionFeed: false,
+      contextTaxWarnTokens: 8000,
+    },
+  }));
   const agentsHome = path.join(dataDirectory, '.agents');
   const claudeHome = path.join(dataDirectory, '.claude');
   const verifySkillDirectory = path.join(agentsHome, 'skills', 'verify');
@@ -118,7 +130,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
     tool_name: 'Skill',
     tool_input: { skill: 'verify' },
   })}\n`);
-  const memoryDirectory = path.join(transcriptDirectory, 'memory');
+  const memoryDirectory = path.join(dataDirectory, '.claude', 'memory');
   fs.mkdirSync(memoryDirectory);
   fs.writeFileSync(path.join(memoryDirectory, 'decisions.md'), '# Fixture decisions');
   fs.writeFileSync(path.join(claudeHome, 'settings.json'), JSON.stringify({
@@ -397,6 +409,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
   const report = JSON.parse(reportResponse.body);
   assert.ok(fs.existsSync(report.file));
   assert.match(report.markdown, /workflow report/i);
+  assert.match(report.markdown, /Drift findings: 2/);
 
   const repairPromptResponse = await request({ port, pathname: '/api/ai/repair-prompt' });
   assert.equal(repairPromptResponse.status, 200);
@@ -490,6 +503,8 @@ test('protects localhost mutations and verifies the bound service identity', asy
   assert.equal(setup.usageLogFile, path.join(agentsHome, 'usage-log.jsonl'));
   assert.equal(setup.claudeSettingsFile, path.join(claudeHome, 'settings.json'));
   assert.match(setup.hookJson.hooks.PostToolUse[0].hooks[0].command, /hackers-lair-usage-hook/);
+  assert.ok(setup.fallbackInstruction.includes(path.join(agentsHome, 'usage-log.jsonl')));
+  assert.match(setup.fallbackInstruction, /never include prompts/);
   assert.match(setup.prompt, /Inspect all four files read-only first/);
   assert.equal(
     JSON.parse((await request({ port, pathname: '/api/onboarding' })).body)

@@ -45,6 +45,7 @@ const {
   installUsageHooks,
   listConfiguredHooks,
   readSettings,
+  usageFallbackInstruction,
   usageHooksBlock,
   writeUsageHookShim,
 } = require('./lib/claude-settings');
@@ -196,6 +197,7 @@ function usageSetupState(settings = loadSettings()) {
     hookJson: {
       hooks: usageHooksBlock({ hookCommand: USAGE_HOOK_COMMAND }),
     },
+    fallbackInstruction: usageFallbackInstruction(USAGE_LOG_FILE),
     prompt: usageTrackingSetupPrompt({
       usageLogFile: USAGE_LOG_FILE,
       claudeSettingsFile: CLAUDE_SETTINGS_FILE,
@@ -392,7 +394,7 @@ async function agentOpsSnapshot(settings = loadSettings()) {
       ? await listSessions({ claudeHome: CLAUDE_HOME })
       : [],
     sessionFeedEnabled: settings.aiWorkflow.enableSessionFeed,
-    memory: listMemoryEntries({ claudeHome: CLAUDE_HOME, projectFolders }),
+    memory: listMemoryEntries({ projectFolders }),
     coverage: projectCoverageMatrix(loadProjects()),
     parity: harnessParity(internalSkills()),
     usageHook: {
@@ -1923,6 +1925,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const workspaceRoots = [
+        WORKSPACE_ROOT,
         ...settings.workspaceFolders,
         ...loadProjects().flatMap((project) => (
           (project.components || []).map((component) => component.cwd).filter(Boolean)
@@ -2147,6 +2150,17 @@ const server = http.createServer(async (req, res) => {
       ]);
       const instructions = instructionRecords(settings);
       const coverage = projectCoverageMatrix(loadProjects());
+      const driftResults = await Promise.all(instructions.map(async (instruction) => {
+        try {
+          return await checkInstructionDrift(instruction.path, {
+            commandExists: (command) => platform.executableExists(command),
+          });
+        } catch {
+          return { findings: [] };
+        }
+      }));
+      const skillFindings = skillsData.skills.flatMap((skill) => skill.lint.findings);
+      const staleFindingCodes = new Set(['old-model-id', 'old-node-pin', 'old-date']);
       const result = generateWorkflowReport({
         reportsDirectory: REPORTS_DIR,
         usage: skillsData.skills
@@ -2156,9 +2170,13 @@ const server = http.createServer(async (req, res) => {
         coldSkills: skillsData.skills.filter((skill) => skill.cold).map((skill) => skill.name),
         frictionGroups: friction.groups.filter((group) => group.nudge),
         counts: {
-          lint: skillsData.skills.reduce((sum, skill) => sum + skill.lint.findings.length, 0),
-          drift: 0,
-          stale: instructions.reduce((sum, instruction) => sum + instruction.staleFindings.length, 0),
+          lint: skillFindings.filter((finding) => !staleFindingCodes.has(finding.code)).length,
+          drift: driftResults.reduce((sum, result) => sum + result.findings.length, 0),
+          stale: skillFindings.filter((finding) => staleFindingCodes.has(finding.code)).length
+            + instructions.reduce(
+              (sum, instruction) => sum + instruction.staleFindings.length,
+              0,
+            ),
           coverage: coverage.reduce((sum, row) => sum + row.gaps.length, 0),
         },
         skillsRepo: skillsData.repoStatus,

@@ -30,6 +30,7 @@
 </script>
 <style nonce="__LAIR_CSP_NONCE__">
   /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
+  /* Hallmark · macrostructure: operator-console · controls-first, dense registries, persistent activity rail */
   /* Hallmark · component: theme presets · genre: atmospheric · theme: curated console
    * contrast: pass (40–41) · tokens: pass (48)
    */
@@ -1062,6 +1063,7 @@
     font-size: 12px;
     font-weight: 900;
     text-transform: uppercase;
+    white-space: nowrap;
     transition: border-color .16s, color .16s, background .16s, transform .08s, box-shadow .16s;
   }
 
@@ -5194,6 +5196,7 @@
         <div class="ai-workflow-actions">
           <div class="config-controls">
             <button class="utility" type="button" data-ai-action="copy-json">Copy JSON</button>
+            <button class="utility" type="button" data-ai-action="copy-fallback">Copy fallback instruction</button>
             ${ready ? '' : '<button class="utility" type="button" data-ai-action="install-hook">Install for me</button>'}
             ${ready ? '' : '<button class="utility" type="button" data-ai-action="copy-prompt">Copy agent prompt</button>'}
             <button class="utility" type="button" data-ai-action="compact-log">Compact log</button>
@@ -5202,6 +5205,7 @@
         <details>
           <summary>Review hook definition</summary>
           <pre>${esc(JSON.stringify(setup.hookJson, null, 2))}</pre>
+          <p><strong>Harness fallback:</strong> ${esc(setup.fallbackInstruction || '')}</p>
         </details>
       </section>
     `;
@@ -5489,6 +5493,11 @@
       if (!quiet) {
         const personal = state.skills.filter((skill) => skill.kind === 'personal').length;
         pushFeed('SKILL_REGISTRY_SYNCED', `personal=${personal} total=${state.skills.length}`, 'info');
+        pushFeed(
+          'USAGE_LOG_SYNCED',
+          `events=${state.skillUsage?.events || 0} malformed=${state.skillUsage?.malformedLines || 0}`,
+          state.skillUsage?.malformedLines ? 'warn' : 'info',
+        );
       }
       renderTargets();
       updateIntel();
@@ -5718,6 +5727,10 @@
         await navigator.clipboard.writeText(JSON.stringify(state.aiSetup?.hookJson || {}, null, 2));
         toast('Hook JSON copied.');
         pushFeed('USAGE_HOOK_JSON_COPIED', 'scope=claude_settings', 'info');
+      } else if (action === 'copy-fallback') {
+        await navigator.clipboard.writeText(state.aiSetup?.fallbackInstruction || '');
+        toast('Fallback instruction copied.');
+        pushFeed('USAGE_FALLBACK_COPIED', 'scope=workspace_instructions', 'info');
       } else if (action === 'copy-prompt') {
         await navigator.clipboard.writeText(state.aiSetup?.prompt || '');
         toast('Usage setup prompt copied.');

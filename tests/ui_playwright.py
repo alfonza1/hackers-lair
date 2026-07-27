@@ -466,6 +466,13 @@ def assert_settings_panel(page, scripts_supported: bool) -> None:
 
 def assert_skills_maintenance(page) -> None:
     page.get_by_role("tab", name="Skills", exact=True).click()
+    expect(page.get_by_role("button", name="Copy fallback instruction")).to_be_visible()
+    page.set_viewport_size({"width": 900, "height": 620})
+    has_overflow = page.evaluate(
+        "() => document.documentElement.scrollWidth > document.documentElement.clientWidth"
+    )
+    assert not has_overflow, "Skills maintenance has horizontal overflow at 900x620."
+    page.set_viewport_size({"width": 1440, "height": 900})
     verify = page.locator('[data-card-kind="skill"]').filter(has_text="verify")
     expect(verify).to_be_visible(timeout=15_000)
     expect(verify).to_contain_text("1 use")
@@ -590,6 +597,18 @@ def assert_palette_and_theme(page) -> None:
 
 def capture_theme_previews(page) -> None:
     OUTPUT_DIRECTORY.mkdir(exist_ok=True)
+    page.locator("body").evaluate(
+        """body => {
+            const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+            while (walker.nextNode()) {
+                walker.currentNode.nodeValue = walker.currentNode.nodeValue
+                    .replace(/[A-Z]:\\\\Users\\\\[^\\\\\\s]+/gi, '%USERPROFILE%')
+                    .replace(/[A-Z]:\\\\[^\\r\\n;]+/gi, '<LOCAL_PATH>');
+            }
+            const host = document.querySelector('#nodeName');
+            if (host) host.textContent = 'LOCALHOST';
+        }"""
+    )
     page.locator(".compact-path").evaluate_all(
         """paths => paths.forEach((path, index) => {
             path.textContent = index ? 'C:\\\\Dev\\\\sample-api' : 'C:\\\\Dev\\\\sample-web';
@@ -691,7 +710,7 @@ def run() -> None:
         "---\n",
         encoding="utf-8",
     )
-    memory_directory = claude_home / "projects" / "fixture" / "memory"
+    memory_directory = live_directory / ".claude" / "memory"
     memory_directory.mkdir(parents=True)
     (memory_directory / "decisions.md").write_text("# Fixture decisions\n", encoding="utf-8")
     (claude_home / "settings.json").write_text(

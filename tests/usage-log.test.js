@@ -71,6 +71,14 @@ test('missing usage logs return an empty aggregate', async (t) => {
   });
 });
 
+test('an empty existing log still establishes the cold-skill clock', async (t) => {
+  const file = tempLog(t);
+  fs.writeFileSync(file, '');
+  const result = await aggregateUsageLog(file);
+  assert.equal(result.events, 0);
+  assert.ok(Number.isFinite(Date.parse(result.logStartedAt)));
+});
+
 test('the reader caps work to the newest five megabytes', async (t) => {
   const file = tempLog(t);
   const oldLine = `${event({ name: 'old-skill', ts: '2026-01-01T00:00:00.000Z' })}\n`;

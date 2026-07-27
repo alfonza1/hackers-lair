@@ -10,6 +10,7 @@ const {
   inspectUsageHook,
   installUsageHooks,
   listConfiguredHooks,
+  usageFallbackInstruction,
   usageHooksBlock,
   writeUsageHookShim,
 } = require('../lib/claude-settings');
@@ -32,6 +33,15 @@ test('hook JSON uses one cross-platform shim command for Skill and Task events',
   assert.deepEqual(block.PostToolUse.map((entry) => entry.matcher), ['Skill', 'Task']);
   assert.match(block.PostToolUse[0].hooks[0].command, /hackers-lair-usage-hook\.js.*skill/i);
   assert.match(block.PostToolUse[1].hooks[0].command, /hackers-lair-usage-hook\.js.*agent/i);
+});
+
+test('fallback instruction names the absolute log and excludes sensitive payloads', (t) => {
+  const files = fixture(t);
+  const instruction = usageFallbackInstruction(files.usageLogFile);
+  assert.ok(instruction.includes(files.usageLogFile));
+  assert.match(instruction, /only type, name, project, ts, and source/);
+  assert.match(instruction, /never include prompts/);
+  assert.throws(() => usageFallbackInstruction('usage-log.jsonl'), /absolute/);
 });
 
 test('install merges hooks without replacing existing settings and backs up first', (t) => {

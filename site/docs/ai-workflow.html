@@ -24,7 +24,7 @@
       <div class="docs-callout"><strong>Network boundary:</strong> normal scans never use the network. “Check links” is the only workflow-maintenance network action; it runs only after a button press, uses a five-second HEAD request, and caches the result locally for seven days. There is no telemetry, analytics, account, or hosted service.</div>
 
       <h2 id="usage">Local usage counts</h2>
-      <p>The Usage tracking card shows the exact Claude Code hook JSON, offers a reviewable one-click install, and can generate a machine-aware prompt for your coding agent. The hook appends only event type, name, project, timestamp, and source to <code>usage-log.jsonl</code>. It never records prompt text, file contents, tool arguments, environment variables, tokens, or credentials.</p>
+      <p>The Usage tracking card shows the exact Claude Code hook JSON, provides a short workspace-instruction fallback for harnesses without hooks, offers a reviewable one-click install, and can generate a machine-aware prompt for your coding agent. The hook appends only event type, name, project, timestamp, and source to <code>usage-log.jsonl</code>. It never records prompt text, file contents, tool arguments, environment variables, tokens, or credentials.</p>
       <p>The hook calls a small shim in Hacker's Lair's data directory. Packaged-app users need <code>node</code> available on <code>PATH</code> for that external hook command; the desktop app itself still ships self-contained and does not require a separate Node installation.</p>
 
       <h2 id="skills">Skills and instructions</h2>
@@ -37,7 +37,7 @@
       </ul>
 
       <h2 id="ops">Agent Ops inventories</h2>
-      <p>Agent Ops groups subagents, slash commands, MCP definitions, permission rules, configured hooks, session summaries, memory age, project coverage, and harness parity under one filtered view. MCP servers are never launched or probed, and MCP environment values are excluded from the response.</p>
+      <p>Agent Ops groups subagents, slash commands, MCP definitions, permission rules, configured hooks, session summaries, memory age for known project folders, project coverage, and harness parity under one filtered view. MCP servers are never launched or probed, and MCP environment values are excluded from the response.</p>
 
       <h2 id="maintenance">Close the maintenance loop</h2>
       <p>Use the header's friction capture when an agent workflow fails. Similar entries are grouped; at three occurrences, Hacker's Lair suggests scaffolding a reusable skill. Generate a weekly Markdown report for usage, cold skills, recurring friction, findings, coverage gaps, and unpublished skill-repository work.</p>

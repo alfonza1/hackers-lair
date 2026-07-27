@@ -15,7 +15,6 @@ test('memory registry lists project memory and marks entries stale after 90 days
   fs.writeFileSync(file, '# Decisions');
   fs.utimesSync(file, new Date('2025-01-01'), new Date('2025-01-01'));
   const entries = listMemoryEntries({
-    claudeHome: path.join(root, 'claude'),
     projectFolders: [project],
     now: new Date('2026-07-27'),
   });

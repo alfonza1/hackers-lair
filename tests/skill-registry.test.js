@@ -67,8 +67,27 @@ test('skill roots expose the same environment resolution used by the registry', 
     claudeHome: path.resolve('claude'),
   });
   assert.equal(roots.personalSkills, path.join(path.resolve('agents'), 'skills'));
+  assert.equal(roots.claudeSkills, path.join(path.resolve('claude'), 'skills'));
   assert.equal(roots.codexPluginCache, path.join(path.resolve('codex'), 'plugins', 'cache'));
   assert.equal(roots.claudePluginCache, path.join(path.resolve('claude'), 'plugins', 'cache'));
+});
+
+test('shared user skill roots expose every harness without duplicate cards', (t) => {
+  const root = temporaryDirectory();
+  t.after(() => fs.rmSync(root, { force: true, recursive: true }));
+  writeSkill(
+    path.join(root, 'skills', 'shared-check', 'SKILL.md'),
+    'shared-check',
+    'Check a shared workflow from every configured harness.',
+  );
+  const records = listSkills({
+    agentsHome: root,
+    codexHome: root,
+    claudeHome: root,
+  }).filter((skill) => skill.name === 'shared-check');
+  assert.equal(records.length, 1);
+  assert.deepEqual(records[0].harnesses.sort(), ['agents', 'claude', 'codex']);
+  assert.equal(records[0].kind, 'personal');
 });
 
 test('discovers Codex system and plugin skills behind the default classification', (t) => {
