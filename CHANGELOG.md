@@ -7,6 +7,11 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- PowerShell installs started from an administrator terminal no longer leave an
+  elevated tray process that blocks later normal-user launches.
+
 ## [2.1.0-beta.2] - 2026-07-26
 
 ### Added

@@ -52,6 +52,7 @@
       <h3>Checksum-verifying PowerShell channel</h3>
       <p>This channel works directly from GitHub Releases. The script resolves the latest release, downloads the portable ZIP and <code>checksums.txt</code>, verifies SHA256, and only then unblocks and extracts it to <code>%LOCALAPPDATA%\Programs\HackersLair</code>.</p>
       <pre class="command-block"><code>irm https://hackerslairhq.github.io/desktop/install.ps1 | iex</code></pre>
+      <p>Run it in a regular PowerShell window; administrator privileges are not needed. If the terminal is elevated, installation still completes, but automatic launch is skipped so the tray app never inherits administrator privileges.</p>
       <p>Re-running the command updates the installation in place. It creates a Start menu shortcut but leaves launch-at-login off; that preference is controlled inside the desktop app.</p>
 
       <h3>Scoop</h3>

@@ -48,6 +48,64 @@ function runAsync(command, args, options = {}) {
   });
 }
 
+function currentProcessIsElevated() {
+  return run('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    [
+      '$identity = [Security.Principal.WindowsIdentity]::GetCurrent();',
+      '$principal = New-Object Security.Principal.WindowsPrincipal($identity);',
+      '$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)',
+    ].join(' '),
+  ]).trim() === 'True';
+}
+
+function installedProcessIds(executable) {
+  const output = run('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    [
+      '$target = [IO.Path]::GetFullPath($env:LAIR_SMOKE_EXECUTABLE);',
+      `$ids = Get-CimInstance Win32_Process -Filter "Name='HackersLair.exe'" |`,
+      'Where-Object {',
+      '$_.ExecutablePath -and',
+      '[IO.Path]::GetFullPath($_.ExecutablePath).Equals(',
+      '$target, [StringComparison]::OrdinalIgnoreCase',
+      ')',
+      '} | Select-Object -ExpandProperty ProcessId;',
+      '$ids -join ","',
+    ].join(' '),
+  ], {
+    env: {
+      ...process.env,
+      LAIR_SMOKE_EXECUTABLE: executable,
+    },
+  }).trim();
+  return output ? output.split(',').map(Number) : [];
+}
+
+function stopInstalledProcesses(executable) {
+  for (const processId of installedProcessIds(executable)) {
+    try {
+      process.kill(processId);
+    } catch (error) {
+      if (error.code !== 'ESRCH') throw error;
+    }
+  }
+}
+
+async function waitForInstalledProcessesToExit(executable, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (installedProcessIds(executable).length) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Timed out waiting for ${executable} to exit.`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 async function main() {
   if (process.platform !== 'win32') {
     console.log('Windows installer smoke skipped on non-Windows host.');
@@ -131,23 +189,24 @@ async function main() {
       ],
     };
     const releaseBaseUrl = `http://127.0.0.1:${port}`;
-    const installerArguments = (releaseApi) => [
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      path.join(root, 'install.ps1'),
-      '-InstallDirectory',
-      installRoot,
-      '-ReleaseApi',
-      `${releaseBaseUrl}/${releaseApi}`,
-      '-ReleaseDownloadBase',
-      releaseBaseUrl,
-      '-NoLaunch',
-      '-NoStartup',
-      '-NoShortcut',
-      '-NoPath',
-    ];
+    const installerArguments = (releaseApi, { noLaunch = true } = {}) => {
+      const args = [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        path.join(root, 'install.ps1'),
+        '-InstallDirectory',
+        installRoot,
+        '-ReleaseApi',
+        `${releaseBaseUrl}/${releaseApi}`,
+        '-ReleaseDownloadBase',
+        releaseBaseUrl,
+      ];
+      if (noLaunch) args.push('-NoLaunch');
+      args.push('-NoStartup', '-NoShortcut', '-NoPath');
+      return args;
+    };
 
     try {
       fs.writeFileSync(checksums, `${'0'.repeat(64)}  ${archiveName}\n`);
@@ -176,6 +235,33 @@ async function main() {
       });
       if (!cliOutput.includes("Hacker's Lair CLI")) throw new Error('Installed CLI did not start.');
 
+      const elevatedLaunchFailures = [];
+      if (currentProcessIsElevated()) {
+        const launchOutput = await runAsync(
+          'powershell',
+          installerArguments('release-unavailable', { noLaunch: false }),
+          {
+            env: {
+              ...process.env,
+              PROJECT_MANAGER_DATA_DIR: path.join(temporaryRoot, 'user-data'),
+              LAIR_SMOKE_EXIT_AFTER_MS: '5000',
+            },
+          },
+        );
+        if (!launchOutput.includes('Administrator PowerShell detected: automatic launch was skipped.')) {
+          elevatedLaunchFailures.push(
+            'Elevated installer did not explain that automatic launch was skipped.',
+          );
+        }
+        if (installedProcessIds(installedExecutable).length) {
+          elevatedLaunchFailures.push(
+            'Elevated installer left an elevated desktop process running.',
+          );
+        }
+        stopInstalledProcesses(installedExecutable);
+        await waitForInstalledProcessesToExit(installedExecutable);
+      }
+
       run('powershell', [
         '-NoProfile',
         '-ExecutionPolicy',
@@ -189,13 +275,30 @@ async function main() {
         '-NoPath',
       ]);
       if (fs.existsSync(installRoot)) throw new Error('Uninstaller left the smoke install directory behind.');
+      if (elevatedLaunchFailures.length) {
+        throw new Error(elevatedLaunchFailures.join('\n'));
+      }
       console.log('Windows checksum installer, packaged CLI, and verified uninstaller smoke passed.');
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
   } finally {
-    if (fs.existsSync(installRoot)) fs.rmSync(installRoot, { recursive: true, force: true });
-    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    const installedExecutable = path.join(installRoot, 'HackersLair.exe');
+    if (fs.existsSync(installedExecutable)) stopInstalledProcesses(installedExecutable);
+    if (fs.existsSync(installRoot)) {
+      fs.rmSync(installRoot, {
+        recursive: true,
+        force: true,
+        maxRetries: 20,
+        retryDelay: 250,
+      });
+    }
+    fs.rmSync(temporaryRoot, {
+      recursive: true,
+      force: true,
+      maxRetries: 20,
+      retryDelay: 250,
+    });
   }
 }
 

@@ -60,6 +60,12 @@ function Get-Sha256Hex([string]$File) {
     }
 }
 
+function Test-IsElevated {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
 if (-not $env:LOCALAPPDATA) {
     throw 'LOCALAPPDATA is unavailable. Hacker''s Lair installs per user on Windows.'
 }
@@ -168,7 +174,12 @@ try {
     Write-Output 'Launch at login remains off; enable it inside the app if wanted.'
     Write-Output 'Open a new terminal and run "lair doctor".'
     if (-not $NoLaunch) {
-        Start-Process -FilePath $installedExecutable -WorkingDirectory $installRoot
+        if (Test-IsElevated) {
+            Write-Output 'Administrator PowerShell detected: automatic launch was skipped.'
+            Write-Output "Open $ApplicationName from the Start menu to run it without administrator privileges."
+        } else {
+            Start-Process -FilePath $installedExecutable -WorkingDirectory $installRoot
+        }
     }
 } finally {
     if (
