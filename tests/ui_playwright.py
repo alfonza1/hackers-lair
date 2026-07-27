@@ -206,6 +206,21 @@ def assert_target_states(page, live_port: int, dormant_port: int) -> None:
     expect(dormant.get_by_text("PORTS", exact=True)).to_be_visible()
     expect(dormant.locator(".configured-port-chip")).to_have_text(f":{dormant_port}")
     expect(dormant.get_by_text("DETECTED", exact=True)).to_have_count(0)
+
+    live_actions = live.locator(".action-cluster .action")
+    expect(live_actions).to_have_count(2)
+    expect(live_actions.nth(0)).to_have_text("TERMINATE")
+    expect(live_actions.nth(0)).to_be_enabled()
+    expect(live_actions.nth(1)).to_have_text("INITIATE")
+    expect(live_actions.nth(1)).to_be_disabled()
+
+    dormant_actions = dormant.locator(".action-cluster .action")
+    expect(dormant_actions).to_have_count(2)
+    expect(dormant_actions.nth(0)).to_have_text("TERMINATE")
+    expect(dormant_actions.nth(0)).to_be_disabled()
+    expect(dormant_actions.nth(1)).to_have_text("INITIATE")
+    expect(dormant_actions.nth(1)).to_be_enabled()
+
     assert "N/A" not in page.locator("body").inner_text()
 
 

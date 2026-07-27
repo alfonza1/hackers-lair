@@ -3525,8 +3525,8 @@
             </div>
           </div>
           <div class="action-cluster">
-            ${!['live', 'booting'].includes(status.key) ? actionButton('project', 'initiate', 'INITIATE', initiateDisabled) : ''}
-            ${status.key !== 'dormant' ? actionButton('project', 'terminate', 'TERMINATE', terminateDisabled) : ''}
+            ${actionButton('project', 'terminate', 'TERMINATE', terminateDisabled)}
+            ${actionButton('project', 'initiate', 'INITIATE', initiateDisabled)}
           </div>
         </div>
       </article>
