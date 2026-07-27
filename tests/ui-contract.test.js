@@ -60,6 +60,8 @@ test('command palette includes setup and every preference family', () => {
 
 test('updates and release notes live in the Settings dialog', () => {
   assert.doesNotMatch(html, /id="updateBanner"/);
+  assert.match(html, /aria-label="Settings"/);
+  assert.doesNotMatch(html, />UI preferences</);
   assert.match(html, /id="updatesTrigger"/);
   assert.match(html, /id="updateDialog"/);
   assert.match(html, /id="copyUpdateCommand"/);

@@ -281,7 +281,7 @@ def assert_script_action_tray(page, script_name: str) -> None:
 
 def assert_update_settings_dialog(page) -> None:
     expect(page.locator("#updateBanner")).to_have_count(0)
-    page.get_by_role("button", name="UI preferences").click()
+    page.get_by_role("button", name="Settings").click()
     updates = page.get_by_role("button", name=re.compile(r"Updates & release notes"))
     expect(updates).to_be_visible()
     expect(updates).to_contain_text("PowerShell portable")
@@ -304,7 +304,7 @@ def assert_update_settings_dialog(page) -> None:
     expect(dialog).to_be_hidden()
 
     page.set_viewport_size({"width": 900, "height": 620})
-    page.get_by_role("button", name="UI preferences").click()
+    page.get_by_role("button", name="Settings").click()
     page.get_by_role("button", name=re.compile(r"Updates & release notes")).click()
     dialog_box = dialog.bounding_box()
     assert dialog_box is not None

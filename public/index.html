@@ -2576,9 +2576,9 @@
         <p class="top-sub">Low-light command room for local targets, port signals, optional scripts, and machine diagnostics.</p>
       </div>
       <div class="preferences-shell">
-        <button class="preferences-trigger" id="preferencesTrigger" type="button" aria-label="UI preferences" aria-expanded="false" aria-controls="preferencesPopover">⚙</button>
+        <button class="preferences-trigger" id="preferencesTrigger" type="button" aria-label="Settings" aria-expanded="false" aria-controls="preferencesPopover">⚙</button>
         <div class="preferences-popover" id="preferencesPopover" hidden>
-          <h2>UI preferences</h2>
+          <h2>Settings</h2>
           <p>Curated local presets. Saved across the desktop app and browser tabs.</p>
           <label class="preference-field">Theme
             <select id="themePreference">
@@ -5240,7 +5240,7 @@
       { verb: 'COPY', label: 'Copy redacted Doctor report', hint: 'support', run: copyDoctorReport },
       { verb: 'ADD', label: 'Add project', hint: 'schema-backed editor', run: () => openProjectEditor() },
       { verb: 'SCAN', label: 'Scan folder', hint: 'project discovery', run: openSetupWizard },
-      { verb: 'SETTINGS', label: 'Open UI preferences', hint: 'theme density motion font', run: () => setPreferencesOpen(true) },
+      { verb: 'SETTINGS', label: 'Open Settings', hint: 'theme density motion font', run: () => setPreferencesOpen(true) },
       { verb: 'UPDATES', label: 'Updates & release notes', hint: 'channel command changelog', run: openUpdatesDialog },
       { verb: 'CONFIG', label: 'Export redacted config', hint: 'backup', run: exportRedactedConfig },
       { verb: 'CONFIG', label: 'Restore previous config', hint: 'recovery', run: restorePreviousConfig },
