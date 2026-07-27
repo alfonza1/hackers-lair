@@ -48,6 +48,24 @@ function runAsync(command, args, options = {}) {
   });
 }
 
+function waitForFile(filename, timeoutMs = 30_000) {
+  const deadline = Date.now() + timeoutMs;
+  return new Promise((resolve, reject) => {
+    const check = () => {
+      if (fs.existsSync(filename)) {
+        resolve();
+        return;
+      }
+      if (Date.now() >= deadline) {
+        reject(new Error(`Timed out waiting for ${filename}.`));
+        return;
+      }
+      setTimeout(check, 100);
+    };
+    check();
+  });
+}
+
 async function main() {
   if (process.platform !== 'win32') {
     console.log('Windows installer smoke skipped on non-Windows host.');
@@ -68,6 +86,7 @@ async function main() {
     'Programs',
     `HackersLairSmoke-${process.pid}`,
   );
+  const dataRoot = path.join(temporaryRoot, 'data');
   const allowedParent = path.resolve(process.env.LOCALAPPDATA, 'Programs');
   if (!path.resolve(installRoot).startsWith(`${allowedParent}${path.sep}`)) {
     throw new Error(`Unsafe smoke install path: ${installRoot}`);
@@ -149,6 +168,7 @@ async function main() {
       '-NoPath',
     ];
 
+    let runningApp = null;
     try {
       fs.writeFileSync(checksums, `${'0'.repeat(64)}  ${archiveName}\n`);
       let checksumFailure = null;
@@ -176,6 +196,23 @@ async function main() {
       });
       if (!cliOutput.includes("Hacker's Lair CLI")) throw new Error('Installed CLI did not start.');
 
+      const readyFile = path.join(dataRoot, 'desktop-smoke-ready');
+      runningApp = spawn(installedExecutable, [], {
+        cwd: installRoot,
+        env: {
+          ...process.env,
+          PROJECT_MANAGER_DATA_DIR: dataRoot,
+          LAIR_SMOKE_EXIT_AFTER_MS: '60000',
+        },
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      await waitForFile(readyFile);
+      if (runningApp.exitCode !== null) {
+        throw new Error('Packaged app exited before the upgrade installer ran.');
+      }
+      await runAsync('powershell', installerArguments('release'));
+
       run('powershell', [
         '-NoProfile',
         '-ExecutionPolicy',
@@ -191,6 +228,13 @@ async function main() {
       if (fs.existsSync(installRoot)) throw new Error('Uninstaller left the smoke install directory behind.');
       console.log('Windows checksum installer, packaged CLI, and verified uninstaller smoke passed.');
     } finally {
+      if (runningApp?.exitCode === null) {
+        runningApp.kill();
+        await Promise.race([
+          new Promise((resolve) => runningApp.once('exit', resolve)),
+          new Promise((resolve) => setTimeout(resolve, 5_000)),
+        ]);
+      }
       await new Promise((resolve) => server.close(resolve));
     }
   } finally {
