@@ -36,6 +36,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - Added separately opt-in redacted session summaries, read-only memory age,
   local weekly workflow reports, and local workflow bundle export.
 - Added safe `?view=` deep links for opening an enabled console panel directly.
+- Added a machine-aware agent-assisted path to Add Project that appends targets
+  while preserving the existing registry, alongside the manual editor.
 
 ### Changed
 

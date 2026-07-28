@@ -215,6 +215,26 @@ test('onboarding and project management never require hand-edited JSON', () => {
   assert.match(server, /findProjectPortConflicts/);
 });
 
+test('Add Project offers agent-assisted setup before the manual editor', () => {
+  for (const marker of [
+    'id="additionalProjectSetup"',
+    'id="additionalProjectPrompt"',
+    'id="copyAdditionalProjectPrompt"',
+    'state.onboarding?.additionalProjectsPrompt',
+  ]) {
+    assert.match(html, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  assert.match(
+    html,
+    /id="additionalProjectSetup"[\s\S]*Agent-assisted[\s\S]*Recommended[\s\S]*Manual setup/,
+  );
+  assert.match(
+    html,
+    /additionalProjectSetup'\)\.hidden = Boolean\(project\) \|\| state\.projects\.length === 0/,
+  );
+  assert.match(html, /navigator\.clipboard\.writeText\(prompt\)/);
+});
+
 test('project setup can cancel safely and browse outside the Electron host', () => {
   assert.equal((html.match(/value="cancel"[^>]*formnovalidate/g) || []).length, 2);
   assert.match(html, /postJson\('\/api\/dialog\/workspace-folders', \{\}\)/);

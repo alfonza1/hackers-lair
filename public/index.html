@@ -3040,6 +3040,74 @@
     border-bottom: 0;
   }
 
+  .additional-project-setup {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .additional-project-agent {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid rgba(var(--accent-rgb), .28);
+    border-left: 3px solid var(--green);
+    border-radius: 4px;
+    background: rgba(var(--accent-rgb), .045);
+  }
+
+  .additional-project-agent h3,
+  .additional-project-agent p { margin: 0; }
+  .additional-project-agent h3 {
+    color: var(--text);
+    font-size: 14px;
+    text-transform: uppercase;
+  }
+  .additional-project-agent p {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.55;
+  }
+  .additional-project-agent details {
+    min-width: 0;
+    border-top: 1px solid var(--line);
+    padding-top: 9px;
+  }
+  .additional-project-agent summary {
+    color: var(--cyan);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .additional-project-agent pre {
+    max-height: 190px;
+    margin: 9px 0 0;
+    overflow: auto;
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font: 10px/1.55 var(--mono);
+    white-space: pre-wrap;
+  }
+  .additional-project-agent .utility { justify-self: start; }
+
+  .project-manual-label {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    align-items: baseline;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+  .project-manual-label strong {
+    color: var(--cyan);
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .project-manual-label span { color: var(--dim); font-size: 9px; }
+
   .editor-project-fields,
   .component-fields {
     display: grid;
@@ -3490,6 +3558,25 @@
       <button class="utility" value="cancel" type="submit" formnovalidate aria-label="Close project editor">Close</button>
     </div>
     <div class="dialog-body">
+      <section class="additional-project-setup" id="additionalProjectSetup" hidden>
+        <section class="additional-project-agent">
+          <div class="section-kicker setup-path-kicker">
+            <span>Agent-assisted</span>
+            <span class="setup-recommendation">Recommended</span>
+          </div>
+          <h3>Add projects with your AI agent</h3>
+          <p>Copy a machine-aware prompt that preserves every current target, validates new entries, and confirms the registry hot-reloads them.</p>
+          <button class="utility" id="copyAdditionalProjectPrompt" type="button">Copy agent prompt</button>
+          <details open>
+            <summary>Review prompt</summary>
+            <pre id="additionalProjectPrompt">Loading the machine-aware prompt...</pre>
+          </details>
+        </section>
+        <div class="project-manual-label">
+          <strong>Manual setup</strong>
+          <span>Enter one target directly with the form below.</span>
+        </div>
+      </section>
       <div class="editor-project-fields">
         <label class="editor-field">Project name
           <input id="editorProjectName" type="text" maxlength="80" autocomplete="off" required>
@@ -6093,6 +6180,14 @@
       .join('');
   }
 
+  function renderAdditionalProjectSetup(project) {
+    const prompt = state.onboarding?.additionalProjectsPrompt || '';
+    $('additionalProjectSetup').hidden = Boolean(project) || state.projects.length === 0;
+    $('additionalProjectPrompt').textContent = prompt
+      || 'The agent prompt is unavailable. Close this dialog, refresh the registry, and try again.';
+    $('copyAdditionalProjectPrompt').disabled = !prompt;
+  }
+
   function syncEditorComponentsFromForm() {
     editorState.components = [...document.querySelectorAll('[data-editor-component]')].map((section) => {
       const value = (field) => section.querySelector(`[data-editor-field="${field}"]`);
@@ -6153,9 +6248,34 @@
     $('editorProjectType').value = project?.type || '';
     $('removeProject').hidden = !project;
     $('projectEditorError').textContent = '';
+    renderAdditionalProjectSetup(project);
     renderProjectEditorComponents();
     $('projectEditor').showModal();
     setTimeout(() => $('editorProjectName').focus(), 0);
+  }
+
+  async function copyAdditionalProjectPrompt() {
+    const button = $('copyAdditionalProjectPrompt');
+    const prompt = state.onboarding?.additionalProjectsPrompt || '';
+    if (!prompt) {
+      toast('Agent prompt unavailable. Refresh the registry and try again.', true);
+      return;
+    }
+    button.disabled = true;
+    try {
+      await navigator.clipboard.writeText(prompt);
+      button.textContent = 'Copied';
+      pushFeed('SETUP_PROMPT_COPIED', 'scope=additional_projects', 'info');
+      setTimeout(() => {
+        if (button.isConnected) {
+          button.textContent = 'Copy agent prompt';
+          button.disabled = false;
+        }
+      }, 1600);
+    } catch {
+      button.disabled = false;
+      toast('Clipboard unavailable. Select the prompt text manually.', true);
+    }
   }
 
   function editorProjectPayload() {
@@ -7477,6 +7597,7 @@
   });
 
   $('addProject').addEventListener('click', () => openProjectEditor());
+  $('copyAdditionalProjectPrompt').addEventListener('click', copyAdditionalProjectPrompt);
   $('frictionCapture').addEventListener('submit', captureFriction);
   $('newSkill').addEventListener('click', openNewSkillDialog);
   $('createSkill').addEventListener('click', createSkill);

@@ -119,6 +119,8 @@ test('project prompt uses selected workspace folders and keeps skills gated', ()
 test('returns portable machine paths and only the missing setup area', () => {
   const state = onboardingState({
     projectsFile: fixtures.projectsFile,
+    projectsSchemaFile: fixtures.schemaFile,
+    projectsSchemaUrl: 'http://localhost:4954/api/schema/projects',
     agentsHome: fixtures.agentsHome,
     projects: [{ name: 'App' }],
     skills: [],
@@ -131,14 +133,37 @@ test('returns portable machine paths and only the missing setup area', () => {
 
 test('does not show onboarding prompts once projects and skills exist', () => {
   const state = onboardingState({
-    projectsFile: 'projects.json',
-    agentsHome: '.agents',
+    projectsFile: fixtures.projectsFile,
+    projectsSchemaFile: fixtures.schemaFile,
+    projectsSchemaUrl: 'http://localhost:4954/api/schema/projects',
+    agentsHome: fixtures.agentsHome,
     projects: [{ name: 'App' }],
     skills: [{ name: 'verify', kind: 'personal' }],
   });
 
   assert.equal(state.configured, true);
   assert.deepEqual(state.prompts, []);
+});
+
+test('configured workspaces expose an incremental project prompt', () => {
+  const state = onboardingState({
+    projectsFile: fixtures.projectsFile,
+    projectsSchemaFile: fixtures.schemaFile,
+    projectsSchemaUrl: 'http://localhost:4955/api/schema/projects',
+    agentsHome: fixtures.agentsHome,
+    projects: [{ name: 'Existing Web' }, { name: 'Existing API' }],
+    skills: [],
+    enableSkills: false,
+    workspaceFolders: fixtures.workspaceFolders,
+  });
+
+  assert.match(state.additionalProjectsPrompt, /Add one or more additional Hacker's Lair targets/);
+  assert.match(state.additionalProjectsPrompt, /Existing target names: Existing Web; Existing API/);
+  assert.match(state.additionalProjectsPrompt, /Never rename, remove, or replace an existing entry/);
+  assert.match(state.additionalProjectsPrompt, /Preserve every valid existing entry/);
+  assert.match(state.additionalProjectsPrompt, /`lair doctor`/);
+  assert.match(state.additionalProjectsPrompt, /`lair ls`/);
+  assert.match(state.additionalProjectsPrompt, /hot-reloads.*without an app restart/i);
 });
 
 test('usage tracking prompt includes every live path, exact hook command, and safety guardrail', () => {
