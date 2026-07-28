@@ -12,6 +12,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - Windows command-channel install and uninstall now tolerate a verified app
   process exiting between process discovery and shutdown without hiding a real
   stop failure.
+- Skills and Agent Ops inventory refreshes now expose a settled loading state
+  for assistive technology and UI automation.
 
 ## [2.1.0-beta.8] - 2026-07-28
 

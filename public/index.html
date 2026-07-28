@@ -5674,6 +5674,7 @@
       state.agentOps.loaded = false;
       return;
     }
+    $('targetList').setAttribute('aria-busy', 'true');
     try {
       const snapshot = await fetchJson('/api/ai/ops');
       state.agentOps = {
@@ -5695,6 +5696,8 @@
       renderTargets();
       toast('Signal lost: Agent Ops inventory unavailable', true);
       pushFeed('AGENT_OPS_FAILED', `reason=${error.message}`, 'error');
+    } finally {
+      $('targetList').setAttribute('aria-busy', 'false');
     }
   }
 

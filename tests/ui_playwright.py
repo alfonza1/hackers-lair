@@ -593,6 +593,7 @@ def assert_agent_ops(page) -> None:
     page.evaluate("() => document.fonts.ready")
     tab_positions = visible_tab_positions(page)
     page.get_by_role("tab", name="Agent Ops", exact=True).click()
+    expect(page.locator("#targetList")).to_have_attribute("aria-busy", "false")
     expect(page.locator(".filter-row .agent-ops-nav")).to_be_visible()
     assert visible_tab_positions(page) == tab_positions
     nav_geometry = agent_ops_nav_geometry(page)
