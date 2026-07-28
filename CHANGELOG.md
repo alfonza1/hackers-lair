@@ -52,6 +52,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
   Windows junctions, inside the configured shared skill directory.
 - Skill linting now accepts folded YAML frontmatter descriptions instead of
   incorrectly reporting them as empty.
+- One physical skill linked into multiple harness roots now renders once with
+  combined harness labels instead of reporting a self-collision.
 
 ## [2.1.0-beta.7] - 2026-07-27
 

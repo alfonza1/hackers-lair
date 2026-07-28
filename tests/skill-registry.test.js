@@ -116,6 +116,40 @@ test('shared user skill roots expose every harness without duplicate cards', (t)
   assert.equal(records[0].kind, 'personal');
 });
 
+test('shared physical skills merge across distinct harness roots', (t) => {
+  const root = temporaryDirectory();
+  t.after(() => fs.rmSync(root, { force: true, recursive: true }));
+  const source = path.join(root, 'source', 'shared-check');
+  const agentsHome = path.join(root, '.agents');
+  const codexHome = path.join(root, '.codex');
+  const claudeHome = path.join(root, '.claude');
+  writeSkill(
+    path.join(source, 'SKILL.md'),
+    'shared-check',
+    'Check one physical workflow linked into distinct agent harness roots.',
+  );
+  for (const skillsRoot of [
+    path.join(agentsHome, 'skills'),
+    path.join(codexHome, 'skills'),
+  ]) {
+    fs.mkdirSync(skillsRoot, { recursive: true });
+    fs.symlinkSync(
+      source,
+      path.join(skillsRoot, 'shared-check'),
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+  }
+
+  const records = listSkills({ agentsHome, codexHome, claudeHome, includeFiles: true })
+    .filter((skill) => skill.name === 'shared-check');
+
+  assert.equal(records.length, 1);
+  assert.equal(records[0].kind, 'personal');
+  assert.equal(records[0].origin, 'Workspace');
+  assert.deepEqual(records[0].harnesses.sort(), ['agents', 'codex']);
+  assert.equal(fs.realpathSync(records[0].directory), fs.realpathSync(source));
+});
+
 test('discovers Codex system and plugin skills behind the default classification', (t) => {
   const root = temporaryDirectory();
   t.after(() => fs.rmSync(root, { force: true, recursive: true }));
