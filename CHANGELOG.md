@@ -46,6 +46,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ### Fixed
 
+- Kept the primary view tabs stationary by moving conditional view actions and
+  Agent Ops filters into dedicated control rows beneath search.
 - Open-in-editor on Windows now passes instruction paths directly to Explorer,
   so command metacharacters in a legitimate folder name are never interpreted.
 - Skills-repository status is cached across rapid UI polls, and hook setup now

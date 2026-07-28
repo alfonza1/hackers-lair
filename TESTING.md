@@ -35,8 +35,13 @@ npm run test:site-ui
   packaged `lair` CLI without Node, and exercises the verified uninstaller.
 - `test:ui` drives the served page in headless Chromium at 1440x900 and
   900x620. It covers equal-path onboarding, live/dormant cards, truthful port
-  chips, state-filtered palette commands, theme persistence, console errors,
-  and minimum-window overflow.
+  chips, state-filtered palette commands, theme persistence, the Skills
+  maintenance loop, every Agent Ops inventory, stable view controls, console
+  errors, and minimum-window overflow. Its AI-workflow data is generated in an
+  isolated temporary directory and never reads or modifies personal agent
+  configuration. Sanitized Agent Ops captures are written to
+  `out/agent-ops-1440x900.png` and `out/agent-ops-900x620.png` for visual
+  inspection.
 - `test:site-ui` drives the static installation site at desktop, minimum-window,
   and mobile widths. It covers Windows/Linux selection, the explicit Linux
   distro choice, unsupported-platform handling, command copying, no-JavaScript

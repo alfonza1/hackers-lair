@@ -1108,9 +1108,24 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
+    align-items: center;
     padding: 12px 16px;
     border-bottom: 1px solid rgba(var(--accent-rgb), .1);
   }
+
+  .view-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  .view-subnav {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .view-subnav .agent-ops-nav { margin-bottom: 0; }
 
   .search-shell {
     position: relative;
@@ -2715,6 +2730,16 @@
       padding-left: 0;
     }
 
+    .matrix > .panel-head {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .matrix > .panel-head .controls {
+      width: 100%;
+      justify-content: space-between;
+    }
+
     .friction-capture { min-width: min(300px, 42vw); }
   }
 
@@ -3403,9 +3428,6 @@
             <button class="view-tab" id="instructionsTab" data-view="instructions" role="tab" aria-selected="false" hidden>Instructions</button>
             <button class="view-tab" id="agentOpsTab" data-view="agentOps" role="tab" aria-selected="false" hidden>Agent Ops</button>
           </div>
-          <button class="utility" id="addProject" type="button">Add Project</button>
-          <button class="utility" id="newSkill" type="button" hidden>+ New Skill</button>
-          <button class="utility context-tax-trigger" id="contextTaxTrigger" type="button" hidden>Context tax</button>
           <button class="utility command-trigger" id="commandTrigger" type="button" title="Command palette (Ctrl+K)">Ctrl+K</button>
           <button class="utility" id="refreshBtn" type="button">Refresh</button>
         </div>
@@ -3414,8 +3436,14 @@
         <div class="search-shell">
           <input id="search" type="text" autocomplete="off" placeholder="filter targets by name, branch, module, path, pid, or port">
         </div>
-        <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
-        <button class="utility" id="defaultSkillsToggle" type="button" aria-pressed="false" hidden>Default Skills</button>
+        <div class="view-actions" id="viewActions" aria-label="Current view actions">
+          <button class="utility" id="addProject" type="button">Add Project</button>
+          <button class="utility" id="newSkill" type="button" hidden>+ New Skill</button>
+          <button class="utility context-tax-trigger" id="contextTaxTrigger" type="button" hidden>Context tax</button>
+          <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
+          <button class="utility" id="defaultSkillsToggle" type="button" aria-pressed="false" hidden>Default Skills</button>
+        </div>
+        <div class="view-subnav" id="viewSubnav" hidden></div>
       </div>
       <div class="target-list" id="targetList"></div>
       <div class="empty" id="emptyState" hidden>No matching targets detected.</div>
@@ -5364,9 +5392,11 @@
       ? archivedSkillsHtml()
       : '';
     const friction = state.view === 'instructions' ? frictionPanelHtml() : '';
-    const agentOps = state.view === 'agentOps'
-      ? agentOpsNavHtml() + agentOpsFindingsHtml()
-      : '';
+    const showingAgentOps = state.view === 'agentOps';
+    $('viewSubnav').hidden = !showingAgentOps;
+    $('viewSubnav').innerHTML = '';
+    if (showingAgentOps) $('viewSubnav').innerHTML = agentOpsNavHtml();
+    const agentOps = showingAgentOps ? agentOpsFindingsHtml() : '';
     const skillsRepo = state.view === 'skills' ? skillsRepoStatusHtml() : '';
     $('targetList').innerHTML = friction + agentOps + skillsRepo + skillRouter + skillsSetup + rows.map((row) =>
       state.view === 'projects' ? projectCard(row)
@@ -7401,15 +7431,6 @@
       await openCoverageFolder(coverageOpen.dataset.coverageOpen, coverageOpen);
       return;
     }
-    const agentOpsFilter = event.target.closest('[data-agent-ops-filter]');
-    if (agentOpsFilter) {
-      state.agentOps.filter = agentOpsFilter.dataset.agentOpsFilter;
-      state.query = '';
-      $('search').value = '';
-      renderTargets();
-      updateIntel();
-      return;
-    }
     const frictionScaffold = event.target.closest('[data-friction-scaffold]');
     if (frictionScaffold) {
       openNewSkillDialog(frictionScaffold.dataset.frictionScaffold);
@@ -7520,6 +7541,16 @@
     }
     if (action === 'initiate') await initiateProcess(target);
     if (action === 'terminate') await terminateProcess(target);
+  });
+
+  $('viewSubnav').addEventListener('click', (event) => {
+    const agentOpsFilter = event.target.closest('[data-agent-ops-filter]');
+    if (!agentOpsFilter) return;
+    state.agentOps.filter = agentOpsFilter.dataset.agentOpsFilter;
+    state.query = '';
+    $('search').value = '';
+    renderTargets();
+    updateIntel();
   });
 
   $('targetList').addEventListener('input', (event) => {

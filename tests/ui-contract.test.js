@@ -154,6 +154,15 @@ test('Agent Ops keeps wider workflow inventories in one read-only filtered view'
   for (const filter of ['agents', 'commands', 'mcp', 'permissions', 'hooks']) {
     assert.match(html, new RegExp(`data-agent-ops-filter="\\$\\{filter\\}"|\\['${filter}',`));
   }
+  assert.match(
+    html,
+    /class="filter-row"[\s\S]*id="viewActions"[\s\S]*id="viewSubnav"/,
+  );
+  assert.match(html, /\$\('viewSubnav'\)\.innerHTML = agentOpsNavHtml\(\)/);
+  const panelControls = html.match(/<div class="controls">([\s\S]*?)<\/div>\s*<\/div>\s*<div class="filter-row">/)?.[1] || '';
+  for (const conditionalAction of ['addProject', 'newSkill', 'contextTaxTrigger']) {
+    assert.doesNotMatch(panelControls, new RegExp(`id="${conditionalAction}"`));
+  }
   assert.match(html, /AGENT_OPS_SYNCED/);
   assert.match(html, /\/api\/ai\/ops/);
   assert.match(server, /listAgents/);

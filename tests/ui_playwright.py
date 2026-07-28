@@ -549,27 +549,54 @@ def assert_maintenance_loop(page) -> None:
     page.get_by_role("tab", name="Targets", exact=True).click()
 
 
+def visible_tab_positions(page) -> list[dict]:
+    return page.locator(".view-tab:not([hidden])").evaluate_all(
+        """elements => elements.map((element) => {
+            const box = element.getBoundingClientRect();
+            return { text: element.textContent.trim(), x: box.x, y: box.y };
+        })"""
+    )
+
+
 def assert_agent_ops(page) -> None:
+    tab_positions = visible_tab_positions(page)
     page.get_by_role("tab", name="Agent Ops", exact=True).click()
+    expect(page.locator(".filter-row .agent-ops-nav")).to_be_visible()
+    assert visible_tab_positions(page) == tab_positions
+    nav_box = page.locator(".agent-ops-nav").bounding_box()
     subagent = page.locator('[data-card-kind="agent-op"]').filter(has_text="reviewer")
     expect(subagent).to_be_visible()
     expect(subagent).to_contain_text("1 use")
+    page.locator("#nodeName").evaluate("(node) => { node.textContent = 'LOCALHOST'; }")
+    OUTPUT_DIRECTORY.mkdir(exist_ok=True)
+    page.screenshot(
+        path=str(OUTPUT_DIRECTORY / "agent-ops-1440x900.png"),
+        full_page=False,
+    )
 
     page.get_by_role("button", name="Commands", exact=True).click()
+    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="release/check")).to_be_visible()
     page.get_by_role("button", name="MCP", exact=True).click()
+    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="fixtureDocs")).to_be_visible()
     page.get_by_role("button", name="Permissions", exact=True).click()
+    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Read")).to_be_visible()
     page.get_by_role("button", name="Hooks", exact=True).click()
+    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Bash")).to_be_visible()
     page.get_by_role("button", name="Sessions", exact=True).click()
+    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
     expect(page.locator(".friction-panel")).to_contain_text("Session feed is off")
     page.get_by_role("button", name="Memory", exact=True).click()
+    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="decisions.md")).to_be_visible()
     page.get_by_role("button", name="Coverage", exact=True).click()
+    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Live Fixture")).to_be_visible()
     page.get_by_role("button", name="Parity", exact=True).click()
+    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
     expect(
         page.locator('[data-card-kind="agent-op"]').filter(has_text="verify").first
     ).to_be_visible()
@@ -634,6 +661,28 @@ def capture_theme_previews(page) -> None:
 def assert_responsive_layout(page) -> None:
     page.set_viewport_size({"width": 900, "height": 620})
     page.wait_for_timeout(250)
+    target_tab_positions = visible_tab_positions(page)
+    page.get_by_role("tab", name="Skills", exact=True).click()
+    skill_tab_positions = visible_tab_positions(page)
+    assert skill_tab_positions == target_tab_positions, (
+        f"View tabs moved at 900x620: targets={target_tab_positions}, "
+        f"skills={skill_tab_positions}"
+    )
+    page.get_by_role("tab", name="Agent Ops", exact=True).click()
+    agent_ops_tab_positions = visible_tab_positions(page)
+    assert agent_ops_tab_positions == target_tab_positions, (
+        f"View tabs moved at 900x620: targets={target_tab_positions}, "
+        f"agentOps={agent_ops_tab_positions}"
+    )
+    expect(page.locator(".filter-row .agent-ops-nav")).to_be_visible()
+    expect(
+        page.locator('[data-card-kind="agent-op"]').filter(has_text="reviewer")
+    ).to_be_visible()
+    OUTPUT_DIRECTORY.mkdir(exist_ok=True)
+    page.screenshot(
+        path=str(OUTPUT_DIRECTORY / "agent-ops-900x620.png"),
+        full_page=False,
+    )
     has_overflow = page.evaluate(
         "() => document.documentElement.scrollWidth > document.documentElement.clientWidth"
     )
@@ -873,7 +922,8 @@ def run() -> None:
         print(
             "Playwright UI smoke passed: empty state, port conflict warning, target states, "
             "compact action trays, panel/startup settings, minimal update controls, "
-            "palette, theme, and 900x620."
+            "Skills maintenance, every Agent Ops inventory, stable view controls, palette, "
+            "theme, and 900x620."
         )
     except Exception:
         OUTPUT_DIRECTORY.mkdir(exist_ok=True)
