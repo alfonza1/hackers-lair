@@ -89,20 +89,24 @@
       ],
       "properties": {
         "enableUsageStats": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Legacy compatibility field. Usage summaries are automatic when Skills is enabled."
         },
         "coldSkillDays": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 3650
+          "maximum": 3650,
+          "description": "Legacy compatibility field. The public app uses its bundled cold-skill threshold."
         },
         "enableSessionFeed": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Legacy compatibility field. Transcript session scanning is not performed."
         },
         "contextTaxWarnTokens": {
           "type": "integer",
           "minimum": 1000,
-          "maximum": 1000000
+          "maximum": 1000000,
+          "description": "Legacy compatibility field. The public app uses its bundled context-cost threshold."
         }
       }
     }

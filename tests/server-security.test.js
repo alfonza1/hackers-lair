@@ -313,8 +313,8 @@ test('protects localhost mutations and verifies the bound service identity', asy
   assert.equal(agentOps.permissions.rules.some((rule) => rule.rule === 'Read'), true);
   assert.equal(agentOps.hooks.some((hook) => hook.matcher === 'Bash'), true);
   assert.equal(agentOps.usageHook.installed, false);
-  assert.equal(agentOps.sessionFeedEnabled, false);
-  assert.deepEqual(agentOps.sessions, []);
+  assert.equal('sessionFeedEnabled' in agentOps, false);
+  assert.equal('sessions' in agentOps, false);
   assert.equal(agentOps.memory.some((entry) => entry.name === 'decisions.md'), true);
   assert.doesNotMatch(agentOpsResponse.body, /must-not-leak|SECRET/);
 
@@ -540,7 +540,12 @@ test('protects localhost mutations and verifies the bound service identity', asy
     method: 'POST',
     pathname: '/api/settings/ai-workflow',
     headers: authorizedHeaders,
-    body: JSON.stringify({ coldSkillDays: 60, enableSessionFeed: true }),
+    body: JSON.stringify({
+      enableUsageStats: false,
+      coldSkillDays: 60,
+      enableSessionFeed: true,
+      contextTaxWarnTokens: 1000,
+    }),
   });
   assert.equal(aiSettings.status, 200);
   assert.equal(JSON.parse(aiSettings.body).aiWorkflow.coldSkillDays, 60);
@@ -548,9 +553,17 @@ test('protects localhost mutations and verifies the bound service identity', asy
   const sessionEnabledOps = JSON.parse(
     (await request({ port, pathname: '/api/ai/ops' })).body,
   );
-  assert.equal(sessionEnabledOps.sessionFeedEnabled, true);
-  assert.equal(sessionEnabledOps.sessions.length, 1);
-  assert.deepEqual(sessionEnabledOps.sessions[0].skills, ['verify']);
+  assert.equal('sessionFeedEnabled' in sessionEnabledOps, false);
+  assert.equal('sessions' in sessionEnabledOps, false);
+  assert.equal(
+    sessionEnabledOps.agents.find((agent) => agent.name === 'reviewer').usage.count,
+    1,
+  );
+  assert.doesNotMatch(JSON.stringify(sessionEnabledOps), /verify transcript|must-not-leak|SECRET/);
+  assert.equal(
+    JSON.parse((await request({ port, pathname: '/api/ai/context-cost' })).body).warnTokens,
+    8000,
+  );
 
   const invalidFeatures = await request({
     port,

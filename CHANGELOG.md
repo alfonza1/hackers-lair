@@ -33,8 +33,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - Added stale-content checks, explicit cached link validation, project coverage,
   Doctor workflow-link health, skill-repository publication state, and
   cross-harness skill parity.
-- Added separately opt-in redacted session summaries, read-only memory age,
-  local weekly workflow reports, and local workflow bundle export.
+- Added read-only memory age, local weekly workflow reports, and local workflow
+  bundle export.
 - Added safe `?view=` deep links for opening an enabled console panel directly.
 - Added a machine-aware agent-assisted path to Add Project that appends targets
   while preserving the existing registry, alongside the manual editor.
@@ -45,6 +45,11 @@ and this project follows [Semantic Versioning](VERSIONING.md).
   Existing saved panel choices are preserved by the settings v4 migration.
 - Simplified the website header by keeping Getting Started in the documentation
   navigation instead of repeating it as a global button.
+- Simplified Settings by removing four expert AI-workflow tuning controls.
+  Usage history, cold detection, and context-cost warnings now use stable
+  defaults behind the existing Skills opt-in.
+- Removed transcript-session inventory from Agent Ops. Legacy settings remain
+  readable for compatibility, but transcript scanning is no longer performed.
 
 ### Fixed
 

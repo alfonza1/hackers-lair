@@ -1,7 +1,7 @@
 {
   "$schema": "./settings.schema.json",
   "configVersion": 4,
-  "_comment": "Optional Hacker's Lair preferences. Skills scanning is disabled by default for privacy; enableSessionFeed is a separate opt-in for redacted local transcript summaries. enableUsageStats reads only the local hook log, coldSkillDays controls cold badges, and contextTaxWarnTokens controls the local estimate warning. Scripts are disabled by default and remain Windows-only. Panels can be toggled in Settings. browserPath may point to a preferred browser executable; leave it empty to use the system default browser. workspaceFolders may list absolute development roots to include in discovery and agent prompts.",
+  "_comment": "Optional Hacker's Lair preferences. Skills scanning is disabled by default for privacy. Legacy aiWorkflow fields remain readable for compatibility, but the public UI uses stable defaults and does not scan agent transcripts. Scripts are disabled by default and remain Windows-only. Panels can be toggled in Settings. browserPath may point to a preferred browser executable; leave it empty to use the system default browser. workspaceFolders may list absolute development roots to include in discovery and agent prompts.",
   "enableSkills": false,
   "enableScripts": false,
   "browserPath": "",

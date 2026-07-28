@@ -110,7 +110,15 @@ test('AI workflow setup is opt-in, reviewable, and local-only', () => {
   assert.match(html, /data-ai-action="install-hook">Install for me/);
   assert.match(html, /data-ai-action="copy-prompt">Copy agent prompt/);
   assert.match(html, /data-ai-action="compact-log">Compact log/);
-  assert.match(html, /Session feed[\s\S]*Sensitive and off by default/);
+  for (const removedControl of [
+    'usageStatsEnabled',
+    'coldSkillDays',
+    'sessionFeedEnabled',
+    'contextTaxWarnTokens',
+  ]) {
+    assert.doesNotMatch(html, new RegExp(`id="${removedControl}"`));
+  }
+  assert.doesNotMatch(html, /<div class="settings-section-title">AI workflow<\/div>/);
   assert.match(html, /HOOK_INSTALLED/);
   assert.match(html, /USAGE_LOG_SYNCED/);
   assert.match(html, /USAGE_LOG_COMPACTED/);
@@ -174,9 +182,10 @@ test('Agent Ops keeps wider workflow inventories in one read-only filtered view'
 });
 
 test('workflow freshness and reporting stay local unless link checks are explicitly clicked', () => {
-  for (const filter of ['sessions', 'memory', 'coverage', 'parity']) {
+  for (const filter of ['memory', 'coverage', 'parity']) {
     assert.match(html, new RegExp(`\\['${filter}',`));
   }
+  assert.doesNotMatch(html, /\['sessions',\s*'Sessions'\]/);
   assert.match(html, /data-check-urls="skill"/);
   assert.match(html, /data-check-urls="instruction"/);
   assert.match(html, /data-workflow-action="report"/);
@@ -184,7 +193,7 @@ test('workflow freshness and reporting stay local unless link checks are explici
   assert.match(html, /data-workflow-action="repair-prompt"/);
   assert.match(html, /data-coverage-open/);
   assert.match(html, /Skills repo has unpublished changes/);
-  assert.match(html, /Session feed is off/);
+  assert.doesNotMatch(html, /Session feed is off/);
   assert.match(html, /WORKFLOW_URLS_CHECKED/);
   assert.match(html, /REPORT_GENERATED/);
   assert.match(html, /WORKFLOW_BUNDLE_EXPORTED/);

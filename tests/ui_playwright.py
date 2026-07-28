@@ -416,10 +416,10 @@ def assert_settings_panel(page, scripts_supported: bool) -> None:
 
     skills.check()
     expect(page.locator("#skillsTab")).to_be_visible()
-    expect(page.get_by_role("switch", name=re.compile(r"Usage stats"))).to_be_checked()
-    expect(page.get_by_role("switch", name=re.compile(r"Session feed"))).not_to_be_checked()
-    expect(page.locator("#coldSkillDays")).to_have_value("45")
-    expect(page.locator("#contextTaxWarnTokens")).to_have_value("8000")
+    expect(page.locator("#settingsPopover")).not_to_contain_text("Usage stats")
+    expect(page.locator("#settingsPopover")).not_to_contain_text("Cold after")
+    expect(page.locator("#settingsPopover")).not_to_contain_text("Session feed")
+    expect(page.locator("#settingsPopover")).not_to_contain_text("Tax warning")
 
     if scripts_supported:
         expect(scripts).to_be_visible()
@@ -586,9 +586,7 @@ def assert_agent_ops(page) -> None:
     page.get_by_role("button", name="Hooks", exact=True).click()
     assert page.locator(".agent-ops-nav").bounding_box() == nav_box
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Bash")).to_be_visible()
-    page.get_by_role("button", name="Sessions", exact=True).click()
-    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
-    expect(page.locator(".friction-panel")).to_contain_text("Session feed is off")
+    expect(page.get_by_role("button", name="Sessions", exact=True)).to_have_count(0)
     page.get_by_role("button", name="Memory", exact=True).click()
     assert page.locator(".agent-ops-nav").bounding_box() == nav_box
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="decisions.md")).to_be_visible()

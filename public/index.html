@@ -3362,28 +3362,6 @@
               <input id="scriptsPanelEnabled" type="checkbox" role="switch" aria-describedby="panelSettingsStatus">
             </label>
             <span class="settings-status" id="panelSettingsStatus" role="status" aria-live="polite"></span>
-            <div class="settings-section-title">AI workflow</div>
-            <label class="settings-switch" id="usageStatsField" for="usageStatsEnabled">
-              <span>
-                <strong>Usage stats</strong>
-                <small>Read the local hook log and show skill activity. No telemetry.</small>
-              </span>
-              <input id="usageStatsEnabled" type="checkbox" role="switch">
-            </label>
-            <label class="preference-field">Cold after
-              <input id="coldSkillDays" type="number" min="1" max="3650" step="1" aria-label="Cold skill days">
-            </label>
-            <label class="settings-switch" id="sessionFeedField" for="sessionFeedEnabled">
-              <span>
-                <strong>Session feed</strong>
-                <small>Opt in to redacted local transcript summaries. Sensitive and off by default.</small>
-              </span>
-              <input id="sessionFeedEnabled" type="checkbox" role="switch">
-            </label>
-            <label class="preference-field">Tax warning
-              <input id="contextTaxWarnTokens" type="number" min="1000" max="1000000" step="500" aria-label="Context tax warning tokens">
-            </label>
-            <span class="settings-status" id="aiWorkflowSettingsStatus" role="status" aria-live="polite"></span>
             <label class="settings-switch" id="launchOnStartupField" for="launchOnStartup" hidden>
               <span>
                 <strong>Launch on startup</strong>
@@ -3788,6 +3766,7 @@
   const RAIN_SPEED = .2;
   const RAIN_GLYPHS = '01<>[]{}#/\\$+-=:;';
   const POWER_CONFIRM_WINDOW_MS = 5000;
+  const USAGE_RETENTION_DAYS = 45;
   const BOOT_SEEN_KEY = 'hackersLair.cinematicSeen';
   const LAIR = window.__LAIR_BOOTSTRAP__;
   const REQUESTED_VIEW = new URLSearchParams(location.search).get('view');
@@ -3831,13 +3810,10 @@
       permissions: { rules: [], findings: [] },
       hooks: [],
       usageHook: null,
-      sessions: [],
-      sessionFeedEnabled: false,
       memory: [],
       coverage: [],
       parity: { counts: {}, exclusive: [], matrix: [] },
     },
-    aiWorkflowBusy: false,
     onboarding: null,
     settings: null,
     panelSettings: { busy: false, error: '', saved: false },
@@ -5057,7 +5033,6 @@
     ['mcp', 'MCP'],
     ['permissions', 'Permissions'],
     ['hooks', 'Hooks'],
-    ['sessions', 'Sessions'],
     ['memory', 'Memory'],
     ['coverage', 'Coverage'],
     ['parity', 'Parity'],
@@ -5082,13 +5057,6 @@
         id: `hook-${index}`,
         name: record.matcher || record.event,
         kind: 'hook',
-      }));
-    }
-    if (filter === 'sessions') {
-      return state.agentOps.sessions.map((record) => ({
-        ...record,
-        name: record.project || record.id,
-        kind: 'session',
       }));
     }
     if (filter === 'memory') {
@@ -5164,7 +5132,6 @@
       mcp: 'MCP',
       permission: record.action?.toUpperCase() || 'RULE',
       hook: 'HOOK',
-      session: 'SESSION',
       memory: 'MEMORY',
       coverage: 'PROJECT',
       parity: 'PARITY',
@@ -5183,7 +5150,6 @@
     const description = record.description
       || (record.kind === 'mcp' ? `${record.transport} server defined in ${record.source}.`
         : record.kind === 'permission' ? `${record.action} rule from ${record.source}.`
-        : record.kind === 'session' ? `Redacted local session summary with ${record.tools?.length || 0} tool types.`
         : record.kind === 'memory' ? `Read-only memory entry last touched ${relativeAge(record.modifiedAt)}.`
         : record.kind === 'coverage' ? (record.gaps?.length ? `Missing: ${record.gaps.join(', ')}.` : 'Project workflow coverage is complete.')
         : record.kind === 'parity' ? 'Skill visibility across shared, Claude, and Codex roots.'
@@ -5214,10 +5180,6 @@
               ${field('Event', record.event)}
               ${field('Matcher', record.matcher)}
               ${field('Source', record.source)}
-              ${field('Started', formatDateTime(record.startedAt))}
-              ${field('Ended', formatDateTime(record.endedAt))}
-              ${field('Skills', record.skills?.join(', '))}
-              ${field('Tools', record.kind === 'session' ? record.tools?.join(', ') : '')}
               ${field('Age', Number.isFinite(record.ageDays) ? `${record.ageDays} days` : '')}
               ${field('Components', Number.isInteger(record.componentCount) ? record.componentCount : '')}
               ${field('AGENTS.md', typeof record.hasAgents === 'boolean' ? (record.hasAgents ? 'yes' : 'missing') : '')}
@@ -5245,14 +5207,6 @@
   }
 
   function agentOpsFindingsHtml() {
-    if (state.agentOps.filter === 'sessions' && !state.agentOps.sessionFeedEnabled) {
-      return `
-        <section class="friction-panel">
-          <h3>Session feed is off</h3>
-          <p>Enable the sensitive, redacted session feed in Settings to scan local transcripts. It remains read-only.</p>
-        </section>
-      `;
-    }
     if (state.agentOps.filter === 'parity' && state.agentOps.parity.exclusive?.length) {
       return `
         <section class="friction-panel">
@@ -5798,44 +5752,6 @@
           : state.panelSettings.saved
             ? 'Saved'
             : '');
-    const aiWorkflow = state.settings?.aiWorkflow || {
-      enableUsageStats: true,
-      coldSkillDays: 45,
-      enableSessionFeed: false,
-      contextTaxWarnTokens: 8000,
-    };
-    $('usageStatsEnabled').checked = aiWorkflow.enableUsageStats !== false;
-    $('coldSkillDays').value = String(aiWorkflow.coldSkillDays || 45);
-    $('sessionFeedEnabled').checked = aiWorkflow.enableSessionFeed === true;
-    $('contextTaxWarnTokens').value = String(aiWorkflow.contextTaxWarnTokens || 8000);
-    for (const control of [
-      $('usageStatsEnabled'),
-      $('coldSkillDays'),
-      $('sessionFeedEnabled'),
-      $('contextTaxWarnTokens'),
-    ]) {
-      control.disabled = !skillsEnabled || state.aiWorkflowBusy;
-    }
-  }
-
-  async function updateAiWorkflowSettings(updates) {
-    if (state.aiWorkflowBusy) return;
-    state.aiWorkflowBusy = true;
-    $('aiWorkflowSettingsStatus').textContent = 'Saving…';
-    renderPanelSettings();
-    try {
-      const result = await postJson('/api/settings/ai-workflow', updates);
-      state.settings = { ...state.settings, aiWorkflow: result.aiWorkflow };
-      $('aiWorkflowSettingsStatus').textContent = 'Saved';
-      pushFeed('AI_WORKFLOW_SETTINGS_SAVED', `keys=${Object.keys(updates).join(',')}`, 'info');
-      if (state.view === 'skills') await loadSkills(true);
-    } catch (error) {
-      $('aiWorkflowSettingsStatus').textContent = `Could not save: ${error.message}`;
-      toast(`Could not save AI workflow settings: ${error.message}`, true);
-    } finally {
-      state.aiWorkflowBusy = false;
-      renderPanelSettings();
-    }
   }
 
   async function runAiWorkflowAction(action, button) {
@@ -5860,7 +5776,7 @@
         await Promise.all([loadAiSetup(true), loadOnboarding()]);
         renderTargets();
       } else if (action === 'compact-log') {
-        const days = state.settings?.aiWorkflow?.coldSkillDays || 45;
+        const days = USAGE_RETENTION_DAYS;
         const result = await postJson('/api/ai/usage/compact', { days });
         pushFeed('USAGE_LOG_COMPACTED', `removed=${result.removed} kept=${result.kept}`, 'info');
         toast(`Usage log compacted: ${result.removed} old event${result.removed === 1 ? '' : 's'} removed.`);
@@ -7755,18 +7671,6 @@
   });
   $('scriptsPanelEnabled').addEventListener('change', (event) => {
     void updatePanelSetting('enableScripts', event.target.checked);
-  });
-  $('usageStatsEnabled').addEventListener('change', (event) => {
-    void updateAiWorkflowSettings({ enableUsageStats: event.target.checked });
-  });
-  $('coldSkillDays').addEventListener('change', (event) => {
-    void updateAiWorkflowSettings({ coldSkillDays: Number(event.target.value) });
-  });
-  $('sessionFeedEnabled').addEventListener('change', (event) => {
-    void updateAiWorkflowSettings({ enableSessionFeed: event.target.checked });
-  });
-  $('contextTaxWarnTokens').addEventListener('change', (event) => {
-    void updateAiWorkflowSettings({ contextTaxWarnTokens: Number(event.target.value) });
   });
   $('launchOnStartup').addEventListener('change', (event) => {
     void updateLaunchOnStartup(event.target.checked);

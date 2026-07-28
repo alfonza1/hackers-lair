@@ -34,7 +34,6 @@ const { scanStaleContent } = require('./lib/stale-scan');
 const { checkFileUrls } = require('./lib/url-checker');
 const { projectCoverageMatrix } = require('./lib/coverage-matrix');
 const { skillsRepoStatus } = require('./lib/skills-repo-status');
-const { listSessions } = require('./lib/session-feed');
 const { listMemoryEntries } = require('./lib/memory-registry');
 const { generateWorkflowReport } = require('./lib/workflow-report');
 const { exportWorkflowBundle } = require('./lib/workflow-export');
@@ -75,6 +74,7 @@ const {
 } = require('./lib/runtime-intelligence');
 const {
   createRuntimeConfig,
+  DEFAULT_AI_WORKFLOW_SETTINGS,
   normalizeAiWorkflowSettings,
 } = require('./lib/runtime-config');
 const { LogStore } = require('./lib/log-store');
@@ -229,15 +229,7 @@ function publicSkillRecord(skill) {
 
 async function annotatedSkills(settings = loadSettings()) {
   const skills = internalSkills();
-  const usage = settings.aiWorkflow.enableUsageStats
-    ? await aggregateUsageLog(USAGE_LOG_FILE)
-    : {
-        byKey: {},
-        bytesRead: 0,
-        events: 0,
-        logStartedAt: null,
-        malformedLines: 0,
-      };
+  const usage = await aggregateUsageLog(USAGE_LOG_FILE);
   const lint = lintSkills(skills);
   const [lastTouched, repoStatus] = await Promise.all([
     lastTouchedForSkills(skills.filter((skill) => skill.kind === 'personal')),
@@ -264,7 +256,7 @@ async function annotatedSkills(settings = loadSettings()) {
         cold: isColdUsage({
           usage: skillUsage,
           logStartedAt: usage.logStartedAt,
-          coldSkillDays: settings.aiWorkflow.coldSkillDays,
+          coldSkillDays: DEFAULT_AI_WORKFLOW_SETTINGS.coldSkillDays,
         }),
         lint: {
           level: baseLint.level === 'error'
@@ -282,7 +274,7 @@ async function annotatedSkills(settings = loadSettings()) {
     }),
     archived: listArchivedSkills(PERSONAL_SKILLS_ROOT),
     usage: {
-      enabled: settings.aiWorkflow.enableUsageStats,
+      enabled: true,
       events: usage.events,
       logStartedAt: usage.logStartedAt,
       malformedLines: usage.malformedLines,
@@ -364,9 +356,7 @@ async function agentOpsSnapshot(settings = loadSettings()) {
   const [agents, commands, usage] = await Promise.all([
     Promise.resolve(listAgents({ claudeHome: CLAUDE_HOME, projectFolders })),
     Promise.resolve(listCommands({ claudeHome: CLAUDE_HOME, projectFolders })),
-    settings.aiWorkflow.enableUsageStats
-      ? aggregateUsageLog(USAGE_LOG_FILE)
-      : Promise.resolve({ byKey: {}, logStartedAt: null }),
+    aggregateUsageLog(USAGE_LOG_FILE),
   ]);
   const annotateUsage = (type, records) => records.map((record) => {
     const recordUsage = usage.byKey[eventKey(type, record.name)] || null;
@@ -376,7 +366,7 @@ async function agentOpsSnapshot(settings = loadSettings()) {
       cold: isColdUsage({
         usage: recordUsage,
         logStartedAt: usage.logStartedAt,
-        coldSkillDays: settings.aiWorkflow.coldSkillDays,
+        coldSkillDays: DEFAULT_AI_WORKFLOW_SETTINGS.coldSkillDays,
       }),
     };
   });
@@ -390,10 +380,6 @@ async function agentOpsSnapshot(settings = loadSettings()) {
     mcpServers: listMcpServers({ claudeHome: CLAUDE_HOME, projectFolders }),
     permissions: permissionsView({ claudeHome: CLAUDE_HOME, projectFolders }),
     hooks: listConfiguredHooks(claudeSettingsSources(settings)),
-    sessions: settings.aiWorkflow.enableSessionFeed
-      ? await listSessions({ claudeHome: CLAUDE_HOME })
-      : [],
-    sessionFeedEnabled: settings.aiWorkflow.enableSessionFeed,
     memory: listMemoryEntries({ projectFolders }),
     coverage: projectCoverageMatrix(loadProjects()),
     parity: harnessParity(internalSkills()),
@@ -1936,7 +1922,7 @@ const server = http.createServer(async (req, res) => {
         skills: internalSkills(),
         claudeHome: CLAUDE_HOME,
         codexHome: SKILL_ROOTS.codexHome,
-        warnTokens: settings.aiWorkflow.contextTaxWarnTokens,
+        warnTokens: DEFAULT_AI_WORKFLOW_SETTINGS.contextTaxWarnTokens,
       }));
       return;
     }
