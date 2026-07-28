@@ -515,7 +515,10 @@ def assert_skills_maintenance(page) -> None:
 
 
 def assert_maintenance_loop(page) -> None:
-    page.get_by_role("tab", name="Skills", exact=True).click()
+    with page.expect_response(
+        lambda response: response.url.endswith("/api/skills") and response.status == 200
+    ):
+        page.get_by_role("tab", name="Skills", exact=True).click()
     route_input = page.locator("[data-skill-route-input]")
     route_input.fill("verify repository changes before release")
     route_results = page.locator("[data-skill-route-results]")
@@ -543,7 +546,11 @@ def assert_maintenance_loop(page) -> None:
 
     instruction = page.locator('[data-card-kind="instruction"]').filter(has_text="AGENTS.md")
     expect(instruction).to_be_visible()
-    instruction.get_by_role("button", name="Check drift").click()
+    with page.expect_response(
+        lambda response: response.url.endswith("/api/ai/instructions/drift")
+        and response.status == 200
+    ):
+        instruction.get_by_role("button", name="Check drift").click()
     expect(instruction).to_contain_text("Command is not available on PATH")
     expect(instruction).to_contain_text("Referenced path does not exist")
     page.get_by_role("tab", name="Targets", exact=True).click()
@@ -874,7 +881,7 @@ def run() -> None:
                 };
                 """
             )
-            page.goto(origin, wait_until="networkidle")
+            page.goto(origin, wait_until="domcontentloaded")
             assert_empty_state(page)
             assert_project_editor_controls(page, data_directory / "chosen-folder")
             assert_project_port_conflict(
