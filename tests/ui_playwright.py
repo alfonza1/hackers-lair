@@ -566,6 +566,7 @@ def visible_tab_positions(page) -> list[dict]:
 
 
 def assert_agent_ops(page) -> None:
+    page.evaluate("() => document.fonts.ready")
     tab_positions = visible_tab_positions(page)
     page.get_by_role("tab", name="Agent Ops", exact=True).click()
     expect(page.locator(".filter-row .agent-ops-nav")).to_be_visible()
