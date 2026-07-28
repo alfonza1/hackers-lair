@@ -7,6 +7,12 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows command-channel install and uninstall now tolerate a verified app
+  process exiting between process discovery and shutdown without hiding a real
+  stop failure.
+
 ## [2.1.0-beta.8] - 2026-07-28
 
 ### Added

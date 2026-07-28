@@ -36,8 +36,15 @@ $processes = Get-CimInstance Win32_Process -Filter "Name='HackersLair.exe'" |
         $_.ExecutablePath -and (Test-PathWithin $_.ExecutablePath $installRoot)
     }
 foreach ($process in $processes) {
-    Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
-    Write-Output "Stopped verified Hacker's Lair process PID $($process.ProcessId)."
+    try {
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+        Write-Output "Stopped verified Hacker's Lair process PID $($process.ProcessId)."
+    } catch {
+        if (Get-Process -Id $process.ProcessId -ErrorAction SilentlyContinue) {
+            throw
+        }
+        Write-Output "Verified Hacker's Lair process PID $($process.ProcessId) had already exited."
+    }
 }
 
 if (-not $NoShortcut) {

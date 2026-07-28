@@ -177,6 +177,17 @@ test('site scripts stay self-contained and installer mirrors stay exact', () => 
   );
 });
 
+test('Windows maintenance scripts tolerate processes exiting during verified shutdown', () => {
+  for (const relativePath of ['install.ps1', 'uninstall.ps1']) {
+    const script = fs.readFileSync(path.join(root, relativePath), 'utf8');
+    assert.match(
+      script,
+      /try\s*\{[\s\S]*?Stop-Process -Id \$process\.ProcessId -Force -ErrorAction Stop[\s\S]*?\}\s*catch\s*\{\s*if \(Get-Process -Id \$process\.ProcessId -ErrorAction SilentlyContinue\) \{\s*throw\s*\}\s*/,
+      `${relativePath} must ignore only the race where a verified process already exited.`,
+    );
+  }
+});
+
 test('Windows command instructions explicitly use a regular PowerShell window', () => {
   for (const relativePath of [
     'index.html',
