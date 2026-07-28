@@ -3675,6 +3675,7 @@
   const POWER_CONFIRM_WINDOW_MS = 5000;
   const BOOT_SEEN_KEY = 'hackersLair.cinematicSeen';
   const LAIR = window.__LAIR_BOOTSTRAP__;
+  const REQUESTED_VIEW = new URLSearchParams(location.search).get('view');
   const VIEW_CONFIG = {
     projects: { title: 'Targets', placeholder: 'filter targets by name, branch, module, path, pid, or port', empty: 'No matching targets detected.' },
     processes: { title: 'Port Signals', placeholder: 'filter signals by name, path, pid, or port', empty: 'No matching port signals detected.' },
@@ -7686,6 +7687,11 @@
       pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
     }
     await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings(), syncDesktopUpdate(), syncDesktopBackend()]);
+    const requestedTab = [...document.querySelectorAll('.view-tab')]
+      .find((tab) => tab.dataset.view === REQUESTED_VIEW);
+    if (VIEW_CONFIG[REQUESTED_VIEW] && requestedTab && !requestedTab.hidden) {
+      setView(REQUESTED_VIEW);
+    }
     setInterval(() => void pollVisibleView(), 3500);
   }
 

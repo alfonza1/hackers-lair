@@ -64,6 +64,13 @@ test('command palette includes setup, release, conditional update, and every pre
   assert.match(html, /component\.hasLog/);
 });
 
+test('a valid visible view can be opened directly from the URL', () => {
+  assert.match(html, /REQUESTED_VIEW = new URLSearchParams\(location\.search\)\.get\('view'\)/);
+  assert.match(html, /VIEW_CONFIG\[REQUESTED_VIEW\]/);
+  assert.match(html, /requestedTab && !requestedTab\.hidden/);
+  assert.match(html, /setView\(REQUESTED_VIEW\)/);
+});
+
 test('update badge and Settings keep release controls minimal', () => {
   assert.doesNotMatch(html, /id="updateBanner"/);
   assert.match(html, /id="updateAvailableTrigger"/);

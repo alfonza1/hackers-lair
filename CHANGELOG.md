@@ -35,6 +35,7 @@ and this project follows [Semantic Versioning](VERSIONING.md).
   cross-harness skill parity.
 - Added separately opt-in redacted session summaries, read-only memory age,
   local weekly workflow reports, and local workflow bundle export.
+- Added safe `?view=` deep links for opening an enabled console panel directly.
 
 ### Changed
 
