@@ -566,13 +566,36 @@ def visible_tab_positions(page) -> list[dict]:
     )
 
 
+def agent_ops_nav_geometry(page) -> dict:
+    return page.locator(".agent-ops-nav").evaluate(
+        """element => {
+            const box = element.getBoundingClientRect();
+            const scrolling = document.scrollingElement;
+            return {
+                box: { x: box.x, y: box.y, width: box.width, height: box.height },
+                scrollTop: scrolling.scrollTop,
+                scrollHeight: scrolling.scrollHeight,
+                clientHeight: scrolling.clientHeight,
+                clientWidth: scrolling.clientWidth,
+            };
+        }"""
+    )
+
+
+def assert_agent_ops_nav_stable(page, expected: dict) -> None:
+    actual = agent_ops_nav_geometry(page)
+    assert actual["box"] == expected["box"], (
+        f"Agent Ops navigation moved: expected={expected}, actual={actual}"
+    )
+
+
 def assert_agent_ops(page) -> None:
     page.evaluate("() => document.fonts.ready")
     tab_positions = visible_tab_positions(page)
     page.get_by_role("tab", name="Agent Ops", exact=True).click()
     expect(page.locator(".filter-row .agent-ops-nav")).to_be_visible()
     assert visible_tab_positions(page) == tab_positions
-    nav_box = page.locator(".agent-ops-nav").bounding_box()
+    nav_geometry = agent_ops_nav_geometry(page)
     subagent = page.locator('[data-card-kind="agent-op"]').filter(has_text="reviewer")
     expect(subagent).to_be_visible()
     expect(subagent).to_contain_text("1 use")
@@ -584,26 +607,26 @@ def assert_agent_ops(page) -> None:
     )
 
     page.get_by_role("button", name="Commands", exact=True).click()
-    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
+    assert_agent_ops_nav_stable(page, nav_geometry)
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="release/check")).to_be_visible()
     page.get_by_role("button", name="MCP", exact=True).click()
-    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
+    assert_agent_ops_nav_stable(page, nav_geometry)
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="fixtureDocs")).to_be_visible()
     page.get_by_role("button", name="Permissions", exact=True).click()
-    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
+    assert_agent_ops_nav_stable(page, nav_geometry)
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Read")).to_be_visible()
     page.get_by_role("button", name="Hooks", exact=True).click()
-    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
+    assert_agent_ops_nav_stable(page, nav_geometry)
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Bash")).to_be_visible()
     expect(page.get_by_role("button", name="Sessions", exact=True)).to_have_count(0)
     page.get_by_role("button", name="Memory", exact=True).click()
-    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
+    assert_agent_ops_nav_stable(page, nav_geometry)
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="decisions.md")).to_be_visible()
     page.get_by_role("button", name="Coverage", exact=True).click()
-    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
+    assert_agent_ops_nav_stable(page, nav_geometry)
     expect(page.locator('[data-card-kind="agent-op"]').filter(has_text="Live Fixture")).to_be_visible()
     page.get_by_role("button", name="Parity", exact=True).click()
-    assert page.locator(".agent-ops-nav").bounding_box() == nav_box
+    assert_agent_ops_nav_stable(page, nav_geometry)
     expect(
         page.locator('[data-card-kind="agent-op"]').filter(has_text="verify").first
     ).to_be_visible()
