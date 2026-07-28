@@ -60,6 +60,32 @@ test('lists personal skills from the shared workspace agent folder', (t) => {
   assert.equal(internal.skillsRoot, path.join(agentsHome, 'skills'));
 });
 
+test('lists personal skills linked into the shared folder', (t) => {
+  const root = temporaryDirectory();
+  t.after(() => fs.rmSync(root, { force: true, recursive: true }));
+  const agentsHome = path.join(root, '.agents');
+  const sourceSkill = path.join(root, 'sources', 'linked-check');
+  const linkedSkill = path.join(agentsHome, 'skills', 'linked-check');
+  writeSkill(
+    path.join(sourceSkill, 'SKILL.md'),
+    'linked-check',
+    'Verify a reusable workflow linked from its canonical source directory.',
+  );
+  fs.mkdirSync(path.dirname(linkedSkill), { recursive: true });
+  fs.symlinkSync(sourceSkill, linkedSkill, process.platform === 'win32' ? 'junction' : 'dir');
+
+  const personal = listSkills({
+    agentsHome,
+    codexHome: path.join(root, '.codex'),
+    claudeHome: path.join(root, '.claude'),
+    includeFiles: true,
+  }).filter((skill) => skill.kind === 'personal');
+
+  assert.deepEqual(personal.map((skill) => skill.name), ['linked-check']);
+  assert.equal(fs.realpathSync(personal[0].directory), fs.realpathSync(sourceSkill));
+  assert.equal(personal[0].skillsRoot, path.join(agentsHome, 'skills'));
+});
+
 test('skill roots expose the same environment resolution used by the registry', () => {
   const roots = skillRoots({
     agentsHome: path.resolve('agents'),

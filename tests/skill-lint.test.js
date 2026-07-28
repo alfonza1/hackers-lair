@@ -18,6 +18,17 @@ test('skill linter accepts complete frontmatter and existing relative references
   assert.deepEqual(result, { level: 'ok', findings: [] });
 });
 
+test('skill linter accepts a folded YAML description', () => {
+  const directory = path.join(FIXTURES, 'folded-description');
+  assert.deepEqual(
+    lintSkill({
+      directory,
+      skillFile: path.join(directory, 'SKILL.md'),
+    }),
+    { level: 'ok', findings: [] },
+  );
+});
+
 test('skill linter reports weak metadata, folder mismatch, and dead references', () => {
   const result = lintSkill({
     directory: path.join(FIXTURES, 'broken-folder'),

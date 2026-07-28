@@ -47,6 +47,10 @@ and this project follows [Semantic Versioning](VERSIONING.md).
   so command metacharacters in a legitimate folder name are never interpreted.
 - Skills-repository status is cached across rapid UI polls, and hook setup now
   exposes the privacy-safe workspace-instruction fallback beside its JSON.
+- Personal Skills discovery now follows verified directory links, including
+  Windows junctions, inside the configured shared skill directory.
+- Skill linting now accepts folded YAML frontmatter descriptions instead of
+  incorrectly reporting them as empty.
 
 ## [2.1.0-beta.7] - 2026-07-27
 
