@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+## [2.1.0-beta.8] - 2026-07-28
+
 ### Added
 
 - Added the first AI workflow maintenance foundation: an opt-in Skills privacy
@@ -179,6 +181,12 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - Added Host validation, JSON-only mutations, restrictive CSP, origin-checked
   desktop IPC, action locks, and last-known-good config behavior.
 
-[Unreleased]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.2...HEAD
+[Unreleased]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.8...HEAD
+[2.1.0-beta.8]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.7...v2.1.0-beta.8
+[2.1.0-beta.7]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.6...v2.1.0-beta.7
+[2.1.0-beta.6]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.5...v2.1.0-beta.6
+[2.1.0-beta.5]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.4...v2.1.0-beta.5
+[2.1.0-beta.4]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.3...v2.1.0-beta.4
+[2.1.0-beta.3]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.2...v2.1.0-beta.3
 [2.1.0-beta.2]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.1...v2.1.0-beta.2
 [2.1.0-beta.1]: https://github.com/hackerslairhq/desktop/releases/tag/v2.1.0-beta.1
