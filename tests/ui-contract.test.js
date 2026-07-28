@@ -166,6 +166,7 @@ test('Agent Ops keeps wider workflow inventories in one read-only filtered view'
     html,
     /class="filter-row"[\s\S]*id="viewActions"[\s\S]*id="viewSubnav"/,
   );
+  assert.match(html, /html\s*\{[\s\S]*scrollbar-gutter:\s*stable/);
   assert.match(html, /\$\('viewSubnav'\)\.innerHTML = agentOpsNavHtml\(\)/);
   const panelControls = html.match(/<div class="controls">([\s\S]*?)<\/div>\s*<\/div>\s*<div class="filter-row">/)?.[1] || '';
   for (const conditionalAction of ['addProject', 'newSkill', 'contextTaxTrigger']) {
