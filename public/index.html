@@ -3424,7 +3424,7 @@
         </div>
         <div class="view-subnav" id="viewSubnav" hidden></div>
       </div>
-      <div class="target-list" id="targetList"></div>
+      <div class="target-list" id="targetList" aria-busy="false"></div>
       <div class="empty" id="emptyState" hidden>No matching targets detected.</div>
     </section>
 
@@ -5554,6 +5554,7 @@
   }
 
   async function loadSkills(quiet = false) {
+    $('targetList').setAttribute('aria-busy', 'true');
     try {
       const data = await fetchJson('/api/skills');
       state.skills = data.skills || [];
@@ -5579,6 +5580,8 @@
       renderTargets();
       toast('Signal lost: skill registry unavailable', true);
       pushFeed('SKILL_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    } finally {
+      $('targetList').setAttribute('aria-busy', 'false');
     }
   }
 

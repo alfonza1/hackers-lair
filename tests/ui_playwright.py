@@ -519,6 +519,7 @@ def assert_maintenance_loop(page) -> None:
         lambda response: response.url.endswith("/api/skills") and response.status == 200
     ):
         page.get_by_role("tab", name="Skills", exact=True).click()
+    expect(page.locator("#targetList")).to_have_attribute("aria-busy", "false")
     route_input = page.locator("[data-skill-route-input]")
     route_input.fill("verify repository changes before release")
     route_results = page.locator("[data-skill-route-results]")
