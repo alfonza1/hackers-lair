@@ -251,7 +251,7 @@ def run() -> None:
             )
             expect(
                 missing_page.get_by_role("link", name="Getting started")
-            ).to_have_attribute("href", f"{SITE_PREFIX}/getting-started/")
+            ).to_have_count(0)
 
             browser.close()
     finally:

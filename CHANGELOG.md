@@ -43,6 +43,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 - New installs keep local Skills scanning disabled until the user opts in.
   Existing saved panel choices are preserved by the settings v4 migration.
+- Simplified the website header by keeping Getting Started in the documentation
+  navigation instead of repeating it as a global button.
 
 ### Fixed
 

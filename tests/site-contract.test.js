@@ -34,6 +34,16 @@ test('static site ships complete metadata, docs navigation, and local assets', (
   }
 });
 
+test('primary site navigation omits the redundant Getting Started button', () => {
+  for (const relative of [...publicPages, '404.html']) {
+    const html = fs.readFileSync(path.join(site, relative), 'utf8');
+    const primaryNavigation = html.match(
+      /<nav class="site-nav"[^>]*>[\s\S]*?<\/nav>/,
+    )?.[0] || '';
+    assert.doesNotMatch(primaryNavigation, /getting-started|Getting started/i, relative);
+  }
+});
+
 test('site typography is self-hosted and uses one deliberate developer-mono family', () => {
   const stylesheet = fs.readFileSync(path.join(site, 'assets', 'site.css'), 'utf8');
   const fontFiles = [
@@ -183,7 +193,7 @@ test('custom 404 uses project-root links that survive nested missing routes', ()
   const notFound = fs.readFileSync(path.join(site, '404.html'), 'utf8');
   assert.match(notFound, /href="\/desktop\/assets\/site\.css"/);
   assert.match(notFound, /src="\/desktop\/assets\/command-line-mark\.png"/);
-  assert.match(notFound, /href="\/desktop\/getting-started\/"/);
+  assert.doesNotMatch(notFound, /href="\/desktop\/getting-started\/"/);
   assert.match(notFound, /href="\/desktop\/docs\/"/);
   assert.doesNotMatch(notFound, /(?:href|src)="\.\//);
 });
