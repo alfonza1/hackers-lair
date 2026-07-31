@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+## [2.1.0-beta.9] - 2026-07-31
+
 ### Added
 
 - New Skill and Add Script now lead with machine-aware, agent-assisted setup
@@ -20,6 +22,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
   stop failure.
 - Skills and Agent Ops inventory refreshes now expose a settled loading state
   for assistive technology and UI automation.
+- Cross-platform release checks now reserve distinct fixture ports so Linux
+  ephemeral-port reuse cannot block a valid build.
 
 ## [2.1.0-beta.8] - 2026-07-28
 
@@ -195,7 +199,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - Added Host validation, JSON-only mutations, restrictive CSP, origin-checked
   desktop IPC, action locks, and last-known-good config behavior.
 
-[Unreleased]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.8...HEAD
+[Unreleased]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.9...HEAD
+[2.1.0-beta.9]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.8...v2.1.0-beta.9
 [2.1.0-beta.8]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.7...v2.1.0-beta.8
 [2.1.0-beta.7]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.6...v2.1.0-beta.7
 [2.1.0-beta.6]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.5...v2.1.0-beta.6
