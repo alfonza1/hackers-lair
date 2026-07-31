@@ -104,6 +104,10 @@ JSON.
 - Skills and the Windows-only Scripts panel are disabled by default. Either
   panel can be enabled independently from Settings or `Ctrl+K`; Skills remains
   an explicit privacy choice because it scans local agent configuration.
+- New Skill and Add Script offer a recommended, machine-aware prompt for a
+  local AI agent before the manual setup path. Prompts include only the
+  configured directories and existing item names needed to preserve the
+  registry safely.
 - The Skills view can show, copy, or safely install a local Claude Code usage
   hook. It records only event type, name, project, timestamp, and source in
   `.agents/usage-log.jsonl`—never prompts, file contents, arguments,

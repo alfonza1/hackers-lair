@@ -7,6 +7,12 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+### Added
+
+- New Skill and Add Script now lead with machine-aware, agent-assisted setup
+  prompts while retaining manual skill scaffolding and automatic `.au3`
+  discovery as equal fallback paths.
+
 ### Fixed
 
 - Windows command-channel install and uninstall now tolerate a verified app

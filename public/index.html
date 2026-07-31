@@ -3066,13 +3066,15 @@
     border-bottom: 0;
   }
 
-  .additional-project-setup {
+  .additional-project-setup,
+  .agent-assisted-setup {
     display: grid;
     gap: 14px;
     margin-bottom: 18px;
   }
 
-  .additional-project-agent {
+  .additional-project-agent,
+  .agent-assisted-card {
     display: grid;
     gap: 10px;
     padding: 14px;
@@ -3083,23 +3085,29 @@
   }
 
   .additional-project-agent h3,
-  .additional-project-agent p { margin: 0; }
-  .additional-project-agent h3 {
+  .additional-project-agent p,
+  .agent-assisted-card h3,
+  .agent-assisted-card p { margin: 0; }
+  .additional-project-agent h3,
+  .agent-assisted-card h3 {
     color: var(--text);
     font-size: 14px;
     text-transform: uppercase;
   }
-  .additional-project-agent p {
+  .additional-project-agent p,
+  .agent-assisted-card p {
     color: var(--muted);
     font-size: 10px;
     line-height: 1.55;
   }
-  .additional-project-agent details {
+  .additional-project-agent details,
+  .agent-assisted-card details {
     min-width: 0;
     border-top: 1px solid var(--line);
     padding-top: 9px;
   }
-  .additional-project-agent summary {
+  .additional-project-agent summary,
+  .agent-assisted-card summary {
     color: var(--cyan);
     font-size: 9px;
     font-weight: 800;
@@ -3107,7 +3115,8 @@
     text-transform: uppercase;
     cursor: pointer;
   }
-  .additional-project-agent pre {
+  .additional-project-agent pre,
+  .agent-assisted-card pre {
     max-height: 190px;
     margin: 9px 0 0;
     overflow: auto;
@@ -3116,9 +3125,11 @@
     font: 10px/1.55 var(--mono);
     white-space: pre-wrap;
   }
-  .additional-project-agent .utility { justify-self: start; }
+  .additional-project-agent .utility,
+  .agent-assisted-card .utility { justify-self: start; }
 
-  .project-manual-label {
+  .project-manual-label,
+  .manual-setup-label {
     display: flex;
     flex-wrap: wrap;
     gap: 6px 12px;
@@ -3126,13 +3137,15 @@
     border-bottom: 1px solid var(--line);
     padding-bottom: 8px;
   }
-  .project-manual-label strong {
+  .project-manual-label strong,
+  .manual-setup-label strong {
     color: var(--cyan);
     font-size: 10px;
     letter-spacing: .08em;
     text-transform: uppercase;
   }
-  .project-manual-label span { color: var(--dim); font-size: 9px; }
+  .project-manual-label span,
+  .manual-setup-label span { color: var(--dim); font-size: 9px; }
 
   .editor-project-fields,
   .component-fields {
@@ -3417,6 +3430,7 @@
         </div>
         <div class="view-actions" id="viewActions" aria-label="Current view actions">
           <button class="utility" id="addProject" type="button">Add Project</button>
+          <button class="utility" id="addScript" type="button" hidden>+ Add Script</button>
           <button class="utility" id="newSkill" type="button" hidden>+ New Skill</button>
           <button class="utility context-tax-trigger" id="contextTaxTrigger" type="button" hidden>Context tax</button>
           <button class="utility" id="systemToggle" type="button" hidden>System Signals</button>
@@ -3660,6 +3674,25 @@
       <button class="utility" value="cancel" type="submit">Close</button>
     </div>
     <div class="dialog-body">
+      <section class="agent-assisted-setup" id="additionalSkillSetup">
+        <section class="agent-assisted-card">
+          <div class="section-kicker setup-path-kicker">
+            <span>Agent-assisted</span>
+            <span class="setup-recommendation">Recommended</span>
+          </div>
+          <h3>Create a skill with your AI agent</h3>
+          <p>Copy a machine-aware prompt that checks your existing skills, avoids routing overlap, and creates a portable, lint-clean skill.</p>
+          <button class="utility" id="copyAdditionalSkillPrompt" type="button">Copy agent prompt</button>
+          <details open>
+            <summary>Review prompt</summary>
+            <pre id="additionalSkillPrompt">Loading the machine-aware prompt...</pre>
+          </details>
+        </section>
+        <div class="manual-setup-label">
+          <strong>Manual scaffold</strong>
+          <span>Create a clean starting file yourself.</span>
+        </div>
+      </section>
       <label class="editor-field">Skill name
         <input id="newSkillName" type="text" autocomplete="off" maxlength="64" pattern="[a-z0-9][a-z0-9\-]{1,63}" placeholder="release-helper">
       </label>
@@ -3669,6 +3702,41 @@
     <div class="dialog-actions">
       <button class="utility" value="cancel" type="submit">Cancel</button>
       <button class="utility" id="createSkill" type="button">Create Skill</button>
+    </div>
+  </form>
+</dialog>
+<dialog class="lair-dialog update-dialog" id="newScriptDialog" aria-labelledby="newScriptTitle">
+  <form method="dialog">
+    <div class="dialog-head">
+      <div>
+        <div class="section-kicker">Local automation</div>
+        <h2 id="newScriptTitle">Add Script</h2>
+      </div>
+      <button class="utility" value="cancel" type="submit">Close</button>
+    </div>
+    <div class="dialog-body">
+      <section class="agent-assisted-setup" id="additionalScriptSetup">
+        <section class="agent-assisted-card">
+          <div class="section-kicker setup-path-kicker">
+            <span>Agent-assisted</span>
+            <span class="setup-recommendation">Recommended</span>
+          </div>
+          <h3>Create an AutoIt script with your AI agent</h3>
+          <p>Copy a machine-aware prompt that inspects your configured script folder, preserves existing automation, and never runs the new script during setup.</p>
+          <button class="utility" id="copyAdditionalScriptPrompt" type="button">Copy agent prompt</button>
+          <details open>
+            <summary>Review prompt</summary>
+            <pre id="additionalScriptPrompt">Loading the machine-aware prompt...</pre>
+          </details>
+        </section>
+        <div class="manual-setup-label">
+          <strong>Manual setup</strong>
+          <span>Add a .au3 file to the configured Scripts folder; Hacker's Lair discovers it automatically.</span>
+        </div>
+      </section>
+    </div>
+    <div class="dialog-actions">
+      <button class="utility" value="cancel" type="submit">Close</button>
     </div>
   </form>
 </dialog>
@@ -5373,6 +5441,7 @@
     $('search').placeholder = config.placeholder;
     $('systemToggle').hidden = view !== 'processes';
     $('defaultSkillsToggle').hidden = view !== 'skills';
+    $('addScript').hidden = view !== 'scripts';
     $('newSkill').hidden = view !== 'skills';
     $('contextTaxTrigger').hidden = view !== 'skills';
     $('addProject').hidden = view !== 'projects';
@@ -5824,7 +5893,7 @@
         }
         await loadOnboarding();
       } else {
-        await loadScripts(true);
+        await Promise.all([loadScripts(true), loadOnboarding()]);
       }
       state.panelSettings = { busy: false, error: '', saved: true };
       renderPanelSettings();
@@ -6141,6 +6210,20 @@
     $('copyAdditionalProjectPrompt').disabled = !prompt;
   }
 
+  function renderAdditionalSkillSetup() {
+    const prompt = state.onboarding?.additionalSkillPrompt || '';
+    $('additionalSkillPrompt').textContent = prompt
+      || 'The agent prompt is unavailable. Close this dialog, refresh the Skills registry, and try again.';
+    $('copyAdditionalSkillPrompt').disabled = !prompt;
+  }
+
+  function renderAdditionalScriptSetup() {
+    const prompt = state.onboarding?.additionalScriptPrompt || '';
+    $('additionalScriptPrompt').textContent = prompt
+      || 'The agent prompt is unavailable. Close this dialog, refresh the Scripts registry, and try again.';
+    $('copyAdditionalScriptPrompt').disabled = !prompt;
+  }
+
   function syncEditorComponentsFromForm() {
     editorState.components = [...document.querySelectorAll('[data-editor-component]')].map((section) => {
       const value = (field) => section.querySelector(`[data-editor-field="${field}"]`);
@@ -6229,6 +6312,44 @@
       button.disabled = false;
       toast('Clipboard unavailable. Select the prompt text manually.', true);
     }
+  }
+
+  async function copyAdditionalSetupPrompt(button, prompt, scope) {
+    if (!prompt) {
+      toast('Agent prompt unavailable. Refresh the registry and try again.', true);
+      return;
+    }
+    button.disabled = true;
+    try {
+      await navigator.clipboard.writeText(prompt);
+      button.textContent = 'Copied';
+      pushFeed('SETUP_PROMPT_COPIED', scope, 'info');
+      setTimeout(() => {
+        if (button.isConnected) {
+          button.textContent = 'Copy agent prompt';
+          button.disabled = false;
+        }
+      }, 1600);
+    } catch {
+      button.disabled = false;
+      toast('Clipboard unavailable. Select the prompt text manually.', true);
+    }
+  }
+
+  function copyAdditionalSkillPrompt() {
+    return copyAdditionalSetupPrompt(
+      $('copyAdditionalSkillPrompt'),
+      state.onboarding?.additionalSkillPrompt || '',
+      'scope=additional_skill',
+    );
+  }
+
+  function copyAdditionalScriptPrompt() {
+    return copyAdditionalSetupPrompt(
+      $('copyAdditionalScriptPrompt'),
+      state.onboarding?.additionalScriptPrompt || '',
+      'scope=additional_script',
+    );
   }
 
   function editorProjectPayload() {
@@ -7018,13 +7139,25 @@
     ];
     if (state.settings?.enableSkills === true) {
       commands.push(
-        { verb: 'SKILL', label: 'Create personal skill', hint: 'lint-clean scaffold', run: openNewSkillDialog },
+        { verb: 'SKILL', label: 'Create personal skill', hint: 'agent-assisted or manual', run: openNewSkillDialog },
         { verb: 'CONTEXT', label: 'Show context tax', hint: 'local estimate', run: openContextCostDialog },
         { verb: 'INSTRUCTIONS', label: 'Open workflow instructions', hint: 'AGENTS.md and CLAUDE.md', run: () => setView('instructions') },
         { verb: 'AGENT OPS', label: 'Open workflow inventories', hint: 'agents, commands, MCP, permissions, hooks', run: () => setView('agentOps') },
         { verb: 'REPORT', label: 'Generate workflow report', hint: 'local markdown', run: () => runWorkflowAction('report', { disabled: false, isConnected: false }) },
         { verb: 'EXPORT', label: 'Export workflow bundle', hint: 'local folder', run: () => runWorkflowAction('export', { disabled: false, isConnected: false }) },
       );
+    }
+    if (
+      state.settings?.enableScripts === true
+      && state.scriptsSupported
+      && state.scriptsConfigured
+    ) {
+      commands.push({
+        verb: 'SCRIPT',
+        label: 'Add AutoIt script',
+        hint: 'agent-assisted setup',
+        run: openNewScriptDialog,
+      });
     }
     if (['available', 'ready', 'blocked'].includes(state.update?.status)) {
       commands.splice(4, 0, {
@@ -7156,8 +7289,16 @@
   function openNewSkillDialog(prefill = '') {
     $('newSkillName').value = typeof prefill === 'string' ? prefill : '';
     $('newSkillError').textContent = '';
+    renderAdditionalSkillSetup();
     $('newSkillDialog').showModal();
-    $('newSkillName').focus();
+    const prompt = state.onboarding?.additionalSkillPrompt || '';
+    (prompt ? $('copyAdditionalSkillPrompt') : $('newSkillName')).focus();
+  }
+
+  function openNewScriptDialog() {
+    renderAdditionalScriptSetup();
+    $('newScriptDialog').showModal();
+    $('copyAdditionalScriptPrompt').focus();
   }
 
   async function createSkill() {
@@ -7552,8 +7693,11 @@
 
   $('addProject').addEventListener('click', () => openProjectEditor());
   $('copyAdditionalProjectPrompt').addEventListener('click', copyAdditionalProjectPrompt);
+  $('addScript').addEventListener('click', openNewScriptDialog);
+  $('copyAdditionalScriptPrompt').addEventListener('click', copyAdditionalScriptPrompt);
   $('frictionCapture').addEventListener('submit', captureFriction);
   $('newSkill').addEventListener('click', openNewSkillDialog);
+  $('copyAdditionalSkillPrompt').addEventListener('click', copyAdditionalSkillPrompt);
   $('createSkill').addEventListener('click', createSkill);
   $('newSkillName').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {

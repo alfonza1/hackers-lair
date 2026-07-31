@@ -140,6 +140,32 @@ test('Skills maintenance cards expose health, usage, ratings, context, and guard
   assert.match(html, /CONTEXT_TAX_SCANNED/);
 });
 
+test('Skill and Script creation offer agent-assisted setup before manual work', () => {
+  for (const marker of [
+    'id="additionalSkillSetup"',
+    'id="additionalSkillPrompt"',
+    'id="copyAdditionalSkillPrompt"',
+    'state.onboarding?.additionalSkillPrompt',
+    'id="addScript"',
+    'id="newScriptDialog"',
+    'id="additionalScriptPrompt"',
+    'id="copyAdditionalScriptPrompt"',
+    'state.onboarding?.additionalScriptPrompt',
+  ]) {
+    assert.match(html, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  assert.match(
+    html,
+    /id="additionalSkillSetup"[\s\S]*Agent-assisted[\s\S]*Recommended[\s\S]*Manual scaffold/,
+  );
+  assert.match(
+    html,
+    /id="newScriptDialog"[\s\S]*Agent-assisted[\s\S]*Recommended[\s\S]*Manual setup/,
+  );
+  assert.match(html, /scope=additional_skill/);
+  assert.match(html, /scope=additional_script/);
+});
+
 test('AI maintenance loop captures friction, tests routing, and protects instruction paths', () => {
   assert.match(html, /id="frictionCapture"/);
   assert.match(html, /data-skill-route-input/);
@@ -169,7 +195,7 @@ test('Agent Ops keeps wider workflow inventories in one read-only filtered view'
   assert.match(html, /html\s*\{[\s\S]*scrollbar-gutter:\s*stable/);
   assert.match(html, /\$\('viewSubnav'\)\.innerHTML = agentOpsNavHtml\(\)/);
   const panelControls = html.match(/<div class="controls">([\s\S]*?)<\/div>\s*<\/div>\s*<div class="filter-row">/)?.[1] || '';
-  for (const conditionalAction of ['addProject', 'newSkill', 'contextTaxTrigger']) {
+  for (const conditionalAction of ['addProject', 'newSkill', 'addScript', 'contextTaxTrigger']) {
     assert.doesNotMatch(panelControls, new RegExp(`id="${conditionalAction}"`));
   }
   assert.match(html, /AGENT_OPS_SYNCED/);

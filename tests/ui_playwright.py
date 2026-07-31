@@ -269,6 +269,20 @@ def assert_port_signal_action_tray(page, live_port: int) -> None:
 
 def assert_script_action_tray(page, script_name: str) -> None:
     page.get_by_role("tab", name="Scripts", exact=True).click()
+    add_script = page.locator("#addScript")
+    expect(add_script).to_be_visible()
+    add_script.click()
+    dialog = page.get_by_role("dialog", name="Add Script")
+    expect(dialog).to_be_visible()
+    expect(dialog).to_contain_text("Agent-assisted")
+    expect(dialog).to_contain_text("Recommended")
+    expect(dialog).to_contain_text("Manual setup")
+    expect(dialog.locator("#additionalScriptPrompt")).to_contain_text(script_name)
+    dialog.locator("#copyAdditionalScriptPrompt").click()
+    expect(dialog.locator("#copyAdditionalScriptPrompt")).to_have_text("Copied")
+    dialog.get_by_role("button", name="Close", exact=True).first.click()
+    expect(dialog).to_be_hidden()
+
     script = page.locator('[data-card-kind="script"]').filter(
         has_text=script_name.removesuffix(".au3")
     )
@@ -492,6 +506,21 @@ def assert_skills_maintenance(page) -> None:
     page.locator("#newSkill").click()
     new_skill = page.get_by_role("dialog", name="New Skill")
     expect(new_skill).to_be_visible()
+    expect(new_skill).to_contain_text("Agent-assisted")
+    expect(new_skill).to_contain_text("Recommended")
+    expect(new_skill).to_contain_text("Manual scaffold")
+    expect(new_skill.locator("#additionalSkillPrompt")).to_contain_text(
+        "Personal skills directory"
+    )
+    page.set_viewport_size({"width": 900, "height": 620})
+    skill_dialog_box = new_skill.bounding_box()
+    assert skill_dialog_box is not None
+    assert skill_dialog_box["x"] >= 0 and skill_dialog_box["y"] >= 0
+    assert skill_dialog_box["x"] + skill_dialog_box["width"] <= 900
+    assert skill_dialog_box["y"] + skill_dialog_box["height"] <= 620
+    page.set_viewport_size({"width": 1440, "height": 900})
+    new_skill.locator("#copyAdditionalSkillPrompt").click()
+    expect(new_skill.locator("#copyAdditionalSkillPrompt")).to_have_text("Copied")
     new_skill.locator("#newSkillName").fill("browser-helper")
     new_skill.get_by_role("button", name="Create Skill").click()
     expect(new_skill).to_be_hidden()
