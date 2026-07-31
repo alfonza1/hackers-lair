@@ -70,6 +70,15 @@ test('protects localhost mutations and verifies the bound service identity', asy
       contextTaxWarnTokens: 8000,
     },
   }));
+  const scriptsDirectory = path.join(dataDirectory, 'autoit-scripts');
+  fs.mkdirSync(scriptsDirectory);
+  fs.writeFileSync(path.join(scriptsDirectory, 'window-layout.au3'), '; fixture');
+  fs.writeFileSync(path.join(dataDirectory, 'scripts.json'), JSON.stringify({
+    configVersion: 1,
+    scriptsDir: scriptsDirectory,
+    autoItExe: '',
+    descriptions: {},
+  }));
   const agentsHome = path.join(dataDirectory, '.agents');
   const claudeHome = path.join(dataDirectory, '.claude');
   const verifySkillDirectory = path.join(agentsHome, 'skills', 'verify');
@@ -296,6 +305,19 @@ test('protects localhost mutations and verifies the bound service identity', asy
   assert.equal(verifySkill.canManage, true);
   assert.equal('directory' in verifySkill, false);
   assert.equal(JSON.parse((await request({ port, pathname: '/api/scripts' })).body).enabled, true);
+  const enabledOnboarding = JSON.parse(
+    (await request({ port, pathname: '/api/onboarding' })).body,
+  );
+  assert.match(enabledOnboarding.additionalSkillPrompt, /Existing personal skill names: verify/);
+  if (process.platform === 'win32') {
+    assert.match(
+      enabledOnboarding.additionalScriptPrompt,
+      new RegExp(scriptsDirectory.replaceAll('\\', '\\\\'), 'i'),
+    );
+    assert.match(enabledOnboarding.additionalScriptPrompt, /window-layout\.au3/);
+  } else {
+    assert.equal(enabledOnboarding.additionalScriptPrompt, '');
+  }
 
   const contextCostResponse = await request({ port, pathname: '/api/ai/context-cost' });
   assert.equal(contextCostResponse.status, 200);

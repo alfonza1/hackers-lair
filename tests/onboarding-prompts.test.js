@@ -3,6 +3,8 @@ const path = require('node:path');
 const test = require('node:test');
 
 const {
+  additionalScriptPrompt,
+  additionalSkillPrompt,
   configurationPrompts,
   onboardingState,
   usageTrackingSetupPrompt,
@@ -22,6 +24,8 @@ const fixtures = process.platform === 'win32'
       lairSettingsFile: 'C:\\Workspaces\\.lair-data\\settings.json',
       instructionsFile: 'D:\\Work\\AGENTS.md',
       hookCommand: 'node "C:\\Workspaces\\.lair-data\\hackers-lair-usage-hook.js"',
+      scriptsFile: 'C:\\Workspaces\\.lair-data\\scripts.json',
+      scriptsDirectory: 'D:\\Automation\\scripts',
     }
   : {
       projectsFile: '/workspaces/.lair-data/projects.json',
@@ -35,6 +39,8 @@ const fixtures = process.platform === 'win32'
       lairSettingsFile: '/workspaces/.lair-data/settings.json',
       instructionsFile: '/work/AGENTS.md',
       hookCommand: 'node "/workspaces/.lair-data/hackers-lair-usage-hook.js"',
+      scriptsFile: '/workspaces/.lair-data/scripts.json',
+      scriptsDirectory: '/work/automation/scripts',
     };
 
 test('offers complete and focused prompts when nothing is configured', () => {
@@ -164,6 +170,70 @@ test('configured workspaces expose an incremental project prompt', () => {
   assert.match(state.additionalProjectsPrompt, /`lair doctor`/);
   assert.match(state.additionalProjectsPrompt, /`lair ls`/);
   assert.match(state.additionalProjectsPrompt, /hot-reloads.*without an app restart/i);
+});
+
+test('additional skill prompt targets the personal directory and preserves existing skills', () => {
+  const prompt = additionalSkillPrompt({
+    skillsDirectory: fixtures.skillsDirectory,
+    existingSkillNames: ['verify', 'release-helper'],
+  });
+
+  assert.match(prompt, new RegExp(fixtures.skillsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(prompt, /Existing personal skill names: verify; release-helper/);
+  assert.match(prompt, /Never rename, remove, or overwrite an existing skill/);
+  assert.match(prompt, /valid `name` and `description` YAML frontmatter/);
+  assert.match(prompt, /no machine-specific paths, secrets, tokens, or credentials/);
+  assert.match(prompt, /confirm it appears.*without an app restart/i);
+});
+
+test('additional script prompt targets configured files without launching automation', () => {
+  const prompt = additionalScriptPrompt({
+    scriptsFile: fixtures.scriptsFile,
+    scriptsDirectory: fixtures.scriptsDirectory,
+    existingScriptFiles: ['window-layout.au3', 'focus-helper.au3'],
+  });
+
+  for (const value of [fixtures.scriptsFile, fixtures.scriptsDirectory]) {
+    assert.match(prompt, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  assert.match(prompt, /Existing script files: window-layout\.au3; focus-helper\.au3/);
+  assert.match(prompt, /Never rename, remove, or overwrite an existing script/);
+  assert.match(prompt, /Do not launch the script or send keyboard or mouse input/);
+  assert.match(prompt, /confirm it appears.*without an app restart/i);
+});
+
+test('onboarding exposes incremental skill and supported script prompts with privacy gates', () => {
+  const state = onboardingState({
+    projectsFile: fixtures.projectsFile,
+    projectsSchemaFile: fixtures.schemaFile,
+    projectsSchemaUrl: 'http://localhost:4955/api/schema/projects',
+    agentsHome: fixtures.agentsHome,
+    projects: [{ name: 'Existing Web' }],
+    skills: [{ name: 'verify', kind: 'personal' }],
+    enableSkills: true,
+    scriptsFile: fixtures.scriptsFile,
+    scriptsDirectory: fixtures.scriptsDirectory,
+    scripts: [{ file: 'window-layout.au3' }],
+    scriptsSupported: true,
+  });
+
+  assert.match(state.additionalSkillPrompt, /Existing personal skill names: verify/);
+  assert.match(state.additionalScriptPrompt, /Existing script files: window-layout\.au3/);
+  const gated = onboardingState({
+    projectsFile: fixtures.projectsFile,
+    projectsSchemaFile: fixtures.schemaFile,
+    projectsSchemaUrl: 'http://localhost:4955/api/schema/projects',
+    agentsHome: fixtures.agentsHome,
+    projects: [],
+    skills: [],
+    enableSkills: false,
+    scriptsFile: fixtures.scriptsFile,
+    scriptsDirectory: fixtures.scriptsDirectory,
+    scripts: [],
+    scriptsSupported: false,
+  });
+  assert.equal(gated.additionalSkillPrompt, '');
+  assert.equal(gated.additionalScriptPrompt, '');
 });
 
 test('usage tracking prompt includes every live path, exact hook command, and safety guardrail', () => {

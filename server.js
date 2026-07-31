@@ -1716,6 +1716,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && pathname === '/api/onboarding') {
       const settings = loadSettings();
       const usageSetup = settings.enableSkills ? usageSetupState(settings) : null;
+      const scriptsConfig = loadScriptsConfig();
+      const scriptsAvailable = settings.enableScripts
+        && platform.supportsScripts
+        && !scriptsConfig.error
+        && Boolean(scriptsConfig.scriptsDir);
       const selectedWorkspaceFolders = requestUrl.searchParams
         .getAll('workspaceFolder')
         .map((folder) => folder.trim())
@@ -1739,6 +1744,10 @@ const server = http.createServer(async (req, res) => {
         instructionsFile: usageSetup?.instructionsFile || '',
         hookCommand: usageSetup?.hookCommand,
         hookInstalled: usageSetup?.hookInstalled ?? true,
+        scriptsFile: SCRIPTS_FILE,
+        scriptsDirectory: scriptsAvailable ? scriptsConfig.scriptsDir : '',
+        scripts: scriptsAvailable ? listScriptFiles(scriptsConfig.scriptsDir) : [],
+        scriptsSupported: scriptsAvailable,
       }));
       return;
     }
