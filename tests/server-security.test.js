@@ -22,6 +22,17 @@ function freePort() {
   });
 }
 
+async function uniqueFreePort(usedPorts) {
+  const maxAttempts = 20;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const candidate = await freePort();
+    if (usedPorts.has(candidate)) continue;
+    usedPorts.add(candidate);
+    return candidate;
+  }
+  throw new Error(`Could not allocate a unique fixture port after ${maxAttempts} attempts.`);
+}
+
 async function waitForIdentity(file) {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
@@ -57,6 +68,7 @@ function request({ port, method = 'GET', pathname = '/', headers = {}, body = ''
 test('protects localhost mutations and verifies the bound service identity', async (t) => {
   const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'lair-security-'));
   const port = await freePort();
+  const usedFixturePorts = new Set([port]);
   fs.writeFileSync(path.join(dataDirectory, 'projects.json'), '{"projects":[]}');
   fs.writeFileSync(path.join(dataDirectory, 'settings.json'), JSON.stringify({
     configVersion: 4,
@@ -241,7 +253,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
 
   const scanRoot = path.join(dataDirectory, 'scan-root');
   const scanProject = path.join(scanRoot, 'free-tool');
-  const discoveredPort = await freePort();
+  const discoveredPort = await uniqueFreePort(usedFixturePorts);
   fs.mkdirSync(scanProject, { recursive: true });
   fs.writeFileSync(path.join(scanProject, 'package.json'), JSON.stringify({
     name: 'free-tool',
@@ -690,7 +702,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
       cwd: scanProject,
       command: 'npm run dev',
       match: scanProject,
-      port: await freePort(),
+      port: await uniqueFreePort(usedFixturePorts),
     }],
   };
   const occupiedServer = net.createServer();
@@ -700,6 +712,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
   });
   t.after(() => new Promise((resolve) => occupiedServer.close(resolve)));
   const occupiedPort = occupiedServer.address().port;
+  usedFixturePorts.add(occupiedPort);
   const conflictingProject = await request({
     port,
     method: 'POST',
@@ -755,7 +768,10 @@ test('protects localhost mutations and verifies the bound service identity', asy
       project: {
         ...configuredProject,
         name: 'editor-project-renamed',
-        components: [{ ...configuredProject.components[0], port: await freePort() }],
+        components: [{
+          ...configuredProject.components[0],
+          port: await uniqueFreePort(usedFixturePorts),
+        }],
       },
     }),
   });
@@ -797,7 +813,7 @@ test('protects localhost mutations and verifies the bound service identity', asy
     templateId: 'vite',
     name: 'templated-project',
     folder: scanProject,
-    port: await freePort(),
+    port: await uniqueFreePort(usedFixturePorts),
   });
   const templateResponse = await request({
     port,
