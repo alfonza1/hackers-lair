@@ -6,6 +6,7 @@ const test = require('node:test');
 const { EventEmitter } = require('node:events');
 
 const {
+  ServiceRecoveryPolicy,
   desktopDataDirectory,
   readIdentityRecord,
   restartBackoffDelay,
@@ -17,6 +18,7 @@ const { ignoreNonRuntimePath } = forgeConfig;
 const {
   packagedLaunchArguments,
   packagedLifecycleAttempts,
+  packagedServiceFailureCount,
 } = require('../scripts/smoke-packaged-lifecycle');
 
 test('desktop data follows Electron userData unless explicitly overridden', () => {
@@ -86,6 +88,88 @@ test('service restart backoff is exponential and capped', () => {
   );
 });
 
+test('transient health failures do not restart a responsive service prematurely', () => {
+  const recovery = new ServiceRecoveryPolicy({ healthFailureThreshold: 3 });
+
+  assert.deepEqual(recovery.recordHealthFailure(), {
+    consecutiveFailures: 1,
+    shouldRestart: false,
+  });
+  assert.deepEqual(recovery.recordHealthFailure(), {
+    consecutiveFailures: 2,
+    shouldRestart: false,
+  });
+  recovery.recordHealthSuccess();
+  assert.deepEqual(recovery.recordHealthFailure(), {
+    consecutiveFailures: 1,
+    shouldRestart: false,
+  });
+  assert.deepEqual(recovery.recordHealthFailure(), {
+    consecutiveFailures: 2,
+    shouldRestart: false,
+  });
+  assert.deepEqual(recovery.recordHealthFailure(), {
+    consecutiveFailures: 3,
+    shouldRestart: true,
+  });
+});
+
+test('restart recovery cools down after a burst and then keeps retrying', () => {
+  const recovery = new ServiceRecoveryPolicy({
+    maxRestartAttempts: 3,
+    restartBaseMs: 100,
+    restartMaxMs: 400,
+    restartCooldownMs: 5_000,
+  });
+
+  assert.deepEqual(recovery.nextRestartPlan(), {
+    attempt: 1,
+    maxAttempts: 3,
+    delayMs: 100,
+    coolingDown: false,
+  });
+  assert.deepEqual(recovery.nextRestartPlan(), {
+    attempt: 2,
+    maxAttempts: 3,
+    delayMs: 200,
+    coolingDown: false,
+  });
+  assert.deepEqual(recovery.nextRestartPlan(), {
+    attempt: 3,
+    maxAttempts: 3,
+    delayMs: 400,
+    coolingDown: false,
+  });
+  assert.deepEqual(recovery.nextRestartPlan(), {
+    attempt: 1,
+    maxAttempts: 3,
+    delayMs: 5_000,
+    coolingDown: true,
+  });
+  assert.deepEqual(recovery.nextRestartPlan(), {
+    attempt: 2,
+    maxAttempts: 3,
+    delayMs: 200,
+    coolingDown: false,
+  });
+});
+
+test('a stable service resets the restart burst budget', () => {
+  const recovery = new ServiceRecoveryPolicy({
+    maxRestartAttempts: 2,
+    restartStabilityMs: 1_000,
+  });
+  recovery.nextRestartPlan();
+  recovery.nextRestartPlan();
+  recovery.markConnected(10_000);
+
+  recovery.recordHealthSuccess(10_999);
+  assert.equal(recovery.restartAttempts, 2);
+  recovery.recordHealthSuccess(11_000);
+  assert.equal(recovery.restartAttempts, 0);
+  assert.equal(recovery.nextRestartPlan().attempt, 1);
+});
+
 test('desktop supervision publishes backend state and reloads after recovery', () => {
   const desktop = fs.readFileSync(path.join(__dirname, '..', 'desktop.js'), 'utf8');
   const preload = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8');
@@ -150,4 +234,10 @@ test('the packaged lifecycle retries only the headless Linux smoke', () => {
   assert.equal(packagedLifecycleAttempts('linux'), 2);
   assert.equal(packagedLifecycleAttempts('win32'), 1);
   assert.equal(packagedLifecycleAttempts('darwin'), 1);
+});
+
+test('the packaged lifecycle crosses the production restart burst limit', () => {
+  assert.equal(packagedServiceFailureCount({}), 6);
+  assert.equal(packagedServiceFailureCount({ LAIR_SMOKE_SERVICE_FAILURES: '2' }), 2);
+  assert.equal(packagedServiceFailureCount({ LAIR_SMOKE_SERVICE_FAILURES: 'invalid' }), 6);
 });

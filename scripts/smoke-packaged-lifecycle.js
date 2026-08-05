@@ -31,6 +31,11 @@ function packagedLifecycleAttempts(platform = process.platform) {
   return platform === 'linux' ? 2 : 1;
 }
 
+function packagedServiceFailureCount(environment = process.env) {
+  const configured = Math.floor(Number(environment.LAIR_SMOKE_SERVICE_FAILURES));
+  return Number.isFinite(configured) && configured > 0 ? configured : 6;
+}
+
 function terminateServiceUnexpectedly(pid) {
   if (process.platform === 'win32') {
     execFileSync('taskkill.exe', ['/PID', String(pid), '/F'], {
@@ -91,6 +96,35 @@ async function waitForDesktopReady(deadline, child, output, readyFile) {
   }
   throw new Error(
     'Packaged desktop did not finish initialization before the deadline.'
+    + `${output.text ? `\n${output.text.trim()}` : ''}`,
+  );
+}
+
+async function waitForSupervisorConnection(deadline, child, output, runtimeLog, servicePid) {
+  let lastError;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(
+        `Packaged desktop exited with code ${child.exitCode} before acknowledging its service.`
+        + `${output.text ? `\n${output.text.trim()}` : ''}`,
+      );
+    }
+    try {
+      const events = fs.readFileSync(runtimeLog, 'utf8')
+        .trim()
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+      if (events.some((event) => (
+        event.kind === 'desktop-service-connected' && event.childPid === servicePid
+      ))) return;
+    } catch (error) {
+      lastError = error;
+    }
+    await delay(100);
+  }
+  throw new Error(
+    `Desktop did not acknowledge service PID ${servicePid}: ${lastError?.message || 'timed out'}.`
     + `${output.text ? `\n${output.text.trim()}` : ''}`,
   );
 }
@@ -211,13 +245,17 @@ async function runLifecycleAttempt(attempt) {
   const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'hackers-lair-packaged-smoke-'));
   const identityFile = path.join(dataDirectory, 'api-token');
   const readyFile = path.join(dataDirectory, 'desktop-smoke-ready');
+  const runtimeLogFile = path.join(dataDirectory, 'logs', 'runtime-errors.log');
   const output = { text: '' };
+  const serviceFailureCount = packagedServiceFailureCount();
   const child = spawn(executable, packagedLaunchArguments(), {
     env: {
       ...process.env,
       PROJECT_MANAGER_DATA_DIR: dataDirectory,
-      LAIR_SMOKE_EXIT_AFTER_MS: '30000',
-      LAIR_SMOKE_EXIT_AFTER_RECOVERY_MS: '1000',
+      LAIR_SMOKE_EXIT_AFTER_MS: '60000',
+      LAIR_SMOKE_EXIT_AFTER_RECOVERY_MS: '500',
+      LAIR_SMOKE_EXPECT_RECOVERIES: String(serviceFailureCount),
+      LAIR_SMOKE_FAST_RECOVERY: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
@@ -231,24 +269,50 @@ async function runLifecycleAttempt(attempt) {
   try {
     const firstRecord = await waitForIdentity(Date.now() + 15_000, child, output, identityFile);
     await waitForDesktopReady(Date.now() + 15_000, child, output, readyFile);
-    assert.equal(firstRecord.pid > 0, true);
-    terminateServiceUnexpectedly(firstRecord.pid);
-    const recoveredRecord = await waitForIdentity(
-      Date.now() + 30_000,
+    await waitForSupervisorConnection(
+      Date.now() + 15_000,
       child,
       output,
-      identityFile,
-      firstRecord,
+      runtimeLogFile,
+      firstRecord.pid,
     );
-    assert.notEqual(recoveredRecord.pid, firstRecord.pid);
+    assert.equal(firstRecord.pid > 0, true);
+    const serviceRecords = [firstRecord];
+    for (let failure = 1; failure <= serviceFailureCount; failure += 1) {
+      const previousRecord = serviceRecords.at(-1);
+      terminateServiceUnexpectedly(previousRecord.pid);
+      const recoveredRecord = await waitForIdentity(
+        Date.now() + 15_000,
+        child,
+        output,
+        identityFile,
+        previousRecord,
+      );
+      assert.notEqual(recoveredRecord.pid, previousRecord.pid);
+      await waitForSupervisorConnection(
+        Date.now() + 15_000,
+        child,
+        output,
+        runtimeLogFile,
+        recoveredRecord.pid,
+      );
+      serviceRecords.push(recoveredRecord);
+    }
     assert.equal(await waitForExit(child, Date.now() + 15_000), 0);
     await delay(250);
-    assert.throws(() => process.kill(firstRecord.pid, 0));
-    assert.throws(() => process.kill(recoveredRecord.pid, 0));
+    for (const record of serviceRecords) assert.throws(() => process.kill(record.pid, 0));
     assert.equal(fs.existsSync(identityFile), false);
+    const runtimeLog = fs.readFileSync(runtimeLogFile, 'utf8');
+    const backendLog = fs.readFileSync(
+      path.join(dataDirectory, 'logs', 'backend-service.log'),
+      'utf8',
+    );
+    assert.match(runtimeLog, /desktop-service-exited/);
+    assert.match(runtimeLog, /"coolingDown":true/);
+    assert.match(backendLog, /backend launch/);
     console.log(
-      `Packaged lifecycle passed on ${process.platform} (attempt ${attempt}): service PID ${firstRecord.pid}`
-      + ` recovered as ${recoveredRecord.pid}, then stopped cleanly.`,
+      `Packaged lifecycle passed on ${process.platform} (attempt ${attempt}): service recovered`
+      + ` from ${serviceFailureCount} consecutive forced exits, then stopped cleanly.`,
     );
   } finally {
     await forceTerminateDesktop(child, identityFile);
@@ -286,4 +350,8 @@ if (require.main === module) {
   });
 }
 
-module.exports = { packagedLaunchArguments, packagedLifecycleAttempts };
+module.exports = {
+  packagedLaunchArguments,
+  packagedLifecycleAttempts,
+  packagedServiceFailureCount,
+};

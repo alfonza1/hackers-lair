@@ -26,13 +26,14 @@ const {
 } = require('./lib/update-policy');
 const {
   APP_ID,
+  ServiceRecoveryPolicy,
   desktopDataDirectory,
   readIdentityRecord,
-  restartBackoffDelay,
   stopManagedChild,
   waitForExit,
   writeManagedCliShim,
 } = require('./lib/desktop-service');
+const { LogStore } = require('./lib/log-store');
 
 let appOrigin = '';
 let apiToken = '';
@@ -72,20 +73,49 @@ let serviceRestartTimer = null;
 let serviceHealthTimer = null;
 let smokeExitTimer = null;
 let serviceHealthCheckInFlight = false;
-let serviceRestartAttempts = 0;
+let serviceReady = false;
 const MAX_SERVICE_RESTARTS = 5;
-const SERVICE_HEALTH_INTERVAL_MS = 5_000;
-const SERVICE_RESTART_STABILITY_MS = 30_000;
-const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1_000;
+const HEALTH_FAILURE_THRESHOLD = 3;
+const SERVICE_RESTART_COOLDOWN_MS = 60_000;
 const smokeExitAfterMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_MS);
 const smokeExitAfterRecoveryMs = Number(process.env.LAIR_SMOKE_EXIT_AFTER_RECOVERY_MS);
-let serviceHealthySince = 0;
+const smokeFastRecovery = (
+  Number.isFinite(smokeExitAfterMs)
+  && smokeExitAfterMs > 0
+  && process.env.LAIR_SMOKE_FAST_RECOVERY === '1'
+);
+const SERVICE_HEALTH_INTERVAL_MS = smokeFastRecovery ? 250 : 5_000;
+const SERVICE_RESTART_STABILITY_MS = 30_000;
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1_000;
+const smokeExpectedRecoveries = Math.max(
+  1,
+  Math.floor(Number(process.env.LAIR_SMOKE_EXPECT_RECOVERIES) || 1),
+);
+let smokeRecoveryCount = 0;
+const serviceRecovery = new ServiceRecoveryPolicy({
+  healthFailureThreshold: HEALTH_FAILURE_THRESHOLD,
+  maxRestartAttempts: MAX_SERVICE_RESTARTS,
+  restartBaseMs: smokeFastRecovery ? 50 : undefined,
+  restartMaxMs: smokeFastRecovery ? 400 : undefined,
+  restartCooldownMs: smokeFastRecovery ? 500 : SERVICE_RESTART_COOLDOWN_MS,
+  restartStabilityMs: SERVICE_RESTART_STABILITY_MS,
+});
+const desktopLogStore = new LogStore(path.join(desktopDataDirectory(app), 'logs'));
+const backendOutputFile = path.join(desktopLogStore.directory, 'backend-service.log');
 let backendState = {
   status: 'starting',
   message: 'Starting the local service…',
   attempt: 0,
   maxAttempts: MAX_SERVICE_RESTARTS,
 };
+
+function recordSupervisorEvent(kind, context = {}) {
+  try {
+    desktopLogStore.appendRuntimeEvent(`desktop-${kind}`, context);
+  } catch (error) {
+    console.warn(`Could not persist desktop supervisor event ${kind}: ${error.message}`);
+  }
+}
 const installChannel = detectInstallChannel({
   isPackaged: app.isPackaged,
   platform: process.platform,
@@ -403,25 +433,47 @@ function startLocalService() {
   try { fs.unlinkSync(identityPath()); } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
-  const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
-    env: {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: '1',
-      PROJECT_MANAGER_DATA_DIR: dataDirectory,
-      LAIR_INSTALL_CHANNEL: installChannel,
-    },
-    stdio: 'ignore',
-    windowsHide: true,
+  serviceReady = false;
+  desktopLogStore.prepare(backendOutputFile, {
+    append: true,
+    heading: `\n--- backend launch ${new Date().toISOString()} ---\n`,
   });
+  const outputDescriptors = desktopLogStore.openAppendDescriptors(backendOutputFile);
+  let child;
+  try {
+    child = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
+        PROJECT_MANAGER_DATA_DIR: dataDirectory,
+        LAIR_INSTALL_CHANNEL: installChannel,
+      },
+      stdio: ['ignore', ...outputDescriptors],
+      windowsHide: true,
+    });
+  } finally {
+    for (const descriptor of outputDescriptors) fs.closeSync(descriptor);
+  }
   serviceProcess = child;
+  recordSupervisorEvent('service-started', { childPid: child.pid, installChannel });
   child.once('exit', (code, signal) => {
-    if (serviceProcess === child) serviceProcess = null;
+    if (serviceProcess === child) {
+      serviceProcess = null;
+      serviceReady = false;
+    }
+    recordSupervisorEvent('service-exited', {
+      childPid: child.pid,
+      code,
+      signal,
+      expected: Boolean(child.lairExpectedStop || isQuitting || quitSequenceStarted),
+    });
     if (!child.lairExpectedStop && !isQuitting && !quitSequenceStarted) {
       scheduleServiceRestart(`The local service exited (${signal || code || 'unknown'}).`);
     }
   });
   child.once('error', (error) => {
     console.error(`Could not start the local service: ${error.message}`);
+    recordSupervisorEvent('service-error', { childPid: child.pid, message: error.message });
   });
   return child;
 }
@@ -462,15 +514,24 @@ function applyServerIdentity(server, { reload = false } = {}) {
   const previousOrigin = appOrigin;
   appOrigin = server.origin;
   apiToken = server.token;
-  serviceHealthySince = Date.now();
+  serviceReady = true;
+  serviceRecovery.markConnected();
+  recordSupervisorEvent('service-connected', {
+    childPid: serviceProcess?.pid || null,
+    origin: server.origin,
+    recovered: reload,
+  });
   publishBackendState({
     status: 'available',
     message: 'Local service connected.',
     attempt: 0,
   });
   if (reload && mainWindow && !mainWindow.isDestroyed()) {
+    smokeRecoveryCount += 1;
     mainWindow.loadURL(server.url);
-    scheduleSmokeExit(smokeExitAfterRecoveryMs);
+    if (smokeRecoveryCount >= smokeExpectedRecoveries) {
+      scheduleSmokeExit(smokeExitAfterRecoveryMs);
+    }
   } else if (previousOrigin && previousOrigin !== server.origin) {
     void refreshTrayMenu();
   }
@@ -478,29 +539,24 @@ function applyServerIdentity(server, { reload = false } = {}) {
 
 function scheduleServiceRestart(reason) {
   if (isQuitting || quitSequenceStarted || serviceRestartTimer) return;
-  if (serviceRestartAttempts >= MAX_SERVICE_RESTARTS) {
-    publishBackendState({
-      status: 'unavailable',
-      message: `Local service unavailable after ${MAX_SERVICE_RESTARTS} restart attempts. Restart Hacker's Lair to retry.`,
-      attempt: serviceRestartAttempts,
-    });
-    return;
-  }
-  serviceRestartAttempts += 1;
-  const attempt = serviceRestartAttempts;
-  const delay = restartBackoffDelay(attempt);
-  console.warn(`${reason} Backend restart ${attempt}/${MAX_SERVICE_RESTARTS} scheduled in ${delay}ms.`);
+  const plan = serviceRecovery.nextRestartPlan();
+  const delaySeconds = (plan.delayMs / 1_000).toFixed(plan.delayMs < 1_000 ? 1 : 0);
+  const message = plan.coolingDown
+    ? `${reason} Recovery is cooling down for ${delaySeconds}s, then it will retry automatically.`
+    : `${reason} Restarting backend in ${delaySeconds}s (${plan.attempt}/${plan.maxAttempts}).`;
+  console.warn(message);
+  recordSupervisorEvent('restart-scheduled', { reason, ...plan });
   try {
     publishBackendState({
       status: 'restarting',
-      message: `${reason} Restarting backend in ${(delay / 1000).toFixed(1)}s (${attempt}/${MAX_SERVICE_RESTARTS}).`,
-      attempt,
+      message,
+      attempt: plan.attempt,
     });
   } catch (error) {
     console.warn(`Could not publish backend restart state: ${error.message}`);
   }
   serviceRestartTimer = setTimeout(() => {
-    console.warn(`Attempting backend restart ${attempt}/${MAX_SERVICE_RESTARTS}.`);
+    console.warn(`Attempting backend restart ${plan.attempt}/${plan.maxAttempts}.`);
     serviceRestartTimer = null;
     void (async () => {
       try {
@@ -510,7 +566,11 @@ function scheduleServiceRestart(reason) {
         console.warn(`Local service recovered on ${server.origin}.`);
         void refreshTrayMenu();
       } catch (error) {
-        console.error(`Backend restart ${attempt} failed: ${error.message}`);
+        console.error(`Backend restart ${plan.attempt} failed: ${error.message}`);
+        recordSupervisorEvent('restart-failed', {
+          attempt: plan.attempt,
+          message: error.message,
+        });
         const failedChild = serviceProcess;
         if (failedChild) failedChild.lairExpectedStop = true;
         await stopManagedChild(failedChild);
@@ -518,29 +578,37 @@ function scheduleServiceRestart(reason) {
         scheduleServiceRestart(error.message);
       }
     })();
-  }, delay);
+  }, plan.delayMs);
   serviceRestartTimer.ref?.();
 }
 
 function startServiceHealthChecks() {
   clearInterval(serviceHealthTimer);
   serviceHealthTimer = setInterval(() => {
-    if (serviceHealthCheckInFlight || isQuitting || !serviceProcess) return;
+    if (serviceHealthCheckInFlight || isQuitting || !serviceProcess || !serviceReady) return;
     serviceHealthCheckInFlight = true;
     const checkedProcess = serviceProcess;
     void verifiedServerIdentity(checkedProcess)
       .then(() => {
-        if (
-          serviceRestartAttempts
-          && Date.now() - serviceHealthySince >= SERVICE_RESTART_STABILITY_MS
-        ) {
-          serviceRestartAttempts = 0;
+        const recoveredFromDelay = serviceRecovery.consecutiveHealthFailures > 0;
+        serviceRecovery.recordHealthSuccess();
+        if (recoveredFromDelay) {
+          publishBackendState({ status: 'available', message: 'Local service connected.', attempt: 0 });
+          recordSupervisorEvent('health-recovered');
         }
       })
       .catch(async (error) => {
         if (checkedProcess !== serviceProcess || isQuitting) return;
+        const failure = serviceRecovery.recordHealthFailure();
+        recordSupervisorEvent('health-failed', {
+          childPid: checkedProcess.pid,
+          message: error.message,
+          ...failure,
+        });
+        if (!failure.shouldRestart) return;
         checkedProcess.lairExpectedStop = true;
         serviceProcess = null;
+        serviceReady = false;
         await stopManagedChild(checkedProcess);
         scheduleServiceRestart(`Backend health check failed: ${error.message}`);
       })
@@ -558,6 +626,7 @@ async function stopLocalService() {
   }
   const child = serviceProcess;
   serviceProcess = null;
+  serviceReady = false;
   if (child) child.lairExpectedStop = true;
   let stoppedGracefully = false;
   if (child && appOrigin && apiToken) {

@@ -24,19 +24,27 @@ test('component logs are capped while retaining their newest output', (t) => {
   assert.match(output, /newest-line$/);
 });
 
-test('maintenance prunes removed components but preserves runtime errors', (t) => {
+test('maintenance prunes removed components but preserves service diagnostics', (t) => {
   const store = temporaryStore(t);
   const keep = store.componentFile('Keep', 'web');
   const remove = store.componentFile('Remove', 'web');
+  const backend = path.join(store.directory, 'backend-service.log');
   store.prepare(keep);
   store.prepare(remove);
+  store.prepare(backend, { append: true, heading: 'backend started\n' });
   store.appendRuntimeError('unhandledRejection', new Error('fixture'));
+  store.appendRuntimeEvent('desktop-service-exit', { code: 1, expected: false });
 
   const result = store.maintain(new Set([keep]));
   assert.equal(result.pruned, 1);
   assert.equal(fs.existsSync(keep), true);
   assert.equal(fs.existsSync(remove), false);
+  assert.equal(fs.existsSync(backend), true);
   assert.equal(fs.existsSync(path.join(store.directory, 'runtime-errors.log')), true);
+  assert.match(
+    fs.readFileSync(path.join(store.directory, 'runtime-errors.log'), 'utf8'),
+    /desktop-service-exit/,
+  );
 });
 
 test('summary and clear cover every local log', (t) => {

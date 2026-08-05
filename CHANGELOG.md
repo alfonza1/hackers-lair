@@ -7,6 +7,14 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- Desktop backend supervision now tolerates brief health-check stalls, never
+  health-checks a replacement before it finishes starting, and resumes recovery
+  after a bounded cooldown instead of remaining permanently disconnected.
+- Backend output and supervisor transitions are retained in capped local logs,
+  making unexpected service exits diagnosable without telemetry.
+
 ## [2.1.0-beta.9] - 2026-07-31
 
 ### Added
