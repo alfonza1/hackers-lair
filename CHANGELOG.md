@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+## [2.1.0-beta.11] - 2026-08-05
+
 ### Fixed
 
 - Desktop backend supervision now tolerates brief health-check stalls, never
@@ -14,6 +16,11 @@ and this project follows [Semantic Versioning](VERSIONING.md).
   after a bounded cooldown instead of remaining permanently disconnected.
 - Backend output and supervisor transitions are retained in capped local logs,
   making unexpected service exits diagnosable without telemetry.
+
+### Security
+
+- Updated vulnerable transitive build dependencies so high-severity production
+  audit gates pass without exceptions.
 
 ## [2.1.0-beta.10] - 2026-07-31
 
@@ -214,7 +221,8 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 - Added Host validation, JSON-only mutations, restrictive CSP, origin-checked
   desktop IPC, action locks, and last-known-good config behavior.
 
-[Unreleased]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.10...HEAD
+[Unreleased]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.11...HEAD
+[2.1.0-beta.11]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.10...v2.1.0-beta.11
 [2.1.0-beta.10]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.9...v2.1.0-beta.10
 [2.1.0-beta.9]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.8...v2.1.0-beta.9
 [2.1.0-beta.8]: https://github.com/hackerslairhq/desktop/compare/v2.1.0-beta.7...v2.1.0-beta.8
