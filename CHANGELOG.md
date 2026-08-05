@@ -7,6 +7,11 @@ and this project follows [Semantic Versioning](VERSIONING.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- PowerShell updates now wait for short-lived Windows file locks to clear when
+  replacing an existing installation, so repeat installs complete in one run.
+
 ## [2.1.0-beta.11] - 2026-08-05
 
 ### Fixed

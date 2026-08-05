@@ -49,6 +49,56 @@ function runAsync(command, args, options = {}) {
   });
 }
 
+async function holdFileLock(file, milliseconds = 8_000) {
+  const child = spawn('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    [
+      '$stream = [IO.File]::Open(',
+      '$env:LAIR_LOCK_FILE,',
+      '[IO.FileMode]::Open,',
+      '[IO.FileAccess]::Read,',
+      '[IO.FileShare]::Read',
+      ');',
+      "Write-Output 'LOCKED';",
+      'Start-Sleep -Milliseconds ([int]$env:LAIR_LOCK_MILLISECONDS);',
+      '$stream.Dispose();',
+    ].join(' '),
+  ], {
+    cwd: root,
+    env: {
+      ...process.env,
+      LAIR_LOCK_FILE: file,
+      LAIR_LOCK_MILLISECONDS: String(milliseconds),
+    },
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stderr = '';
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const finished = new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`File-lock fixture exited with ${code}: ${stderr}`));
+    });
+  });
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('File-lock fixture did not become ready.')), 5_000);
+    child.stdout.on('data', (chunk) => {
+      if (!String(chunk).includes('LOCKED')) return;
+      clearTimeout(timeout);
+      resolve();
+    });
+    finished.catch((error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+  });
+  return { finished };
+}
+
 function currentProcessIsElevated() {
   return run('powershell', [
     '-NoProfile',
@@ -338,18 +388,23 @@ async function main() {
         `"${retiredLauncher}"`,
         path.dirname(retiredLauncher),
       );
-      await runAsync(
-        'powershell',
-        installerArguments('release-unavailable', { createShortcuts: true }),
-        {
-          env: {
-            ...process.env,
-            APPDATA: isolatedAppData,
-            LAIR_INSTALLER_SMOKE: '1',
-            LAIR_DESKTOP_DIRECTORY: isolatedDesktop,
+      const heldLock = await holdFileLock(path.join(installRoot, 'resources', 'app.asar'));
+      try {
+        await runAsync(
+          'powershell',
+          installerArguments('release-unavailable', { createShortcuts: true }),
+          {
+            env: {
+              ...process.env,
+              APPDATA: isolatedAppData,
+              LAIR_INSTALLER_SMOKE: '1',
+              LAIR_DESKTOP_DIRECTORY: isolatedDesktop,
+            },
           },
-        },
-      );
+        );
+      } finally {
+        await heldLock.finished;
+      }
       assert.equal(readShortcut(taskbarShortcut).TargetPath, installedExecutable);
       assert.equal(readShortcut(desktopShortcut).TargetPath, installedExecutable);
       assert.equal(readShortcut(startMenuShortcut).TargetPath, installedExecutable);

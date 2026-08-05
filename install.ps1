@@ -14,6 +14,8 @@ $ProgressPreference = 'SilentlyContinue'
 $AssetName = 'hackers-lair-win32-x64.zip'
 $ChecksumName = 'checksums.txt'
 $ApplicationName = "Hacker's Lair"
+$InstallReplacementAttempts = 30
+$InstallReplacementDelayMilliseconds = 500
 
 function Get-NormalizedPath([string]$PathValue) {
     return [System.IO.Path]::GetFullPath($PathValue).TrimEnd('\')
@@ -43,6 +45,27 @@ function Stop-InstalledProcesses([string]$Directory) {
                 throw
             }
             Write-Output "Verified Hacker's Lair process PID $($process.ProcessId) had already exited."
+        }
+    }
+}
+
+function Clear-InstallDirectoryWithRetry(
+    [string]$Directory,
+    [int]$MaxAttempts = $InstallReplacementAttempts,
+    [int]$DelayMilliseconds = $InstallReplacementDelayMilliseconds
+) {
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            Get-ChildItem -LiteralPath $Directory -Force | Remove-Item -Recurse -Force
+            return
+        } catch {
+            if ($attempt -eq $MaxAttempts) {
+                throw
+            }
+            if ($attempt -eq 1) {
+                Write-Output 'Waiting for Windows to release the previous installation...'
+            }
+            Start-Sleep -Milliseconds $DelayMilliseconds
         }
     }
 }
@@ -220,7 +243,7 @@ try {
 
     Stop-InstalledProcesses $installRoot
     New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
-    Get-ChildItem -LiteralPath $installRoot -Force | Remove-Item -Recurse -Force
+    Clear-InstallDirectoryWithRetry $installRoot
     Copy-Item -Path (Join-Path $payloadRoot '*') -Destination $installRoot -Recurse -Force
 
     $installedExecutable = Join-Path $installRoot 'HackersLair.exe'
