@@ -749,6 +749,24 @@ def assert_responsive_layout(page) -> None:
     assert not has_overflow, "The minimum window viewport has horizontal overflow."
 
 
+def assert_compact_desktop_layout(page) -> None:
+    page.set_viewport_size({"width": 1240, "height": 800})
+    page.wait_for_timeout(250)
+    matrix_box = page.locator(".matrix").bounding_box()
+    side_box = page.locator(".side-rack").bounding_box()
+    assert matrix_box is not None and side_box is not None
+    assert side_box["x"] == matrix_box["x"], (
+        "The compact desktop sidebar should stack below the control deck: "
+        f"matrix={matrix_box}, side={side_box}"
+    )
+    assert side_box["y"] > matrix_box["y"] + matrix_box["height"]
+    has_overflow = page.evaluate(
+        "() => document.documentElement.scrollWidth > document.documentElement.clientWidth"
+    )
+    assert not has_overflow, "The compact desktop viewport has horizontal overflow."
+    page.set_viewport_size({"width": 1440, "height": 900})
+
+
 def run() -> None:
     data_directory = Path(tempfile.mkdtemp(prefix="hackers-lair-playwright-"))
     manager_port = free_port()
@@ -965,6 +983,7 @@ def run() -> None:
                 ],
             )
             assert_target_states(page, live_listener.port, dormant_port)
+            assert_compact_desktop_layout(page)
             assert_port_signal_action_tray(page, live_listener.port)
             assert_minimal_update_controls(page)
             assert_settings_panel(page, scripts_supported=script_name is not None)
