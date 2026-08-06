@@ -251,6 +251,82 @@ def assert_target_states(page, live_port: int, dormant_port: int) -> None:
     assert "N/A" not in page.locator("body").inner_text()
 
 
+def assert_local_model_controls(page) -> None:
+    active_model: dict[str, str | None] = {"id": None}
+    models = [
+        {
+            "id": "qwen3-coder-next",
+            "name": "Qwen3 Coder Next",
+            "quant": "UD-Q3_K_XL",
+            "generationTokensPerSecond": 28.22,
+        },
+        {
+            "id": "qwen3.6-35b-a3b",
+            "name": "Qwen3.6 35B A3B",
+            "quant": "UD-Q6_K",
+            "generationTokensPerSecond": 26.54,
+        },
+    ]
+
+    def payload() -> dict:
+        return {
+            "supported": True,
+            "port": 8080,
+            "activeModelId": active_model["id"],
+            "conflict": None,
+            "models": [
+                {
+                    **model,
+                    "available": True,
+                    "missing": [],
+                    "state": "running" if active_model["id"] == model["id"] else "stopped",
+                    "ready": active_model["id"] == model["id"],
+                    "pids": [4242] if active_model["id"] == model["id"] else [],
+                }
+                for model in models
+            ],
+        }
+
+    def handle(route) -> None:
+        request = route.request
+        if request.method == "POST":
+            body = request.post_data_json
+            active_model["id"] = body["id"] if request.url.endswith("/start") else None
+            route.fulfill(json={"ok": True, "id": body["id"]})
+            return
+        route.fulfill(json=payload())
+
+    page.route("**/api/local-models", handle)
+    page.route("**/api/local-models/**", handle)
+    page.evaluate("loadLocalModels(true)")
+    panel = page.locator(".model-panel")
+    channels = panel.locator(".model-channel")
+    expect(channels).to_have_count(2)
+    coder = channels.filter(has_text="Qwen3 Coder Next")
+    model_35b = channels.filter(has_text="Qwen3.6 35B A3B")
+    expect(coder).to_contain_text("UD-Q3_K_XL · 28.22 gen tok/s")
+    expect(model_35b).to_contain_text("UD-Q6_K · 26.54 gen tok/s")
+    expect(coder.get_by_role("button", name="On", exact=True)).to_be_enabled()
+    expect(coder.get_by_role("button", name="Off", exact=True)).to_be_disabled()
+
+    coder.get_by_role("button", name="On", exact=True).click()
+    expect(coder.locator(".model-state")).to_have_text("ONLINE")
+    expect(model_35b.get_by_role("button", name="On", exact=True)).to_be_disabled()
+    expect(coder.get_by_role("button", name="Off", exact=True)).to_be_enabled()
+    OUTPUT_DIRECTORY.mkdir(exist_ok=True)
+    page.screenshot(
+        path=str(OUTPUT_DIRECTORY / "local-model-controls-1440x900.png"),
+        full_page=False,
+    )
+
+    coder.get_by_role("button", name="Off", exact=True).click()
+    expect(coder.locator(".model-state")).to_have_text("OFFLINE")
+    expect(model_35b.get_by_role("button", name="On", exact=True)).to_be_enabled()
+    page.unroute("**/api/local-models", handle)
+    page.unroute("**/api/local-models/**", handle)
+    page.evaluate("loadLocalModels(true)")
+
+
 def assert_port_signal_action_tray(page, live_port: int) -> None:
     page.get_by_role("tab", name="Port Signals", exact=True).click()
     signal = page.locator('[data-card-kind="process"]').filter(
@@ -870,6 +946,7 @@ def run() -> None:
         "AGENTS_HOME": str(agents_home),
         "CLAUDE_CONFIG_DIR": str(claude_home),
         "LAIR_WORKSPACE_ROOT": str(data_directory),
+        "LLAMA_CPP_ROOT": str(data_directory / "missing-llama-root"),
     }
     service = subprocess.Popen(
         ["node", str(ROOT / "server.js")],
@@ -983,6 +1060,7 @@ def run() -> None:
                 ],
             )
             assert_target_states(page, live_listener.port, dormant_port)
+            assert_local_model_controls(page)
             assert_compact_desktop_layout(page)
             assert_port_signal_action_tray(page, live_listener.port)
             assert_minimal_update_controls(page)

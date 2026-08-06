@@ -239,6 +239,21 @@ test('runtime resilience controls surface backend and log state', () => {
   assert.match(html, /\/api\/logs\/clear/);
 });
 
+test('local model rack exposes exclusive authenticated power controls', () => {
+  assert.match(html, /id="modelsTitle">Models</);
+  assert.match(html, /id="modelList"[^>]*aria-live="polite"/);
+  assert.match(html, /data-model-action="start"/);
+  assert.match(html, /data-model-action="stop"/);
+  assert.match(html, /One model can be online at a time/);
+  assert.match(html, /\/api\/local-models/);
+  assert.match(html, /MODEL_\$\{action\.toUpperCase\(\)\}_REQUEST/);
+  assert.match(server, /createLocalModelService/);
+  assert.match(server, /req\.url === '\/api\/local-models'/);
+  assert.match(server, /'\/api\/local-models\/start'/);
+  assert.match(server, /'\/api\/local-models\/stop'/);
+  assert.match(server, /const actionKey = 'local-models'/);
+});
+
 test('onboarding and project management never require hand-edited JSON', () => {
   for (const marker of [
     'id="setupWizard"',

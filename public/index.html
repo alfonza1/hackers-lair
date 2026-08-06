@@ -2237,6 +2237,142 @@
     transition: width .2s;
   }
 
+  .model-panel {
+    align-self: start;
+    overflow: hidden;
+  }
+
+  .model-panel .panel-head {
+    border-bottom-color: rgba(var(--secondary-rgb), .2);
+  }
+
+  .model-panel .section-kicker { color: var(--cyan); }
+
+  .model-body {
+    padding: 12px 14px 14px;
+    background:
+      linear-gradient(90deg, rgba(var(--secondary-rgb), .035), transparent 42%),
+      rgba(var(--surface-strong-rgb), .54);
+  }
+
+  .model-copy,
+  .model-note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.5;
+  }
+
+  .model-list {
+    display: grid;
+    gap: 8px;
+    margin: 11px 0 9px;
+  }
+
+  .model-channel {
+    position: relative;
+    display: grid;
+    gap: 9px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line-strong);
+    border-radius: 4px;
+    background: rgba(var(--shadow-rgb), .2);
+  }
+
+  .model-channel.running { border-left-color: var(--green); }
+  .model-channel.starting { border-left-color: var(--amber); }
+  .model-channel.unavailable { border-left-color: var(--red); }
+
+  .model-channel-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: start;
+  }
+
+  .model-identity { min-width: 0; }
+
+  .model-name {
+    display: block;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .04em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .model-meta {
+    display: block;
+    margin-top: 3px;
+    color: var(--dim);
+    font-size: 8px;
+    letter-spacing: .04em;
+  }
+
+  .model-state {
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+    color: var(--dim);
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .model-state::before {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    content: "";
+    box-shadow: 0 0 7px currentColor;
+  }
+
+  .model-channel.running .model-state { color: var(--green); }
+  .model-channel.starting .model-state { color: var(--amber); }
+  .model-channel.unavailable .model-state { color: var(--red); }
+
+  .model-switch {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .model-toggle {
+    min-height: 30px;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    color: var(--dim);
+    background: rgba(var(--surface-strong-rgb), .6);
+    cursor: pointer;
+    font: 900 9px var(--mono);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    transition: border-color .16s, color .16s, background .16s, box-shadow .16s;
+  }
+
+  .model-toggle.on:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+  .model-toggle.off:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+  .model-toggle.on.active {
+    border-color: rgba(var(--accent-rgb), .62);
+    color: var(--green);
+    background: rgba(var(--accent-rgb), .1);
+    box-shadow: inset 0 0 14px rgba(var(--accent-rgb), .06);
+  }
+  .model-toggle.off.active {
+    border-color: rgba(var(--secondary-rgb), .34);
+    color: var(--cyan);
+  }
+  .model-toggle:disabled { opacity: .36; cursor: not-allowed; }
+  .model-toggle:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+  .model-note.error { color: var(--red); }
+
   .power-panel {
     align-self: start;
     overflow: hidden;
@@ -3462,6 +3598,23 @@
         </div>
       </aside>
 
+      <aside class="panel model-panel" aria-labelledby="modelsTitle">
+        <div class="panel-head">
+          <div>
+            <div class="section-kicker">Local Inference</div>
+            <h2 id="modelsTitle">Models</h2>
+          </div>
+          <span class="power-scope">Port 8080</span>
+        </div>
+        <div class="model-body">
+          <p class="model-copy">Route one local model to OpenCode or Aider. Starting one locks the other channel.</p>
+          <div class="model-list" id="modelList" aria-live="polite">
+            <div class="model-channel"><span class="model-meta">Scanning llama.cpp...</span></div>
+          </div>
+          <p class="model-note" id="modelNote">One model can be online at a time.</p>
+        </div>
+      </aside>
+
       <aside class="panel power-panel" aria-labelledby="powerTitle">
         <div class="panel-head">
           <div>
@@ -3888,6 +4041,8 @@
     panelSettings: { busy: false, error: '', saved: false },
     update: null,
     backend: null,
+    localModels: { supported: false, port: 8080, activeModelId: null, conflict: null, models: [] },
+    modelBusy: new Map(),
     launchAtLogin: { supported: false, enabled: false, busy: false, error: '' },
     discovery: null,
     uiPreferences: normalizeUiPreferences(loadJson(UI_PREFERENCES_KEY, {})),
@@ -4424,6 +4579,91 @@
 
   function statusBadge(status) {
     return `<span class="status-badge status-${status.key}">${status.label}</span>`;
+  }
+
+  function localModelState(model) {
+    const pendingAction = state.modelBusy.get(model.id);
+    if (pendingAction === 'start') return { key: 'starting', label: 'QUEUED' };
+    if (pendingAction === 'stop') return { key: 'starting', label: 'STOPPING' };
+    if (model.state === 'running') return { key: 'running', label: 'ONLINE' };
+    if (model.state === 'starting') return { key: 'starting', label: 'LOADING' };
+    if (model.state === 'unavailable') return { key: 'unavailable', label: 'MISSING' };
+    return { key: 'stopped', label: 'OFFLINE' };
+  }
+
+  function renderLocalModels() {
+    const snapshot = state.localModels;
+    const list = $('modelList');
+    const note = $('modelNote');
+    if (!list || !note) return;
+
+    if (!snapshot.models?.length) {
+      list.innerHTML = '<div class="model-channel unavailable"><span class="model-meta">Local model registry unavailable.</span></div>';
+    } else {
+      list.innerHTML = snapshot.models.map((model) => {
+        const displayState = localModelState(model);
+        const active = ['running', 'starting'].includes(model.state);
+        const blockedByOther = Boolean(snapshot.activeModelId && snapshot.activeModelId !== model.id);
+        const busy = state.modelBusy.has(model.id);
+        const startDisabled = busy || !model.available || active || blockedByOther || Boolean(snapshot.conflict);
+        const stopDisabled = busy || !active;
+        const missing = model.missing?.length ? `Missing ${model.missing.join(', ')}` : '';
+        return `
+          <section class="model-channel ${displayState.key}" data-local-model="${esc(model.id)}">
+            <div class="model-channel-head">
+              <div class="model-identity">
+                <strong class="model-name" title="${esc(model.name)}">${esc(model.name)}</strong>
+                <span class="model-meta">${esc(model.quant)} · ${esc(model.generationTokensPerSecond)} gen tok/s</span>
+              </div>
+              <span class="model-state">${esc(displayState.label)}</span>
+            </div>
+            <div class="model-switch" aria-label="${esc(model.name)} power controls">
+              <button class="model-toggle on ${active ? 'active' : ''}" type="button" data-model-action="start" data-model-id="${esc(model.id)}" aria-pressed="${String(active)}" title="${esc(startDisabled && blockedByOther ? 'Stop the active model first.' : missing || `Start ${model.name}`)}" ${startDisabled ? 'disabled' : ''}>On</button>
+              <button class="model-toggle off ${active ? '' : 'active'}" type="button" data-model-action="stop" data-model-id="${esc(model.id)}" aria-pressed="${String(!active)}" title="${esc(active ? `Stop ${model.name}` : `${model.name} is offline`)}" ${stopDisabled ? 'disabled' : ''}>Off</button>
+            </div>
+          </section>
+        `;
+      }).join('');
+    }
+
+    note.classList.toggle('error', Boolean(snapshot.error || snapshot.conflict));
+    if (snapshot.error) note.textContent = snapshot.error;
+    else if (!snapshot.supported) note.textContent = 'Native Windows llama.cpp controls only.';
+    else if (snapshot.conflict) note.textContent = snapshot.conflict.message;
+    else if (snapshot.activeModelId) note.textContent = `Port ${snapshot.port} is assigned to ${snapshot.activeModelId}.`;
+    else note.textContent = `One model can be online at a time · localhost:${snapshot.port}.`;
+  }
+
+  async function loadLocalModels(quiet = false) {
+    try {
+      state.localModels = await fetchJson('/api/local-models');
+      if (!quiet) pushFeed('MODEL_REGISTRY_SYNCED', `count=${state.localModels.models?.length || 0}`, 'info');
+    } catch (error) {
+      state.localModels = { ...state.localModels, error: `Model controls unavailable: ${error.message}` };
+      if (!quiet) pushFeed('MODEL_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    }
+    renderLocalModels();
+  }
+
+  async function setLocalModelPower(id, action) {
+    if (state.modelBusy.has(id)) return;
+    const model = state.localModels.models?.find((candidate) => candidate.id === id);
+    if (!model || !['start', 'stop'].includes(action)) return;
+    state.modelBusy.set(id, action);
+    renderLocalModels();
+    pushFeed(`MODEL_${action.toUpperCase()}_REQUEST`, `model=${slug(id)} port=${state.localModels.port}`, 'info');
+    try {
+      await postJson(`/api/local-models/${action}`, { id });
+      toast(action === 'start' ? `${model.name} is loading.` : `${model.name} is stopping.`);
+      await sleep(350);
+      await loadLocalModels(true);
+    } catch (error) {
+      pushFeed(`MODEL_${action.toUpperCase()}_FAILED`, `model=${slug(id)} reason=${error.message}`, 'error');
+      toast(error.message, true);
+    } finally {
+      state.modelBusy.delete(id);
+      renderLocalModels();
+    }
   }
 
   function field(label, value, className = '') {
@@ -7617,6 +7857,12 @@
     updateIntel();
   });
 
+  $('modelList').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-model-action]');
+    if (!button || button.disabled) return;
+    void setLocalModelPower(button.dataset.modelId, button.dataset.modelAction);
+  });
+
   $('targetList').addEventListener('input', (event) => {
     if (!event.target.matches('[data-skill-route-input]')) return;
     state.skillRouteQuery = event.target.value;
@@ -7637,6 +7883,7 @@
     pushFeed('MANUAL_SCAN', `view=${state.view}`, 'info');
     await Promise.all([
       loadSystem(),
+      loadLocalModels(true),
       loadOnboarding(),
       state.view === 'projects' ? loadProjects(true)
         : state.view === 'processes' ? Promise.all([loadProjects(true), loadProcesses(true)])
@@ -7879,7 +8126,7 @@
         : state.view === 'scripts' ? loadScripts(true)
         : state.view === 'skills' ? loadSkills(true)
         : Promise.all([loadProjects(true), loadProcesses(true)]);
-      await Promise.all([loadSystem(), registryPoll]);
+      await Promise.all([loadSystem(), loadLocalModels(true), registryPoll]);
     } finally {
       pollInFlight = false;
     }
@@ -7893,7 +8140,7 @@
       pushFeed('CONSOLE_BOOT', 'mode=process_control node=local', 'info');
       pushFeed('DIRECTIVE_LOADED', 'actions=initiate,terminate');
     }
-    await Promise.all([loadSystem(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings(), syncDesktopUpdate(), syncDesktopBackend()]);
+    await Promise.all([loadSystem(), loadLocalModels(), loadProjects(), loadScripts(true), loadSettings(), loadOnboarding(), loadDoctor(), loadOfflineTools(), syncDesktopSettings(), syncDesktopUpdate(), syncDesktopBackend()]);
     const requestedTab = [...document.querySelectorAll('.view-tab')]
       .find((tab) => tab.dataset.view === REQUESTED_VIEW);
     if (VIEW_CONFIG[REQUESTED_VIEW] && requestedTab && !requestedTab.hidden) {
