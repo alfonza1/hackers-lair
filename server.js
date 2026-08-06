@@ -1438,6 +1438,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && req.url === '/api/local-models/setup-prompt') {
+      json(res, 200, await localModels.setupPrompt());
+      return;
+    }
+
     if (req.method === 'POST' && [
       '/api/local-models/start',
       '/api/local-models/stop',

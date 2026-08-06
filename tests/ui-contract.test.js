@@ -89,6 +89,8 @@ test('Settings contains panel visibility, appearance, startup, and release contr
   assert.doesNotMatch(html, /id="settingsTrigger"[^>]*>Settings<\/button>/);
   assert.match(html, /id="settingsPopover"[^>]*hidden/);
   assert.match(html, /id="skillsPanelEnabled"[^>]*role="switch"/);
+  assert.match(html, /<strong>AI Workflow<\/strong>/);
+  assert.match(html, /Enabled by default; all scans stay local/);
   assert.match(html, /id="scriptsPanelEnabled"[^>]*role="switch"/);
   assert.match(html, /\/api\/settings\/features/);
   assert.match(html, /id="launchOnStartup"[^>]*role="switch"/);
@@ -102,8 +104,8 @@ test('Settings contains panel visibility, appearance, startup, and release contr
   assert.match(html, /<strong>Release notes<\/strong>/);
 });
 
-test('AI workflow setup is opt-in, reviewable, and local-only', () => {
-  assert.match(html, /Disabled by default for privacy/);
+test('AI workflow setup is enabled by default, reviewable, and local-only', () => {
+  assert.match(html, /all scans stay local/);
   assert.match(html, /data-ai-action="copy-json">Copy JSON/);
   assert.match(html, /data-ai-action="copy-fallback">Copy fallback instruction/);
   assert.match(html, /Harness fallback:/);
@@ -239,9 +241,11 @@ test('runtime resilience controls surface backend and log state', () => {
   assert.match(html, /\/api\/logs\/clear/);
 });
 
-test('local model rack exposes exclusive authenticated power controls', () => {
-  assert.match(html, /id="modelsTitle">Models</);
-  assert.match(html, /id="modelList"[^>]*aria-live="polite"/);
+test('Local Inference tab exposes exclusive power controls and agent setup', () => {
+  assert.match(html, /id="localInferenceTab"[^>]*data-view="localInference"/);
+  assert.match(html, /class="local-agent-handoff"/);
+  assert.match(html, /data-copy-local-prompt/);
+  assert.match(html, /Set up this machine with your agent/);
   assert.match(html, /data-model-action="start"/);
   assert.match(html, /data-model-action="stop"/);
   assert.match(html, /One model can be online at a time/);
@@ -249,6 +253,7 @@ test('local model rack exposes exclusive authenticated power controls', () => {
   assert.match(html, /MODEL_\$\{action\.toUpperCase\(\)\}_REQUEST/);
   assert.match(server, /createLocalModelService/);
   assert.match(server, /req\.url === '\/api\/local-models'/);
+  assert.match(server, /req\.url === '\/api\/local-models\/setup-prompt'/);
   assert.match(server, /'\/api\/local-models\/start'/);
   assert.match(server, /'\/api\/local-models\/stop'/);
   assert.match(server, /const actionKey = 'local-models'/);

@@ -2237,43 +2237,86 @@
     transition: width .2s;
   }
 
-  .model-panel {
-    align-self: start;
+  .local-inference-deck { display: grid; gap: 14px; }
+
+  .inference-contract {
+    display: grid;
+    grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr);
+    gap: 18px;
+    align-items: end;
+    padding: 17px 18px;
+    border: 1px solid rgba(var(--secondary-rgb), .22);
+    border-left: 3px solid var(--cyan);
+    border-radius: 4px;
+    background:
+      linear-gradient(105deg, rgba(var(--secondary-rgb), .07), transparent 48%),
+      rgba(var(--surface-strong-rgb), .72);
+  }
+
+  .inference-contract h3,
+  .inference-contract p { margin: 0; }
+
+  .inference-contract h3 {
+    margin-top: 4px;
+    color: var(--text);
+    font-size: 16px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .inference-contract p {
+    max-width: 58ch;
+    margin-top: 7px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.55;
+  }
+
+  .inference-contract-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(90px, .5fr));
+    border: 1px solid var(--line);
+    border-radius: 3px;
     overflow: hidden;
   }
 
-  .model-panel .panel-head {
-    border-bottom-color: rgba(var(--secondary-rgb), .2);
+  .inference-contract-cell {
+    min-width: 0;
+    padding: 9px 10px;
+    border-left: 1px solid var(--line);
+    background: rgba(var(--shadow-rgb), .24);
   }
 
-  .model-panel .section-kicker { color: var(--cyan); }
-
-  .model-body {
-    padding: 12px 14px 14px;
-    background:
-      linear-gradient(90deg, rgba(var(--secondary-rgb), .035), transparent 42%),
-      rgba(var(--surface-strong-rgb), .54);
+  .inference-contract-cell:first-child { border-left: 0; }
+  .inference-contract-cell span,
+  .inference-contract-cell strong { display: block; }
+  .inference-contract-cell span {
+    color: var(--dim);
+    font-size: 8px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
   }
-
-  .model-copy,
-  .model-note {
-    margin: 0;
-    color: var(--muted);
-    font-size: 9px;
-    line-height: 1.5;
+  .inference-contract-cell strong {
+    margin-top: 4px;
+    overflow: hidden;
+    color: var(--cyan);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .model-list {
     display: grid;
-    gap: 8px;
-    margin: 11px 0 9px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .model-channel {
     position: relative;
     display: grid;
-    gap: 9px;
-    padding: 10px;
+    gap: 12px;
+    min-width: 0;
+    padding: 14px;
     border: 1px solid var(--line);
     border-left: 3px solid var(--line-strong);
     border-radius: 4px;
@@ -2313,6 +2356,16 @@
     letter-spacing: .04em;
   }
 
+  .model-path {
+    overflow: hidden;
+    color: var(--dim);
+    direction: rtl;
+    font-size: 8px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .model-state {
     display: inline-flex;
     gap: 5px;
@@ -2344,7 +2397,7 @@
   }
 
   .model-toggle {
-    min-height: 30px;
+    min-height: 36px;
     border: 1px solid var(--line-strong);
     border-radius: 3px;
     color: var(--dim);
@@ -2372,6 +2425,105 @@
   .model-toggle:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
   .model-note.error { color: var(--red); }
+
+  .local-agent-handoff {
+    display: grid;
+    grid-template-columns: minmax(210px, .52fr) minmax(0, 1.48fr);
+    border: 1px solid rgba(var(--accent-rgb), .24);
+    border-radius: 4px;
+    background: rgba(var(--surface-strong-rgb), .58);
+    overflow: hidden;
+  }
+
+  .agent-handoff-copy {
+    padding: 18px;
+    border-right: 1px solid var(--line);
+    background:
+      linear-gradient(145deg, rgba(var(--accent-rgb), .075), transparent 62%),
+      rgba(var(--shadow-rgb), .14);
+  }
+
+  .agent-handoff-copy h3,
+  .agent-handoff-copy p { margin: 0; }
+  .agent-handoff-copy h3 {
+    margin-top: 5px;
+    color: var(--text);
+    font-size: 15px;
+    text-transform: uppercase;
+  }
+  .agent-handoff-copy p {
+    margin-top: 9px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.6;
+  }
+
+  .agent-handoff-steps {
+    display: grid;
+    gap: 7px;
+    margin: 15px 0 0;
+    padding: 0;
+    color: var(--dim);
+    counter-reset: handoff;
+    font-size: 9px;
+    line-height: 1.45;
+    list-style: none;
+  }
+
+  .agent-handoff-steps li {
+    display: grid;
+    grid-template-columns: 19px minmax(0, 1fr);
+    gap: 7px;
+    align-items: start;
+  }
+  .agent-handoff-steps li::before {
+    color: var(--green);
+    content: "0" counter(handoff);
+    counter-increment: handoff;
+    font-weight: 900;
+  }
+
+  .agent-handoff-console {
+    min-width: 0;
+    padding: 14px;
+    background: rgba(var(--shadow-rgb), .3);
+  }
+
+  .agent-handoff-toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .agent-handoff-toolbar span {
+    color: var(--dim);
+    font-size: 8px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .agent-prompt {
+    max-height: 290px;
+    margin: 0;
+    overflow: auto;
+    overflow-wrap: anywhere;
+    padding: 13px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--text);
+    background: rgba(var(--shadow-rgb), .4);
+    font: 9px/1.58 var(--mono);
+    white-space: pre-wrap;
+  }
+
+  .model-note {
+    margin: 9px 0 0;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.5;
+  }
 
   .power-panel {
     align-self: start;
@@ -2904,6 +3056,10 @@
     .action-cluster { min-width: 0; justify-content: stretch; }
     .action { flex: 1; min-width: 0; padding-inline: 8px; }
     .target-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .inference-contract,
+    .local-agent-handoff { grid-template-columns: 1fr; }
+    .agent-handoff-copy { border-right: 0; border-bottom: 1px solid var(--line); }
+    .model-list { grid-template-columns: 1fr; }
     .module-row { grid-template-columns: minmax(0, 1fr) minmax(80px, auto); }
     .module-row span:nth-child(n+3):not(.error-line) { display: none; }
     .feed-line { grid-template-columns: 74px minmax(106px, .8fr) minmax(0, 1fr); font-size: 11px; }
@@ -2942,6 +3098,11 @@
     .target-type,
     .status-badge { justify-self: start; }
     .target-fields { grid-template-columns: 1fr; }
+    .inference-contract-grid { grid-template-columns: 1fr; }
+    .inference-contract-cell { border-top: 1px solid var(--line); border-left: 0; }
+    .inference-contract-cell:first-child { border-top: 0; }
+    .agent-handoff-toolbar { align-items: stretch; flex-direction: column; }
+    .agent-prompt { max-height: 230px; }
     .field-value {
       overflow-wrap: anywhere;
       white-space: normal;
@@ -3499,8 +3660,8 @@
             <span class="settings-sync" id="settingsSync" role="status" aria-live="polite"></span>
             <label class="settings-switch" id="skillsPanelField" for="skillsPanelEnabled">
               <span>
-                <strong>Skills panel</strong>
-                <small>Opt in to scan local agent workflow files. Disabled by default for privacy.</small>
+                <strong>AI Workflow</strong>
+                <small>Show Skills, Instructions, and Agent Ops. Enabled by default; all scans stay local.</small>
               </span>
               <input id="skillsPanelEnabled" type="checkbox" role="switch" aria-describedby="panelSettingsStatus">
             </label>
@@ -3551,6 +3712,7 @@
           <div class="view-tabs" role="tablist" aria-label="Console view">
             <button class="view-tab active" data-view="projects" role="tab" aria-selected="true">Targets</button>
             <button class="view-tab" data-view="processes" role="tab" aria-selected="false">Port Signals</button>
+            <button class="view-tab" id="localInferenceTab" data-view="localInference" role="tab" aria-selected="false">Local Inference</button>
             <button class="view-tab" id="scriptsTab" data-view="scripts" role="tab" aria-selected="false" hidden>Scripts</button>
             <button class="view-tab" id="skillsTab" data-view="skills" role="tab" aria-selected="false" hidden>Skills</button>
             <button class="view-tab" id="instructionsTab" data-view="instructions" role="tab" aria-selected="false" hidden>Instructions</button>
@@ -3595,23 +3757,6 @@
           <div class="intel-row"><span class="intel-label">Last Command</span><strong class="intel-value" id="lastCommand">NONE</strong></div>
           <div class="intel-row"><span class="intel-label">Last Target</span><strong class="intel-value" id="lastTarget">NONE</strong></div>
           <div class="intel-row"><span class="intel-label">Current State</span><strong class="intel-value" id="currentState">STABLE</strong></div>
-        </div>
-      </aside>
-
-      <aside class="panel model-panel" aria-labelledby="modelsTitle">
-        <div class="panel-head">
-          <div>
-            <div class="section-kicker">Local Inference</div>
-            <h2 id="modelsTitle">Models</h2>
-          </div>
-          <span class="power-scope">Port 8080</span>
-        </div>
-        <div class="model-body">
-          <p class="model-copy">Route one local model to OpenCode or Aider. Starting one locks the other channel.</p>
-          <div class="model-list" id="modelList" aria-live="polite">
-            <div class="model-channel"><span class="model-meta">Scanning llama.cpp...</span></div>
-          </div>
-          <p class="model-note" id="modelNote">One model can be online at a time.</p>
         </div>
       </aside>
 
@@ -3995,6 +4140,7 @@
   const VIEW_CONFIG = {
     projects: { title: 'Targets', placeholder: 'filter targets by name, branch, module, path, pid, or port', empty: 'No matching targets detected.' },
     processes: { title: 'Port Signals', placeholder: 'filter signals by name, path, pid, or port', empty: 'No matching port signals detected.' },
+    localInference: { title: 'Local Inference', placeholder: 'filter local models by name, quant, or source', empty: 'No matching local models detected.' },
     scripts: { title: 'Scripts', placeholder: 'filter scripts by name, file, or description', empty: 'No matching scripts detected.' },
     skills: { title: 'Skills', placeholder: 'filter skills by name, source, or description', empty: 'No matching skills detected.' },
     instructions: { title: 'Instructions', placeholder: 'filter AGENTS.md and CLAUDE.md by path', empty: 'No workspace instruction files detected.' },
@@ -4042,6 +4188,8 @@
     update: null,
     backend: null,
     localModels: { supported: false, port: 8080, activeModelId: null, conflict: null, models: [] },
+    localInferencePrompt: '',
+    localInferencePromptError: '',
     modelBusy: new Map(),
     launchAtLogin: { supported: false, enabled: false, busy: false, error: '' },
     discovery: null,
@@ -4591,16 +4739,17 @@
     return { key: 'stopped', label: 'OFFLINE' };
   }
 
-  function renderLocalModels() {
+  function localInferenceHtml() {
     const snapshot = state.localModels;
-    const list = $('modelList');
-    const note = $('modelNote');
-    if (!list || !note) return;
-
-    if (!snapshot.models?.length) {
-      list.innerHTML = '<div class="model-channel unavailable"><span class="model-meta">Local model registry unavailable.</span></div>';
-    } else {
-      list.innerHTML = snapshot.models.map((model) => {
+    const visibleModels = (snapshot.models || []).filter((model) => {
+      if (!state.query) return true;
+      return [model.name, model.quant, model.source, model.modelFile]
+        .join(' ')
+        .toLowerCase()
+        .includes(state.query);
+    });
+    const modelsHtml = visibleModels.length
+      ? visibleModels.map((model) => {
         const displayState = localModelState(model);
         const active = ['running', 'starting'].includes(model.state);
         const blockedByOther = Boolean(snapshot.activeModelId && snapshot.activeModelId !== model.id);
@@ -4613,25 +4762,73 @@
             <div class="model-channel-head">
               <div class="model-identity">
                 <strong class="model-name" title="${esc(model.name)}">${esc(model.name)}</strong>
-                <span class="model-meta">${esc(model.quant)} · ${esc(model.generationTokensPerSecond)} gen tok/s</span>
+                <span class="model-meta">${esc(model.quant)} · ${esc(model.generationTokensPerSecond)} gen tok/s · ${esc(model.source)}</span>
               </div>
               <span class="model-state">${esc(displayState.label)}</span>
             </div>
+            <span class="model-path" title="${esc(model.files?.model || '')}">${esc(model.files?.model || '')}</span>
             <div class="model-switch" aria-label="${esc(model.name)} power controls">
               <button class="model-toggle on ${active ? 'active' : ''}" type="button" data-model-action="start" data-model-id="${esc(model.id)}" aria-pressed="${String(active)}" title="${esc(startDisabled && blockedByOther ? 'Stop the active model first.' : missing || `Start ${model.name}`)}" ${startDisabled ? 'disabled' : ''}>On</button>
               <button class="model-toggle off ${active ? '' : 'active'}" type="button" data-model-action="stop" data-model-id="${esc(model.id)}" aria-pressed="${String(!active)}" title="${esc(active ? `Stop ${model.name}` : `${model.name} is offline`)}" ${stopDisabled ? 'disabled' : ''}>Off</button>
             </div>
           </section>
         `;
-      }).join('');
-    }
+      }).join('')
+      : '<div class="model-channel unavailable"><span class="model-meta">No matching local model channels.</span></div>';
+    const note = snapshot.error
+      || (!snapshot.supported ? 'Native Windows llama.cpp controls only.' : '')
+      || snapshot.conflict?.message
+      || (snapshot.activeModelId
+        ? `Port ${snapshot.port} is assigned to ${snapshot.activeModelId}.`
+        : `One model can be online at a time · localhost:${snapshot.port}.`);
+    const prompt = state.localInferencePrompt
+      || (state.localInferencePromptError
+        ? `Setup prompt unavailable: ${state.localInferencePromptError}`
+        : 'Building a machine-aware setup prompt from the live artifact audit...');
+    const onlineCount = (snapshot.models || []).filter((model) => model.state === 'running').length;
+    const availableCount = (snapshot.models || []).filter((model) => model.available).length;
+    return `
+      <div class="local-inference-deck" aria-live="polite">
+        <section class="inference-contract">
+          <div>
+            <div class="section-kicker">Runtime contract</div>
+            <h3>One endpoint. One live model.</h3>
+            <p>Power a reviewed llama.cpp channel for OpenCode, Aider, or any OpenAI-compatible client. The interlock prevents both models from competing for VRAM.</p>
+          </div>
+          <div class="inference-contract-grid">
+            <div class="inference-contract-cell"><span>Root</span><strong title="${esc(snapshot.rootDirectory || '')}">${esc(snapshot.rootDirectory || 'Scanning...')}</strong></div>
+            <div class="inference-contract-cell"><span>Endpoint</span><strong>localhost:${esc(snapshot.port)}</strong></div>
+            <div class="inference-contract-cell"><span>Channels</span><strong>${onlineCount} live / ${availableCount} ready</strong></div>
+          </div>
+        </section>
+        <div class="model-list">${modelsHtml}</div>
+        <p class="model-note ${snapshot.error || snapshot.conflict ? 'error' : ''}">${esc(note)}</p>
+        <section class="local-agent-handoff" aria-label="Agent-assisted local inference setup">
+          <div class="agent-handoff-copy">
+            <div class="section-kicker">Agent handoff</div>
+            <h3>Set up this machine with your agent</h3>
+            <p>Copy the live prompt into Codex, Claude Code, OpenCode, or your preferred coding agent. It carries the exact paths, models, quant levels, Vulkan checks, and stop conditions for this machine.</p>
+            <ol class="agent-handoff-steps">
+              <li>Copy the reviewed prompt.</li>
+              <li>Paste it into an agent running on this PC.</li>
+              <li>Return here when both channels report ready.</li>
+            </ol>
+          </div>
+          <div class="agent-handoff-console">
+            <div class="agent-handoff-toolbar">
+              <span>machine-aware setup prompt</span>
+              <button class="utility" type="button" data-copy-local-prompt ${state.localInferencePrompt ? '' : 'disabled'}>Copy agent prompt</button>
+            </div>
+            <pre class="agent-prompt">${esc(prompt)}</pre>
+          </div>
+        </section>
+      </div>
+    `;
+  }
 
-    note.classList.toggle('error', Boolean(snapshot.error || snapshot.conflict));
-    if (snapshot.error) note.textContent = snapshot.error;
-    else if (!snapshot.supported) note.textContent = 'Native Windows llama.cpp controls only.';
-    else if (snapshot.conflict) note.textContent = snapshot.conflict.message;
-    else if (snapshot.activeModelId) note.textContent = `Port ${snapshot.port} is assigned to ${snapshot.activeModelId}.`;
-    else note.textContent = `One model can be online at a time · localhost:${snapshot.port}.`;
+  function renderLocalModels() {
+    if (state.view === 'localInference') renderTargets();
+    updateIntel();
   }
 
   async function loadLocalModels(quiet = false) {
@@ -4641,6 +4838,20 @@
     } catch (error) {
       state.localModels = { ...state.localModels, error: `Model controls unavailable: ${error.message}` };
       if (!quiet) pushFeed('MODEL_REGISTRY_FAILED', `reason=${error.message}`, 'error');
+    }
+    renderLocalModels();
+  }
+
+  async function loadLocalInferencePrompt(quiet = false) {
+    try {
+      const data = await fetchJson('/api/local-models/setup-prompt');
+      state.localInferencePrompt = data.prompt || '';
+      state.localInferencePromptError = '';
+      if (!quiet) pushFeed('MODEL_SETUP_PROMPT_READY', 'scope=local_inference', 'info');
+    } catch (error) {
+      state.localInferencePrompt = '';
+      state.localInferencePromptError = error.message;
+      if (!quiet) pushFeed('MODEL_SETUP_PROMPT_FAILED', `reason=${error.message}`, 'error');
     }
     renderLocalModels();
   }
@@ -5633,6 +5844,13 @@
   }
 
   function renderTargets() {
+    if (state.view === 'localInference') {
+      $('emptyState').hidden = true;
+      $('viewSubnav').hidden = true;
+      $('viewSubnav').innerHTML = '';
+      $('targetList').innerHTML = localInferenceHtml();
+      return;
+    }
     const rows = state.view === 'projects' ? visibleProjects()
       : state.view === 'processes' ? visibleProcesses()
       : state.view === 'scripts' ? visibleScripts()
@@ -5694,6 +5912,7 @@
     updateIntel();
     if (view === 'projects') loadProjects(true);
     else if (view === 'processes') Promise.all([loadProjects(true), loadProcesses(true)]);
+    else if (view === 'localInference') Promise.all([loadLocalModels(true), loadLocalInferencePrompt(true)]);
     else if (view === 'scripts') loadScripts(true);
     else if (view === 'skills') loadSkills(true);
     else if (view === 'instructions') loadInstructions(true);
@@ -5717,6 +5936,9 @@
     if (state.view === 'projects') {
       rows = state.projects;
       live = rows.filter((row) => row.running).length;
+    } else if (state.view === 'localInference') {
+      rows = state.localModels.models || [];
+      live = rows.filter((row) => ['running', 'starting'].includes(row.state)).length;
     } else if (state.view === 'scripts') {
       rows = state.scripts;
       live = rows.filter((row) => row.running).length;
@@ -5734,17 +5956,19 @@
       live = rows.filter((row) => !row.stopped).length;
     }
     const dormant = Math.max(rows.length - live, 0);
-    const anyBusy = state.busy.size > 0;
+    const anyBusy = state.busy.size > 0 || state.modelBusy.size > 0;
     const anyError = state.projects.some((project) => project.errored);
     const memoryUsed = state.system?.memory?.usedPercent;
     const cpu = state.system?.cpuPercent;
 
-    $('liveLabel').textContent = state.view === 'skills'
-      ? 'Personal Skills'
+    $('liveLabel').textContent = state.view === 'localInference'
+      ? 'Models Online'
+      : state.view === 'skills' ? 'Personal Skills'
       : state.view === 'instructions' ? 'Instruction Files'
       : state.view === 'agentOps' ? 'Inventory Records' : 'Live Targets';
-    $('dormantLabel').textContent = state.view === 'skills'
-      ? 'Default Skills'
+    $('dormantLabel').textContent = state.view === 'localInference'
+      ? 'Models Offline'
+      : state.view === 'skills' ? 'Default Skills'
       : state.view === 'instructions' ? 'Drift Findings'
       : state.view === 'agentOps' ? 'Health Findings' : 'Dormant Targets';
     if (state.view === 'instructions') {
@@ -7373,6 +7597,7 @@
       { verb: 'COPY', label: 'Copy redacted Doctor report', hint: 'support', run: copyDoctorReport },
       { verb: 'ADD', label: 'Add project', hint: 'schema-backed editor', run: () => openProjectEditor() },
       { verb: 'SCAN', label: 'Scan folder', hint: 'project discovery', run: openSetupWizard },
+      { verb: 'LOCAL AI', label: 'Open Local Inference', hint: 'models and agent setup', run: () => setView('localInference') },
       { verb: 'RELEASE', label: 'Open release notes', hint: 'GitHub Releases', run: openReleaseNotes },
       { verb: 'CONFIG', label: 'Export redacted config', hint: 'backup', run: exportRedactedConfig },
       { verb: 'CONFIG', label: 'Restore previous config', hint: 'recovery', run: restorePreviousConfig },
@@ -7433,7 +7658,7 @@
     }));
     commands.push({
       verb: 'PANEL',
-      label: state.settings?.enableSkills === false ? 'Enable Skills panel' : 'Disable Skills panel',
+      label: state.settings?.enableSkills === false ? 'Enable AI Workflow' : 'Disable AI Workflow',
       hint: 'Settings',
       run: () => updatePanelSetting('enableSkills', state.settings?.enableSkills === false),
     });
@@ -7717,6 +7942,26 @@
   }
 
   $('targetList').addEventListener('click', async (event) => {
+    const modelAction = event.target.closest('[data-model-action]');
+    if (modelAction) {
+      if (!modelAction.disabled) {
+        await setLocalModelPower(modelAction.dataset.modelId, modelAction.dataset.modelAction);
+      }
+      return;
+    }
+    const copyLocalPrompt = event.target.closest('[data-copy-local-prompt]');
+    if (copyLocalPrompt) {
+      if (!state.localInferencePrompt) return;
+      try {
+        await navigator.clipboard.writeText(state.localInferencePrompt);
+        copyLocalPrompt.textContent = 'Copied';
+        pushFeed('MODEL_SETUP_PROMPT_COPIED', 'scope=local_inference', 'info');
+        setTimeout(() => { if (copyLocalPrompt.isConnected) copyLocalPrompt.textContent = 'Copy agent prompt'; }, 1600);
+      } catch {
+        toast('Clipboard unavailable. Select the prompt text manually.', true);
+      }
+      return;
+    }
     const workflowAction = event.target.closest('[data-workflow-action]');
     if (workflowAction) {
       await runWorkflowAction(workflowAction.dataset.workflowAction, workflowAction);
@@ -7857,12 +8102,6 @@
     updateIntel();
   });
 
-  $('modelList').addEventListener('click', (event) => {
-    const button = event.target.closest('[data-model-action]');
-    if (!button || button.disabled) return;
-    void setLocalModelPower(button.dataset.modelId, button.dataset.modelAction);
-  });
-
   $('targetList').addEventListener('input', (event) => {
     if (!event.target.matches('[data-skill-route-input]')) return;
     state.skillRouteQuery = event.target.value;
@@ -7887,6 +8126,7 @@
       loadOnboarding(),
       state.view === 'projects' ? loadProjects(true)
         : state.view === 'processes' ? Promise.all([loadProjects(true), loadProcesses(true)])
+        : state.view === 'localInference' ? loadLocalInferencePrompt(true)
         : state.view === 'scripts' ? loadScripts(true)
         : state.view === 'skills' ? loadSkills(true)
         : state.view === 'instructions' ? loadInstructions(true)
@@ -8123,10 +8363,11 @@
     pollInFlight = true;
     try {
       const registryPoll = state.view === 'projects' ? loadProjects(true)
+        : state.view === 'localInference' ? loadLocalModels(true)
         : state.view === 'scripts' ? loadScripts(true)
         : state.view === 'skills' ? loadSkills(true)
         : Promise.all([loadProjects(true), loadProcesses(true)]);
-      await Promise.all([loadSystem(), loadLocalModels(true), registryPoll]);
+      await Promise.all([loadSystem(), registryPoll]);
     } finally {
       pollInFlight = false;
     }

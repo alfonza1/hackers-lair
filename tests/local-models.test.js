@@ -9,6 +9,7 @@ const {
   batchCommandArguments,
   createLocalModelService,
   launchBatchFile,
+  localInferenceSetupPrompt,
 } = require('../lib/local-models');
 
 test('Windows batch launch leaves quoting to Node argument serialization', () => {
@@ -145,4 +146,32 @@ test('missing local artifacts disable only the affected controls', async (t) => 
   assert.equal(snapshot.models[1].available, false);
   assert.deepEqual(snapshot.models[1].missing, ['model']);
   await assert.rejects(service.start('qwen3.6-35b-a3b'), /Missing: model/);
+});
+
+test('agent setup prompt reflects the exact live artifact audit and safety contract', async (t) => {
+  const root = createLlamaRoot();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.rmSync(path.join(root, 'models', LOCAL_MODEL_SPECS[1].modelFile));
+  const service = createLocalModelService({ platform: fakePlatform(), rootDirectory: root });
+
+  const { prompt } = await service.setupPrompt();
+
+  assert.equal(prompt, localInferenceSetupPrompt(await service.status()));
+  assert.match(prompt, new RegExp(root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(prompt, /unsloth\/Qwen3-Coder-Next-GGUF, UD-Q3_K_XL/);
+  assert.match(prompt, /Qwen3\.6 35B A3B: .* \(missing model\)/);
+  assert.match(prompt, /--list-devices/);
+  assert.match(prompt, /Never run both models at once/);
+  assert.match(prompt, /Do not silently fall back/);
+});
+
+test('agent setup prompt stops on platforms outside the native Windows contract', async () => {
+  const platform = { ...fakePlatform(), name: 'linux' };
+  const service = createLocalModelService({ platform, rootDirectory: '/tmp/llama.cpp' });
+
+  const { prompt } = await service.setupPrompt();
+
+  assert.match(prompt, /require native Windows/);
+  assert.match(prompt, /Stop and move this setup/);
+  assert.doesNotMatch(prompt, /Install only these exact model files/);
 });

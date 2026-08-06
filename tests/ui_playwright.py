@@ -259,18 +259,23 @@ def assert_local_model_controls(page) -> None:
             "name": "Qwen3 Coder Next",
             "quant": "UD-Q3_K_XL",
             "generationTokensPerSecond": 28.22,
+            "source": "unsloth/Qwen3-Coder-Next-GGUF",
+            "modelFile": "Qwen3-Coder-Next-UD-Q3_K_XL.gguf",
         },
         {
             "id": "qwen3.6-35b-a3b",
             "name": "Qwen3.6 35B A3B",
             "quant": "UD-Q6_K",
             "generationTokensPerSecond": 26.54,
+            "source": "unsloth/Qwen3.6-35B-A3B-GGUF",
+            "modelFile": "Qwen3.6-35B-A3B-UD-Q6_K.gguf",
         },
     ]
 
     def payload() -> dict:
         return {
             "supported": True,
+            "rootDirectory": "C:\\llama.cpp",
             "port": 8080,
             "activeModelId": active_model["id"],
             "conflict": None,
@@ -282,6 +287,7 @@ def assert_local_model_controls(page) -> None:
                     "state": "running" if active_model["id"] == model["id"] else "stopped",
                     "ready": active_model["id"] == model["id"],
                     "pids": [4242] if active_model["id"] == model["id"] else [],
+                    "files": {"model": f"C:\\llama.cpp\\models\\{model['modelFile']}"},
                 }
                 for model in models
             ],
@@ -289,6 +295,14 @@ def assert_local_model_controls(page) -> None:
 
     def handle(route) -> None:
         request = route.request
+        if request.url.endswith("/setup-prompt"):
+            route.fulfill(
+                json={
+                    "prompt": "Set up Hacker's Lair local inference at C:\\llama.cpp.\n"
+                    "Use Vulkan and never run both models at once."
+                }
+            )
+            return
         if request.method == "POST":
             body = request.post_data_json
             active_model["id"] = body["id"] if request.url.endswith("/start") else None
@@ -298,14 +312,24 @@ def assert_local_model_controls(page) -> None:
 
     page.route("**/api/local-models", handle)
     page.route("**/api/local-models/**", handle)
-    page.evaluate("loadLocalModels(true)")
-    panel = page.locator(".model-panel")
+    page.get_by_role("tab", name="Local Inference", exact=True).click()
+    page.evaluate("Promise.all([loadLocalModels(true), loadLocalInferencePrompt(true)])")
+    panel = page.locator(".local-inference-deck")
     channels = panel.locator(".model-channel")
     expect(channels).to_have_count(2)
     coder = channels.filter(has_text="Qwen3 Coder Next")
     model_35b = channels.filter(has_text="Qwen3.6 35B A3B")
     expect(coder).to_contain_text("UD-Q3_K_XL · 28.22 gen tok/s")
     expect(model_35b).to_contain_text("UD-Q6_K · 26.54 gen tok/s")
+    expect(panel.get_by_text("Set up this machine with your agent", exact=True)).to_be_visible()
+    expect(panel.locator(".agent-prompt")).to_contain_text("Use Vulkan")
+    panel.get_by_role("button", name="Copy agent prompt", exact=True).click()
+    expect(panel.get_by_role("button", name="Copied", exact=True)).to_be_visible()
+    page.set_viewport_size({"width": 900, "height": 620})
+    assert not page.evaluate(
+        "document.documentElement.scrollWidth > document.documentElement.clientWidth"
+    ), "Local Inference has horizontal overflow at 900x620."
+    page.set_viewport_size({"width": 1440, "height": 900})
     expect(coder.get_by_role("button", name="On", exact=True)).to_be_enabled()
     expect(coder.get_by_role("button", name="Off", exact=True)).to_be_disabled()
 
@@ -322,6 +346,7 @@ def assert_local_model_controls(page) -> None:
     coder.get_by_role("button", name="Off", exact=True).click()
     expect(coder.locator(".model-state")).to_have_text("OFFLINE")
     expect(model_35b.get_by_role("button", name="On", exact=True)).to_be_enabled()
+    page.get_by_role("tab", name="Targets", exact=True).click()
     page.unroute("**/api/local-models", handle)
     page.unroute("**/api/local-models/**", handle)
     page.evaluate("loadLocalModels(true)")
@@ -498,12 +523,14 @@ def assert_settings_panel(page, scripts_supported: bool) -> None:
     expect(page.locator("html")).to_have_attribute("style", re.compile(r"--font-scale:\s*110%"))
     expect(page.locator("#settingsSync")).to_have_text("Saved")
 
-    skills = page.get_by_role("switch", name=re.compile(r"Skills panel"))
+    skills = page.get_by_role("switch", name=re.compile(r"AI Workflow"))
     scripts = page.get_by_role("switch", name=re.compile(r"Scripts panel"))
-    expect(skills).not_to_be_checked()
-    expect(page.locator("#skillsTab")).to_be_hidden()
+    expect(skills).to_be_checked()
+    expect(page.locator("#skillsTab")).to_be_visible()
     expect(page.locator("#scriptsTab")).to_be_hidden()
 
+    skills.uncheck()
+    expect(page.locator("#skillsTab")).to_be_hidden()
     skills.check()
     expect(page.locator("#skillsTab")).to_be_visible()
     expect(page.locator("#settingsPopover")).not_to_contain_text("Usage stats")
