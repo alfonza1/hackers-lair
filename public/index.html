@@ -2525,6 +2525,18 @@
     line-height: 1.5;
   }
 
+  .model-bay-setup-complete {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(var(--accent-rgb), .18);
+    border-left: 3px solid var(--green);
+    border-radius: 3px;
+    color: var(--muted);
+    background: rgba(var(--accent-rgb), .035);
+    font-size: 9px;
+    line-height: 1.55;
+  }
+
   .power-panel {
     align-self: start;
     overflow: hidden;
@@ -3103,6 +3115,7 @@
     .inference-contract-cell:first-child { border-top: 0; }
     .agent-handoff-toolbar { align-items: stretch; flex-direction: column; }
     .agent-prompt { max-height: 230px; }
+    .prompt-library-card-head { align-items: stretch; flex-direction: column; }
     .field-value {
       overflow-wrap: anywhere;
       white-space: normal;
@@ -3531,6 +3544,56 @@
   .dialog-actions [hidden] { display: none; }
 
   .update-dialog { width: min(580px, calc(100vw - 32px)); }
+  .prompt-library-dialog { width: min(780px, calc(100vw - 32px)); }
+  .prompt-library-intro {
+    margin: 0 0 14px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.6;
+  }
+  .prompt-library-list { display: grid; gap: 10px; }
+  .prompt-library-card {
+    display: grid;
+    gap: 10px;
+    padding: 13px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--cyan);
+    border-radius: 4px;
+    background: rgba(var(--shadow-rgb), .2);
+  }
+  .prompt-library-card-head {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .prompt-library-card-title { min-width: 0; }
+  .prompt-library-card-title strong,
+  .prompt-library-card-title span { display: block; }
+  .prompt-library-card-title strong {
+    color: var(--text);
+    font-size: 11px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .prompt-library-card-title span {
+    margin-top: 3px;
+    color: var(--dim);
+    font-size: 8px;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+  }
+  .prompt-library-card details { min-width: 0; border-top: 1px solid var(--line); padding-top: 8px; }
+  .prompt-library-card summary { color: var(--cyan); cursor: pointer; font-size: 9px; text-transform: uppercase; }
+  .prompt-library-card pre {
+    max-height: 220px;
+    margin: 9px 0 0;
+    overflow: auto;
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font: 9px/1.58 var(--mono);
+    white-space: pre-wrap;
+  }
   .update-section-label {
     color: var(--dim);
     font-size: 8px;
@@ -3673,6 +3736,10 @@
               <input id="scriptsPanelEnabled" type="checkbox" role="switch" aria-describedby="panelSettingsStatus">
             </label>
             <span class="settings-status" id="panelSettingsStatus" role="status" aria-live="polite"></span>
+            <button class="settings-link" id="promptLibraryTrigger" type="button">
+              <strong>Agent prompts</strong>
+              <small>Review and copy every machine-aware setup prompt.</small>
+            </button>
             <label class="settings-switch" id="launchOnStartupField" for="launchOnStartup" hidden>
               <span>
                 <strong>Launch on startup</strong>
@@ -3712,7 +3779,7 @@
           <div class="view-tabs" role="tablist" aria-label="Console view">
             <button class="view-tab active" data-view="projects" role="tab" aria-selected="true">Targets</button>
             <button class="view-tab" data-view="processes" role="tab" aria-selected="false">Port Signals</button>
-            <button class="view-tab" id="localInferenceTab" data-view="localInference" role="tab" aria-selected="false">Local Inference</button>
+            <button class="view-tab" id="localInferenceTab" data-view="localInference" role="tab" aria-selected="false">Model Bay</button>
             <button class="view-tab" id="scriptsTab" data-view="scripts" role="tab" aria-selected="false" hidden>Scripts</button>
             <button class="view-tab" id="skillsTab" data-view="skills" role="tab" aria-selected="false" hidden>Skills</button>
             <button class="view-tab" id="instructionsTab" data-view="instructions" role="tab" aria-selected="false" hidden>Instructions</button>
@@ -4076,6 +4143,26 @@
     </div>
   </form>
 </dialog>
+<dialog class="lair-dialog prompt-library-dialog" id="promptLibraryDialog" aria-labelledby="promptLibraryTitle">
+  <form method="dialog">
+    <div class="dialog-head">
+      <div>
+        <div class="section-kicker">Agent handoff registry</div>
+        <h2 id="promptLibraryTitle">Agent Prompts</h2>
+      </div>
+      <button class="utility" value="cancel" type="submit" aria-label="Close agent prompts">Close</button>
+    </div>
+    <div class="dialog-body">
+      <p class="prompt-library-intro">Machine-aware prompts generated from the current Lair configuration. Review one before handing it to an agent.</p>
+      <div class="prompt-library-list" id="promptLibraryList" aria-live="polite">
+        <p class="setup-copy">Loading available prompts...</p>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button class="utility" value="cancel" type="submit">Close</button>
+    </div>
+  </form>
+</dialog>
 <div class="command-palette" id="commandPalette" role="dialog" aria-modal="true" aria-labelledby="commandTitle" hidden>
   <div class="command-core">
     <div class="command-head">
@@ -4140,7 +4227,7 @@
   const VIEW_CONFIG = {
     projects: { title: 'Targets', placeholder: 'filter targets by name, branch, module, path, pid, or port', empty: 'No matching targets detected.' },
     processes: { title: 'Port Signals', placeholder: 'filter signals by name, path, pid, or port', empty: 'No matching port signals detected.' },
-    localInference: { title: 'Local Inference', placeholder: 'filter local models by name, quant, or source', empty: 'No matching local models detected.' },
+    localInference: { title: 'Model Bay', placeholder: 'filter local models by name, quant, or source', empty: 'No matching local models detected.' },
     scripts: { title: 'Scripts', placeholder: 'filter scripts by name, file, or description', empty: 'No matching scripts detected.' },
     skills: { title: 'Skills', placeholder: 'filter skills by name, source, or description', empty: 'No matching skills detected.' },
     instructions: { title: 'Instructions', placeholder: 'filter AGENTS.md and CLAUDE.md by path', empty: 'No workspace instruction files detected.' },
@@ -4787,23 +4874,13 @@
         : 'Building a machine-aware setup prompt from the live artifact audit...');
     const onlineCount = (snapshot.models || []).filter((model) => model.state === 'running').length;
     const availableCount = (snapshot.models || []).filter((model) => model.available).length;
-    return `
-      <div class="local-inference-deck" aria-live="polite">
-        <section class="inference-contract">
-          <div>
-            <div class="section-kicker">Runtime contract</div>
-            <h3>One endpoint. One live model.</h3>
-            <p>Power a reviewed llama.cpp channel for OpenCode, Aider, or any OpenAI-compatible client. The interlock prevents both models from competing for VRAM.</p>
-          </div>
-          <div class="inference-contract-grid">
-            <div class="inference-contract-cell"><span>Root</span><strong title="${esc(snapshot.rootDirectory || '')}">${esc(snapshot.rootDirectory || 'Scanning...')}</strong></div>
-            <div class="inference-contract-cell"><span>Endpoint</span><strong>localhost:${esc(snapshot.port)}</strong></div>
-            <div class="inference-contract-cell"><span>Channels</span><strong>${onlineCount} live / ${availableCount} ready</strong></div>
-          </div>
-        </section>
-        <div class="model-list">${modelsHtml}</div>
-        <p class="model-note ${snapshot.error || snapshot.conflict ? 'error' : ''}">${esc(note)}</p>
-        <section class="local-agent-handoff" aria-label="Agent-assisted local inference setup">
+    const setupComplete = snapshot.supported
+      && snapshot.models?.length > 0
+      && snapshot.models.every((model) => model.available);
+    const setupPanel = setupComplete
+      ? '<p class="model-bay-setup-complete">Setup complete. Future setup and expansion prompts live in Settings → Agent Prompts.</p>'
+      : `
+        <section class="local-agent-handoff" aria-label="Agent-assisted Model Bay setup">
           <div class="agent-handoff-copy">
             <div class="section-kicker">Agent handoff</div>
             <h3>Set up this machine with your agent</h3>
@@ -4822,6 +4899,24 @@
             <pre class="agent-prompt">${esc(prompt)}</pre>
           </div>
         </section>
+      `;
+    return `
+      <div class="local-inference-deck" aria-live="polite">
+        <section class="inference-contract">
+          <div>
+            <div class="section-kicker">Runtime contract</div>
+            <h3>One endpoint. One live model.</h3>
+            <p>Power a reviewed llama.cpp channel for OpenCode, Aider, or any OpenAI-compatible client. The interlock prevents both models from competing for VRAM.</p>
+          </div>
+          <div class="inference-contract-grid">
+            <div class="inference-contract-cell"><span>Root</span><strong title="${esc(snapshot.rootDirectory || '')}">${esc(snapshot.rootDirectory || 'Scanning...')}</strong></div>
+            <div class="inference-contract-cell"><span>Endpoint</span><strong>localhost:${esc(snapshot.port)}</strong></div>
+            <div class="inference-contract-cell"><span>Channels</span><strong>${onlineCount} live / ${availableCount} ready</strong></div>
+          </div>
+        </section>
+        <div class="model-list">${modelsHtml}</div>
+        <p class="model-note ${snapshot.error || snapshot.conflict ? 'error' : ''}">${esc(note)}</p>
+        ${setupPanel}
       </div>
     `;
   }
@@ -4854,6 +4949,79 @@
       if (!quiet) pushFeed('MODEL_SETUP_PROMPT_FAILED', `reason=${error.message}`, 'error');
     }
     renderLocalModels();
+  }
+
+  function promptLibraryEntries() {
+    const entries = [];
+    const seen = new Set();
+    const add = (id, title, scope, prompt) => {
+      const normalized = String(prompt || '').trim();
+      if (!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      entries.push({ id, title, scope, prompt: normalized });
+    };
+
+    add('model-bay', 'Model Bay setup', 'Models · native Windows', state.localInferencePrompt);
+    (state.onboarding?.prompts || []).forEach((entry) => {
+      add(`onboarding-${entry.id}`, entry.title, 'First-run setup', entry.prompt);
+    });
+    add('projects-additional', 'Add more targets', 'Target registry', state.onboarding?.additionalProjectsPrompt);
+    add('skills-additional', 'Create a personal skill', 'AI Workflow', state.onboarding?.additionalSkillPrompt);
+    add('scripts-additional', 'Add an AutoIt script', 'Local automation', state.onboarding?.additionalScriptPrompt);
+    add('usage-tracking', 'Configure usage tracking', 'AI Workflow', state.aiSetup?.prompt);
+    return entries;
+  }
+
+  function renderPromptLibrary() {
+    const entries = promptLibraryEntries();
+    $('promptLibraryList').innerHTML = entries.length
+      ? entries.map((entry) => `
+        <article class="prompt-library-card" data-prompt-library-id="${esc(entry.id)}">
+          <div class="prompt-library-card-head">
+            <div class="prompt-library-card-title">
+              <strong>${esc(entry.title)}</strong>
+              <span>${esc(entry.scope)}</span>
+            </div>
+            <button class="utility" type="button" data-copy-library-prompt="${esc(entry.id)}">Copy prompt</button>
+          </div>
+          <details>
+            <summary>Review prompt</summary>
+            <pre>${esc(entry.prompt)}</pre>
+          </details>
+        </article>
+      `).join('')
+      : '<p class="setup-copy">No setup prompts are available for the current configuration.</p>';
+  }
+
+  async function openPromptLibrary() {
+    setSettingsOpen(false);
+    $('promptLibraryList').innerHTML = '<p class="setup-copy">Loading available prompts...</p>';
+    $('promptLibraryDialog').showModal();
+    await Promise.allSettled([
+      loadLocalInferencePrompt(true),
+      loadOnboarding(),
+      loadAiSetup(true),
+    ]);
+    renderPromptLibrary();
+  }
+
+  async function copyPromptLibraryEntry(id, button) {
+    const entry = promptLibraryEntries().find((candidate) => candidate.id === id);
+    if (!entry) return;
+    button.disabled = true;
+    try {
+      await navigator.clipboard.writeText(entry.prompt);
+      button.textContent = 'Copied';
+      pushFeed('PROMPT_LIBRARY_COPIED', `scope=${slug(entry.id)}`, 'info');
+      setTimeout(() => {
+        if (!button.isConnected) return;
+        button.textContent = 'Copy prompt';
+        button.disabled = false;
+      }, 1600);
+    } catch {
+      button.disabled = false;
+      toast('Clipboard unavailable. Open the prompt and select it manually.', true);
+    }
   }
 
   async function setLocalModelPower(id, action) {
@@ -7597,7 +7765,8 @@
       { verb: 'COPY', label: 'Copy redacted Doctor report', hint: 'support', run: copyDoctorReport },
       { verb: 'ADD', label: 'Add project', hint: 'schema-backed editor', run: () => openProjectEditor() },
       { verb: 'SCAN', label: 'Scan folder', hint: 'project discovery', run: openSetupWizard },
-      { verb: 'LOCAL AI', label: 'Open Local Inference', hint: 'models and agent setup', run: () => setView('localInference') },
+      { verb: 'LOCAL AI', label: 'Open Model Bay', hint: 'models and agent setup', run: () => setView('localInference') },
+      { verb: 'PROMPTS', label: 'Open Agent Prompts', hint: 'Settings library', run: openPromptLibrary },
       { verb: 'RELEASE', label: 'Open release notes', hint: 'GitHub Releases', run: openReleaseNotes },
       { verb: 'CONFIG', label: 'Export redacted config', hint: 'backup', run: exportRedactedConfig },
       { verb: 'CONFIG', label: 'Restore previous config', hint: 'recovery', run: restorePreviousConfig },
@@ -8315,6 +8484,14 @@
   });
   $('settingsTrigger').addEventListener('click', () => {
     setSettingsOpen($('settingsPopover').hidden);
+  });
+  $('promptLibraryTrigger').addEventListener('click', () => {
+    void openPromptLibrary();
+  });
+  $('promptLibraryList').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-copy-library-prompt]');
+    if (!button || button.disabled) return;
+    void copyPromptLibraryEntry(button.dataset.copyLibraryPrompt, button);
   });
   document.addEventListener('click', (event) => {
     if (!$('settingsPopover').hidden && !$('settingsShell').contains(event.target)) {

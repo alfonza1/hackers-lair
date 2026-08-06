@@ -253,6 +253,7 @@ def assert_target_states(page, live_port: int, dormant_port: int) -> None:
 
 def assert_local_model_controls(page) -> None:
     active_model: dict[str, str | None] = {"id": None}
+    setup_ready = {"value": False}
     models = [
         {
             "id": "qwen3-coder-next",
@@ -282,8 +283,8 @@ def assert_local_model_controls(page) -> None:
             "models": [
                 {
                     **model,
-                    "available": True,
-                    "missing": [],
+                    "available": setup_ready["value"],
+                    "missing": [] if setup_ready["value"] else ["model"],
                     "state": "running" if active_model["id"] == model["id"] else "stopped",
                     "ready": active_model["id"] == model["id"],
                     "pids": [4242] if active_model["id"] == model["id"] else [],
@@ -298,7 +299,7 @@ def assert_local_model_controls(page) -> None:
         if request.url.endswith("/setup-prompt"):
             route.fulfill(
                 json={
-                    "prompt": "Set up Hacker's Lair local inference at C:\\llama.cpp.\n"
+                    "prompt": "Set up Hacker's Lair Model Bay at C:\\llama.cpp.\n"
                     "Use Vulkan and never run both models at once."
                 }
             )
@@ -312,7 +313,7 @@ def assert_local_model_controls(page) -> None:
 
     page.route("**/api/local-models", handle)
     page.route("**/api/local-models/**", handle)
-    page.get_by_role("tab", name="Local Inference", exact=True).click()
+    page.get_by_role("tab", name="Model Bay", exact=True).click()
     page.evaluate("Promise.all([loadLocalModels(true), loadLocalInferencePrompt(true)])")
     panel = page.locator(".local-inference-deck")
     channels = panel.locator(".model-channel")
@@ -328,8 +329,32 @@ def assert_local_model_controls(page) -> None:
     page.set_viewport_size({"width": 900, "height": 620})
     assert not page.evaluate(
         "document.documentElement.scrollWidth > document.documentElement.clientWidth"
-    ), "Local Inference has horizontal overflow at 900x620."
+    ), "Model Bay has horizontal overflow at 900x620."
     page.set_viewport_size({"width": 1440, "height": 900})
+    setup_ready["value"] = True
+    page.evaluate("loadLocalModels(true)")
+    expect(panel.locator(".local-agent-handoff")).to_have_count(0)
+    expect(panel.locator(".model-bay-setup-complete")).to_contain_text(
+        "Settings → Agent Prompts"
+    )
+
+    page.get_by_role("button", name="Settings", exact=True).click()
+    page.get_by_role("button", name=re.compile(r"Agent prompts")).click()
+    prompt_dialog = page.get_by_role("dialog", name="Agent Prompts")
+    expect(prompt_dialog).to_be_visible()
+    model_prompt = prompt_dialog.locator('[data-prompt-library-id="model-bay"]')
+    expect(model_prompt).to_contain_text("Model Bay setup")
+    expect(model_prompt.locator("pre")).to_contain_text("Use Vulkan")
+    OUTPUT_DIRECTORY.mkdir(exist_ok=True)
+    page.screenshot(
+        path=str(OUTPUT_DIRECTORY / "agent-prompts-1440x900.png"),
+        full_page=False,
+    )
+    model_prompt.get_by_role("button", name="Copy prompt", exact=True).click()
+    expect(model_prompt.get_by_role("button", name="Copied", exact=True)).to_be_visible()
+    prompt_dialog.get_by_role("button", name="Close agent prompts").click()
+    expect(prompt_dialog).to_be_hidden()
+
     expect(coder.get_by_role("button", name="On", exact=True)).to_be_enabled()
     expect(coder.get_by_role("button", name="Off", exact=True)).to_be_disabled()
 

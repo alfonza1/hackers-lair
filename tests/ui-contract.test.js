@@ -91,6 +91,10 @@ test('Settings contains panel visibility, appearance, startup, and release contr
   assert.match(html, /id="skillsPanelEnabled"[^>]*role="switch"/);
   assert.match(html, /<strong>AI Workflow<\/strong>/);
   assert.match(html, /Enabled by default; all scans stay local/);
+  assert.match(html, /id="promptLibraryTrigger"/);
+  assert.match(html, /id="promptLibraryDialog"/);
+  assert.match(html, /id="promptLibraryList"/);
+  assert.match(html, /data-copy-library-prompt/);
   assert.match(html, /id="scriptsPanelEnabled"[^>]*role="switch"/);
   assert.match(html, /\/api\/settings\/features/);
   assert.match(html, /id="launchOnStartup"[^>]*role="switch"/);
@@ -241,11 +245,14 @@ test('runtime resilience controls surface backend and log state', () => {
   assert.match(html, /\/api\/logs\/clear/);
 });
 
-test('Local Inference tab exposes exclusive power controls and agent setup', () => {
+test('Model Bay exposes exclusive power controls and only shows setup when needed', () => {
   assert.match(html, /id="localInferenceTab"[^>]*data-view="localInference"/);
+  assert.match(html, />Model Bay<\/button>/);
   assert.match(html, /class="local-agent-handoff"/);
   assert.match(html, /data-copy-local-prompt/);
   assert.match(html, /Set up this machine with your agent/);
+  assert.match(html, /snapshot\.models\.every\(\(model\) => model\.available\)/);
+  assert.match(html, /Setup complete\. Future setup and expansion prompts live in Settings/);
   assert.match(html, /data-model-action="start"/);
   assert.match(html, /data-model-action="stop"/);
   assert.match(html, /One model can be online at a time/);
