@@ -252,7 +252,8 @@ test('Model Bay exposes exclusive power controls and only shows setup when neede
   assert.match(html, /data-copy-local-prompt/);
   assert.match(html, /Set up this machine with your agent/);
   assert.match(html, /snapshot\.models\.every\(\(model\) => model\.available\)/);
-  assert.match(html, /Setup complete\. Future setup and expansion prompts live in Settings/);
+  assert.doesNotMatch(html, /Setup complete\. Future setup and expansion prompts live in Settings/);
+  assert.doesNotMatch(html, /model-bay-setup-complete/);
   assert.match(html, /data-model-action="start"/);
   assert.match(html, /data-model-action="stop"/);
   assert.match(html, /One model can be online at a time/);

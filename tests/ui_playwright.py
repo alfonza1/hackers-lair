@@ -334,8 +334,16 @@ def assert_local_model_controls(page) -> None:
     setup_ready["value"] = True
     page.evaluate("loadLocalModels(true)")
     expect(panel.locator(".local-agent-handoff")).to_have_count(0)
-    expect(panel.locator(".model-bay-setup-complete")).to_contain_text(
-        "Settings → Agent Prompts"
+    expect(panel.get_by_text("Setup complete", exact=False)).to_have_count(0)
+    unused_space_below_deck = page.evaluate(
+        """() => {
+          const matrix = document.querySelector('.matrix').getBoundingClientRect();
+          const deck = document.querySelector('.local-inference-deck').getBoundingClientRect();
+          return matrix.bottom - deck.bottom;
+        }"""
+    )
+    assert unused_space_below_deck <= 20, (
+        f"Model Bay reserves {unused_space_below_deck}px below its content."
     )
 
     page.get_by_role("button", name="Settings", exact=True).click()

@@ -1005,7 +1005,10 @@
   .cinematic-ready .intel { animation-delay: 1.62s; }
   .cinematic-ready .feed-panel { animation-delay: 1.76s; }
 
-  .matrix { grid-area: matrix; }
+  .matrix {
+    grid-area: matrix;
+    align-self: start;
+  }
   .side-rack {
     grid-area: side;
     display: grid;
@@ -2523,18 +2526,6 @@
     color: var(--muted);
     font-size: 9px;
     line-height: 1.5;
-  }
-
-  .model-bay-setup-complete {
-    margin: 0;
-    padding: 10px 12px;
-    border: 1px solid rgba(var(--accent-rgb), .18);
-    border-left: 3px solid var(--green);
-    border-radius: 3px;
-    color: var(--muted);
-    background: rgba(var(--accent-rgb), .035);
-    font-size: 9px;
-    line-height: 1.55;
   }
 
   .power-panel {
@@ -4878,7 +4869,7 @@
       && snapshot.models?.length > 0
       && snapshot.models.every((model) => model.available);
     const setupPanel = setupComplete
-      ? '<p class="model-bay-setup-complete">Setup complete. Future setup and expansion prompts live in Settings → Agent Prompts.</p>'
+      ? ''
       : `
         <section class="local-agent-handoff" aria-label="Agent-assisted Model Bay setup">
           <div class="agent-handoff-copy">
