@@ -108,6 +108,21 @@ test('Settings contains panel visibility, appearance, startup, and release contr
   assert.match(html, /<strong>Release notes<\/strong>/);
 });
 
+test('a new installation gets one complete setup prompt in a first-run popup', () => {
+  for (const marker of [
+    'id="firstRunSetupDialog"',
+    'id="firstRunSetupPrompt"',
+    'id="copyFirstRunSetupPrompt"',
+    'maybeOpenFirstRunSetup',
+    'state.onboarding?.firstRunPrompt',
+  ]) {
+    assert.match(html, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  assert.match(html, /Copy one machine-aware prompt to your coding agent/);
+  assert.match(html, /Open Settings → Agent Prompts for focused, machine-aware handoffs/);
+  assert.doesNotMatch(html, /function onboardingHtml\(/);
+});
+
 test('AI workflow setup is enabled by default, reviewable, and local-only', () => {
   assert.match(html, /all scans stay local/);
   assert.match(html, /data-ai-action="copy-json">Copy JSON/);

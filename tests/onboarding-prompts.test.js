@@ -59,6 +59,32 @@ test('offers complete and focused prompts when nothing is configured', () => {
   assert.match(prompts[2].prompt, /without overwriting any real directory/);
 });
 
+test('empty installations expose one complete first-run handoff', () => {
+  const state = onboardingState({
+    projectsFile: fixtures.projectsFile,
+    projectsSchemaFile: fixtures.schemaFile,
+    projectsSchemaUrl: 'http://localhost:4951/api/schema/projects',
+    agentsHome: fixtures.agentsHome,
+    projects: [],
+    skills: [],
+    usageLogFile: fixtures.usageLogFile,
+    claudeSettingsFile: fixtures.claudeSettingsFile,
+    lairSettingsFile: fixtures.lairSettingsFile,
+    instructionsFile: fixtures.instructionsFile,
+    hookCommand: fixtures.hookCommand,
+    hookInstalled: false,
+    scriptsFile: fixtures.scriptsFile,
+    scriptsSupported: true,
+  });
+
+  assert.equal(state.hasAnySetup, false);
+  assert.match(state.firstRunPrompt, /Set up Hacker's Lair completely for this machine/);
+  assert.match(state.firstRunPrompt, /Set up Hacker's Lair targets/);
+  assert.match(state.firstRunPrompt, /configure my personal agent skills/i);
+  assert.match(state.firstRunPrompt, /set up AI workflow usage tracking/i);
+  assert.match(state.firstRunPrompt, /review local automation support/i);
+});
+
 test('project prompts require the live runtime schema URL', () => {
   assert.throws(() => configurationPrompts({
     projectsFile: fixtures.projectsFile,
@@ -133,6 +159,8 @@ test('returns portable machine paths and only the missing setup area', () => {
   });
 
   assert.equal(state.configured, false);
+  assert.equal(state.hasAnySetup, true);
+  assert.equal(state.firstRunPrompt, '');
   assert.deepEqual(state.prompts.map((prompt) => prompt.id), ['skills']);
   assert.equal(state.skillsDirectory, path.join(fixtures.agentsHome, 'skills'));
 });

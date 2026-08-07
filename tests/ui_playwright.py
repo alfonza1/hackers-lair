@@ -155,16 +155,40 @@ def project_fixture(
     }
 
 
+def assert_first_run_setup(page) -> None:
+    dialog = page.get_by_role("dialog", name="Commission Your Lair")
+    expect(dialog).to_be_visible()
+    expect(dialog.get_by_text("One complete prompt", exact=True)).to_be_visible()
+    expect(dialog.locator("#firstRunSetupPrompt")).to_contain_text(
+        "Set up Hacker's Lair completely for this machine"
+    )
+    expect(dialog.locator("#firstRunSetupPrompt")).to_contain_text("Model Bay")
+    expect(dialog.locator("pre")).to_have_count(1)
+    expect(dialog).to_contain_text("Settings → Agent Prompts")
+    dialog.get_by_role("button", name="Copy Full Setup Prompt", exact=True).click()
+    expect(
+        dialog.get_by_role("button", name="Copied · Paste Into Your Agent", exact=True)
+    ).to_be_visible()
+    OUTPUT_DIRECTORY.mkdir(exist_ok=True)
+    page.screenshot(
+        path=str(OUTPUT_DIRECTORY / "first-run-setup-1440x900.png"),
+        full_page=False,
+    )
+    page.set_viewport_size({"width": 900, "height": 620})
+    expect(dialog).to_be_visible()
+    assert not page.evaluate(
+        "document.documentElement.scrollWidth > document.documentElement.clientWidth"
+    ), "First-run setup has horizontal overflow at 900x620."
+    page.set_viewport_size({"width": 1440, "height": 900})
+    dialog.get_by_role("button", name="Close first-run setup").click()
+    expect(dialog).to_be_hidden()
+
+
 def assert_empty_state(page) -> None:
-    page.goto(page.url, wait_until="networkidle")
     empty_state = page.locator("#emptyState")
     expect(empty_state).to_be_visible()
-    expect(empty_state.get_by_text("Set up with wizard")).to_be_visible()
-    expect(empty_state.get_by_text("Copy prompt for your AI agent")).to_be_visible()
-    expect(empty_state.get_by_text("Recommended", exact=True)).to_be_visible()
-    setup_paths = empty_state.locator(".onboarding-paths > .onboarding-path")
-    expect(setup_paths.nth(0)).to_contain_text("Agent-assisted")
-    expect(setup_paths.nth(1)).to_contain_text("Guided setup")
+    expect(empty_state).to_contain_text("No matching targets detected")
+    expect(empty_state.locator(".onboarding-path")).to_have_count(0)
 
 
 def assert_project_editor_controls(page, selected_folder: Path) -> None:
@@ -912,18 +936,10 @@ def run() -> None:
     live_directory.mkdir()
     dormant_directory.mkdir()
     write_projects(data_directory, [])
-    script_name = write_script_fixture(data_directory) if os.name == "nt" else None
+    script_name = None
     agents_home = data_directory / "agents"
+    agents_home.mkdir()
     verify_skill = agents_home / "skills" / "verify"
-    verify_skill.mkdir(parents=True)
-    (verify_skill / "SKILL.md").write_text(
-        "---\n"
-        "name: verify\n"
-        "description: Verify repository changes through public interfaces before release.\n"
-        "---\n\n"
-        "# Verify\n",
-        encoding="utf-8",
-    )
     (agents_home / "usage-log.jsonl").write_text(
         "\n".join(
             json.dumps(event)
@@ -1092,6 +1108,19 @@ def run() -> None:
                 """
             )
             page.goto(origin, wait_until="domcontentloaded")
+            assert_first_run_setup(page)
+            verify_skill.mkdir(parents=True)
+            (verify_skill / "SKILL.md").write_text(
+                "---\n"
+                "name: verify\n"
+                "description: Verify repository changes through public interfaces before release.\n"
+                "---\n\n"
+                "# Verify\n",
+                encoding="utf-8",
+            )
+            script_name = write_script_fixture(data_directory) if os.name == "nt" else None
+            page.reload(wait_until="networkidle")
+            expect(page.get_by_role("dialog", name="Commission Your Lair")).to_be_hidden()
             assert_empty_state(page)
             assert_project_editor_controls(page, data_directory / "chosen-folder")
             assert_project_port_conflict(

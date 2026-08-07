@@ -1785,7 +1785,7 @@ const server = http.createServer(async (req, res) => {
         scriptsFile: SCRIPTS_FILE,
         scriptsDirectory: scriptsAvailable ? scriptsConfig.scriptsDir : '',
         scripts: scriptsAvailable ? listScriptFiles(scriptsConfig.scriptsDir) : [],
-        scriptsSupported: scriptsAvailable,
+        scriptsSupported: platform.supportsScripts,
       }));
       return;
     }
